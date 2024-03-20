@@ -23,4 +23,4 @@ hip_number = 67301
 star = query_hip(hip_number)
 
 # 打印恒星的坐标信息
-print(f"Coordinates for HIP {hip_number}: {star}")
+print(f"Coordinates for HIP {hip_number}: {star}     {star.ra.value}   {star.dec.value}")
