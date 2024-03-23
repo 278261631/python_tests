@@ -55,12 +55,4 @@ print(f'path>>: {len(file_url_list)}   /   {download_file_counter}')
 # yyyy = '2023'
 # yyyymmdd = '20230516'
 
-flat_path = os.path.join(temp_path, 'psp', 'east', f'{yyyy}', f'{yyyymmdd}', f'AutoFlat{yyyymmdd}')
-# light_path = os.path.join(temp_path, 'psp', 'east', f'{yyyy}', f'{yyyymmdd}', 'P033_22.22+35.0')
-light_path = os.path.join(temp_path, 'psp', 'east', f'{yyyy}', f'{yyyymmdd}')
-# out_root = os.path.join(temp_path, 'psp_out', 'east', f'{yyyy}', f'{yyyymmdd}')
-master_out_path = os.path.join(temp_path, 'psp_out', 'east', f'{yyyy}')
-out_root_prefix = os.path.join(temp_path, 'psp_out')
-
-
 print("--------------")
