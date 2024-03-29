@@ -1,6 +1,5 @@
 from astropy.coordinates import SkyCoord
 
-
 data_list = []
 ra_list = []
 dec_list = []
@@ -33,7 +32,7 @@ with open('classify_fix.txt', 'r') as file:
                 'dec': dec
             }
             long_val = ra
-            if long_val>180:
+            if long_val > 180:
                 long_val = long_val - 360
             ra_list.append(ra)
             dec_list.append(dec)
@@ -49,40 +48,66 @@ if in_line_count > out_line_count:
 else:
     print("完整通过")
 
+
+def calc_distance(ra_i, dec_i, ra_j, dec_j):
+    item_coord_i = SkyCoord(ra=ra_i, dec=dec_i, unit='deg')
+    item_coord_j = SkyCoord(ra=ra_j, dec=dec_j, unit='deg')
+    angle_distance = item_coord_i.separation(item_coord_j)
+    # distance_ij = round(angle_distance.deg, 4)
+    return angle_distance.value
+
+
 # # 打印结果
 # for entry in data_list:
 #     print(entry)
 
-
-def calc_distance(item_coord_i, item_coord_j):
-    item_coord_i = SkyCoord(ra=ra_list[i], dec=dec_list[i], unit='deg')
-    # item_cart_i = item_coord_i.cartesian
-    item_coord_j = SkyCoord(ra=ra_list[j], dec=dec_list[j], unit='deg')
-    angle_distance = item_coord_i.separation(item_coord_j)
-    distance_ij = round(angle_distance.deg, 4)
-    return distance_ij
-
-
-for i in range(linked_len):
-    # 提取每一行的四个值
-    cluster_0_idx = int(linked[i, 0])
-    cluster_1_idx = int(linked[i, 1])
-    distance = linked[i, 2]
-    num_points = linked[i, 3]
-    if distance < 1 or distance > 2:
+plan_list = []
+data_list_copy = []
+data_list_copy.extend(data_list)
+skip_i = []
+for i, entry_i in enumerate(data_list_copy):
+    if i > 50:
+        break
+    if skip_i.__contains__(i):
+        print(f'{i} skip by  near obj')
         continue
-    # if distance > 2:
-    #     continue
-    print(f'-- {i}  {cluster_0_idx} {cluster_1_idx} {n_points}')
-    # 打印每一行的四个值
-    print(f"Row {i}:")
-    print(f"  Cluster 0 Index: {cluster_0_idx} / {len(linked)} / {n_points}")
-    print(f"  Cluster 1 Index: {cluster_1_idx} / {len(linked)} / {n_points}")
-    print(f"  Distance: {distance}")
-    print(f"  Number of Points: {num_points}")
-    print(f'>>>> {i}   ')
-    get_linked_node(i, 1)
+    near_obj = []
+    for j, entry_j in enumerate(data_list):
+        if i == j:
+            print(f'{i} {j} skip by  it self obj')
+            continue
+        distance_ij = calc_distance(entry_i['ra'], entry_i['dec'], entry_j['ra'], entry_j['dec'])
+        # print(f'{i}  {j}    {distance_ij}')
+        if distance_ij < 2:
+            near_obj.append(entry_j)
+            skip_i.append(j)
+            print(f'{i} {j}  add to  near obj')
+    near_obj.append(entry_i)
+    print(f'{i}   = {len(near_obj)}')
+    plan_list.append(near_obj)
 
-    print()
-    # if i > 10:
-    #     break
+print(f'-------------{len(plan_list)}--------------')
+
+
+def generate_color(c_index):
+    color = c_index % 6
+    if color == 0:
+        return f"#FF5500"
+    elif color == 1:
+        return f"#AAAA00"
+    elif color == 2:
+        return f"#55FF00"
+    elif color == 3:
+        return f"#FFFF00"
+    elif color == 4:
+        return f"#FFAA00"
+    elif color == 5:
+        return f"#55AA00"
+
+
+print(plan_list)
+for p_i, plan_item in enumerate(plan_list):
+    plan_color = generate_color(p_i)
+    for point_item in plan_item:
+        print(f'MarkerMgr.markerEquatorial("{point_item["ra"]}", "{point_item["dec"]}", true, true, "cross", "{plan_color}", 16, false, 0) ;')
+
