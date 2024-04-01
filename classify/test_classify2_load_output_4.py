@@ -66,8 +66,8 @@ data_list_copy = []
 data_list_copy.extend(data_list)
 skip_i = []
 for i, entry_i in enumerate(data_list_copy):
-    if i > 50:
-        break
+    # if i > 50:
+    #     break
     if skip_i.__contains__(i):
         print(f'{i} skip by  near obj')
         continue
@@ -105,9 +105,10 @@ def generate_color(c_index):
         return f"#55AA00"
 
 
+print(f'MarkerMgr.deleteAllMarkers() ;')
 print(plan_list)
 for p_i, plan_item in enumerate(plan_list):
     plan_color = generate_color(p_i)
     for point_item in plan_item:
-        print(f'MarkerMgr.markerEquatorial("{point_item["ra"]}", "{point_item["dec"]}", true, true, "cross", "{plan_color}", 16, false, 0) ;')
+        print(f'MarkerMgr.markerEquatorial("{point_item["ra"]}", "{point_item["dec"]}", true, true, "cross", "{plan_color}", 10, false, 0) ;')
 
