@@ -107,29 +107,28 @@ def generate_color(c_index):
     color = c_index % 12
     if color == 0:
         return f"#FF2200"
-    elif color == 1:
+    elif color == 7:
         return f"#FF4400"
     elif color == 2:
         return f"#FF6600"
-    elif color == 3:
+    elif color == 9:
         return f"#FF8800"
     elif color == 4:
         return f"#FFAA00"
-    elif color == 5:
+    elif color == 11:
         return f"#FFCC00"
     elif color == 6:
         return f"#FFFF00"
-    elif color == 7:
+    elif color == 1:
         return f"#CCFF00"
     elif color == 8:
         return f"#AAFF00"
-    elif color == 9:
+    elif color == 3:
         return f"#88FF00"
     elif color == 10:
         return f"#66FF00"
-    elif color == 11:
+    elif color == 5:
         return f"#44FF00"
-
 
 
 print(f'MarkerMgr.deleteAllMarkers() ;')
