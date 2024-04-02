@@ -1,11 +1,15 @@
 from astropy.coordinates import SkyCoord
-
+import astropy.units as u
 data_list = []
 ra_list = []
 dec_list = []
 # 打开文件并逐行读取
 in_line_count = 0
 out_line_count = 0
+
+ra_span = 4 * u.degree
+dec_span = 4 * u.degree
+
 with open('classify_fix.txt', 'r') as file:
     for line in file:
         # 移除行尾的换行符并按空格分割每行的数据
@@ -57,6 +61,13 @@ def calc_distance(ra_i, dec_i, ra_j, dec_j):
     return angle_distance.value
 
 
+def calc_distance_spherical_offset(ra_i, dec_i, ra_j, dec_j):
+    item_coord_i = SkyCoord(ra=ra_i, dec=dec_i, unit='deg')
+    item_coord_j = SkyCoord(ra=ra_j, dec=dec_j, unit='deg')
+    angle_distance = item_coord_i.spherical_offsets_to(item_coord_j)
+    return angle_distance
+
+
 # # 打印结果
 # for entry in data_list:
 #     print(entry)
@@ -66,49 +77,87 @@ data_list_copy = []
 data_list_copy.extend(data_list)
 skip_i = []
 for i, entry_i in enumerate(data_list_copy):
-    # if i > 50:
+    # if i > 20:
     #     break
     if skip_i.__contains__(i):
-        print(f'{i} skip by  near obj')
+        # print(f'{i} skip by  near obj')
         continue
     near_obj = []
     for j, entry_j in enumerate(data_list):
         if i == j:
-            print(f'{i} {j} skip by  it self obj')
+            # print(f'{i} {j} skip by  it self obj')
             continue
-        distance_ij = calc_distance(entry_i['ra'], entry_i['dec'], entry_j['ra'], entry_j['dec'])
+        # distance_ij = calc_distance(entry_i['ra'], entry_i['dec'], entry_j['ra'], entry_j['dec'])
+        offset_x, offset_y = calc_distance_spherical_offset(entry_i['ra'], entry_i['dec'], entry_j['ra'], entry_j['dec'])
         # print(f'{i}  {j}    {distance_ij}')
-        if distance_ij < 2:
+        if abs(offset_x) < ra_span/2 and abs(offset_y) < dec_span/2:
             near_obj.append(entry_j)
             skip_i.append(j)
+            print(f'{i}  {j}    [{entry_i["ra"]}  {entry_i["dec"]}]    [{entry_j["ra"]}  {entry_j["dec"]}]    {offset_x}  {offset_y}')
             print(f'{i} {j}  add to  near obj')
     near_obj.append(entry_i)
-    print(f'{i}   = {len(near_obj)}')
+    # print(f'{i}   = {len(near_obj)}')
     plan_list.append(near_obj)
 
 print(f'-------------{len(plan_list)}--------------')
+print()
 
 
 def generate_color(c_index):
-    color = c_index % 6
+    color = c_index % 12
     if color == 0:
-        return f"#FF5500"
+        return f"#FF2200"
     elif color == 1:
-        return f"#AAAA00"
+        return f"#FF4400"
     elif color == 2:
-        return f"#55FF00"
+        return f"#FF6600"
     elif color == 3:
-        return f"#FFFF00"
+        return f"#FF8800"
     elif color == 4:
         return f"#FFAA00"
     elif color == 5:
-        return f"#55AA00"
+        return f"#FFCC00"
+    elif color == 6:
+        return f"#FFFF00"
+    elif color == 7:
+        return f"#CCFF00"
+    elif color == 8:
+        return f"#AAFF00"
+    elif color == 9:
+        return f"#88FF00"
+    elif color == 10:
+        return f"#66FF00"
+    elif color == 11:
+        return f"#44FF00"
+
 
 
 print(f'MarkerMgr.deleteAllMarkers() ;')
-print(plan_list)
+# print(plan_list)
+center_plan_item = {}
+plan_center_color = '#AAAAFF'
+plan_corner_color = '#888888'
 for p_i, plan_item in enumerate(plan_list):
     plan_color = generate_color(p_i)
     for point_item in plan_item:
-        print(f'MarkerMgr.markerEquatorial("{point_item["ra"]}", "{point_item["dec"]}", true, true, "cross", "{plan_color}", 10, false, 0) ;')
+        center_plan_item = point_item
+        print(f'MarkerMgr.markerEquatorial("{point_item["ra"]}", "{point_item["dec"]}", true, true, "cross", '
+              f'"{plan_color}", 8, false, 0) ;')
+    print(f'MarkerMgr.markerEquatorial("{center_plan_item["ra"]}", "{center_plan_item["dec"]}", true, true, "circle", '
+          f'"{plan_center_color}", 10, false, 0) ;')
+    ra_center = center_plan_item["ra"] * u.degree
+    dec_center = center_plan_item["dec"] * u.degree
+    a = SkyCoord(ra=ra_center, dec=dec_center)
+    corner1 = a.spherical_offsets_by(ra_span / 2, dec_span / 2)
+    corner2 = a.spherical_offsets_by(-ra_span / 2, dec_span / 2)
+    corner3 = a.spherical_offsets_by(-ra_span / 2, -dec_span / 2)
+    corner4 = a.spherical_offsets_by(ra_span / 2, -dec_span / 2)
+    print(f'MarkerMgr.markerEquatorial("{corner1.ra.value}", "{corner1.dec.value}", true, true, "dashed-square", '
+          f'"{plan_corner_color}", 6, false, 0) ;')
+    print(f'MarkerMgr.markerEquatorial("{corner2.ra.value}", "{corner2.dec.value}", true, true, "dashed-square", '
+          f'"{plan_corner_color}", 6, false, 0) ;')
+    print(f'MarkerMgr.markerEquatorial("{corner3.ra.value}", "{corner3.dec.value}", true, true, "dashed-square", '
+          f'"{plan_corner_color}", 6, false, 0) ;')
+    print(f'MarkerMgr.markerEquatorial("{corner4.ra.value}", "{corner4.dec.value}", true, true, "dashed-square", '
+          f'"{plan_corner_color}", 6, false, 0) ;')
 
