@@ -1,3 +1,4 @@
+import numpy as np
 from astropy.coordinates import SkyCoord
 import astropy.units as u
 data_list = []
@@ -73,29 +74,42 @@ def calc_distance_spherical_offset(ra_i, dec_i, ra_j, dec_j):
 #     print(entry)
 
 plan_list = []
+plan_list_centers = []
 data_list_copy = []
 data_list_copy.extend(data_list)
 skip_i = []
 for i, entry_i in enumerate(data_list_copy):
-    # if i > 20:
-    #     break
+    if i > 50:
+        break
     if skip_i.__contains__(i):
         # print(f'{i} skip by  near obj')
         continue
     near_obj = []
+    next_center_ra = entry_i['ra']
+    next_center_dec = entry_i['dec']
     for j, entry_j in enumerate(data_list):
         if i == j:
             # print(f'{i} {j} skip by  it self obj')
             continue
         # distance_ij = calc_distance(entry_i['ra'], entry_i['dec'], entry_j['ra'], entry_j['dec'])
-        offset_x, offset_y = calc_distance_spherical_offset(entry_i['ra'], entry_i['dec'], entry_j['ra'], entry_j['dec'])
+        # offset_x, offset_y = calc_distance_spherical_offset(entry_i['ra'], entry_i['dec'], entry_j['ra'], entry_j['dec'])
+        offset_x, offset_y = calc_distance_spherical_offset(next_center_ra, next_center_dec, entry_j['ra'], entry_j['dec'])
         # print(f'{i}  {j}    {distance_ij}')
         if abs(offset_x) < ra_span/2 and abs(offset_y) < dec_span/2:
             near_obj.append(entry_j)
             skip_i.append(j)
-            print(f'{i}  {j}    [{entry_i["ra"]}  {entry_i["dec"]}]    [{entry_j["ra"]}  {entry_j["dec"]}]    {offset_x}  {offset_y}')
-            print(f'{i} {j}  add to  near obj')
+            near_obj_ra_values = [item['ra'] for item in near_obj]
+            near_obj_dec_values = [item['dec'] for item in near_obj]
+            near_obj_ra_values.append(next_center_ra)
+            near_obj_dec_values.append(next_center_dec)
+            next_center_ra = np.mean(near_obj_ra_values)
+            next_center_dec = np.mean(near_obj_dec_values)
+
+            # print(f'{i}  {j}    [{entry_i["ra"]}  {entry_i["dec"]}]    [{entry_j["ra"]}  {entry_j["dec"]}]    {offset_x}  {offset_y}')
+            # print(f'{i}  {j}    [{next_center_ra}  {next_center_dec}]')
+            # print(f'{i} {j}  add to  near obj')
     near_obj.append(entry_i)
+    plan_list_centers.append([next_center_ra, next_center_dec])
     # print(f'{i}   = {len(near_obj)}')
     plan_list.append(near_obj)
 
@@ -108,27 +122,27 @@ def generate_color(c_index):
     if color == 0:
         return f"#FF2200"
     elif color == 7:
-        return f"#FF4400"
+        return f"#692000"
     elif color == 2:
         return f"#FF6600"
     elif color == 9:
-        return f"#FF8800"
+        return f"#bd87de"
     elif color == 4:
-        return f"#FFAA00"
+        return f"#00a0f8"
     elif color == 11:
-        return f"#FFCC00"
+        return f"#886f04"
     elif color == 6:
         return f"#FFFF00"
     elif color == 1:
-        return f"#CCFF00"
+        return f"#588002"
     elif color == 8:
         return f"#AAFF00"
     elif color == 3:
-        return f"#88FF00"
+        return f"#af13ef"
     elif color == 10:
         return f"#66FF00"
     elif color == 5:
-        return f"#44FF00"
+        return f"#05f3c7"
 
 
 print(f'MarkerMgr.deleteAllMarkers() ;')
@@ -138,14 +152,17 @@ plan_center_color = '#AAAAFF'
 plan_corner_color = '#888888'
 for p_i, plan_item in enumerate(plan_list):
     plan_color = generate_color(p_i)
+    if p_i < 20:
+        continue
     for point_item in plan_item:
         center_plan_item = point_item
         print(f'MarkerMgr.markerEquatorial("{point_item["ra"]}", "{point_item["dec"]}", true, true, "cross", '
               f'"{plan_color}", 8, false, 0) ;')
-    print(f'MarkerMgr.markerEquatorial("{center_plan_item["ra"]}", "{center_plan_item["dec"]}", true, true, "circle", '
+    center_plan_item = plan_list_centers[p_i]
+    print(f'MarkerMgr.markerEquatorial("{center_plan_item[0]}", "{center_plan_item[1]}", true, true, "circle", '
           f'"{plan_center_color}", 10, false, 0) ;')
-    ra_center = center_plan_item["ra"] * u.degree
-    dec_center = center_plan_item["dec"] * u.degree
+    ra_center = center_plan_item[0] * u.degree
+    dec_center = center_plan_item[1] * u.degree
     a = SkyCoord(ra=ra_center, dec=dec_center)
     corner1 = a.spherical_offsets_by(ra_span / 2, dec_span / 2)
     corner2 = a.spherical_offsets_by(-ra_span / 2, dec_span / 2)
