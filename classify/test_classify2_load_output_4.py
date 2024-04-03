@@ -79,8 +79,8 @@ data_list_copy = []
 data_list_copy.extend(data_list)
 skip_i = []
 for i, entry_i in enumerate(data_list_copy):
-    if i > 50:
-        break
+    # if i > 50:
+    #     break
     if skip_i.__contains__(i):
         # print(f'{i} skip by  near obj')
         continue
@@ -88,7 +88,7 @@ for i, entry_i in enumerate(data_list_copy):
     next_center_ra = entry_i['ra']
     next_center_dec = entry_i['dec']
     for j, entry_j in enumerate(data_list):
-        if i == j:
+        if i == j or skip_i.__contains__(j):
             # print(f'{i} {j} skip by  it self obj')
             continue
         # distance_ij = calc_distance(entry_i['ra'], entry_i['dec'], entry_j['ra'], entry_j['dec'])
@@ -107,7 +107,10 @@ for i, entry_i in enumerate(data_list_copy):
 
             # print(f'{i}  {j}    [{entry_i["ra"]}  {entry_i["dec"]}]    [{entry_j["ra"]}  {entry_j["dec"]}]    {offset_x}  {offset_y}')
             # print(f'{i}  {j}    [{next_center_ra}  {next_center_dec}]')
-            # print(f'{i} {j}  add to  near obj')
+            print(f'{i} {j}  add to  near obj')
+            # if entry_i["dec"] == 71.30788888888888 or entry_j["dec"] == 71.30788888888888 :
+            #     print(f'{i}  {j}    [{entry_i["ra"]}  {entry_i["dec"]}]    [{entry_j["ra"]}  {entry_j["dec"]}]    {offset_x}  {offset_y}')
+    skip_i.append(i)
     near_obj.append(entry_i)
     plan_list_centers.append([next_center_ra, next_center_dec])
     # print(f'{i}   = {len(near_obj)}')
@@ -152,15 +155,15 @@ plan_center_color = '#AAAAFF'
 plan_corner_color = '#888888'
 for p_i, plan_item in enumerate(plan_list):
     plan_color = generate_color(p_i)
-    if p_i < 20:
-        continue
+    # if p_i < 20:
+    #     continue
     for point_item in plan_item:
         center_plan_item = point_item
         print(f'MarkerMgr.markerEquatorial("{point_item["ra"]}", "{point_item["dec"]}", true, true, "cross", '
               f'"{plan_color}", 8, false, 0) ;')
     center_plan_item = plan_list_centers[p_i]
     print(f'MarkerMgr.markerEquatorial("{center_plan_item[0]}", "{center_plan_item[1]}", true, true, "circle", '
-          f'"{plan_center_color}", 10, false, 0) ;')
+          f'"{plan_color}", 10, false, 0) ;')
     ra_center = center_plan_item[0] * u.degree
     dec_center = center_plan_item[1] * u.degree
     a = SkyCoord(ra=ra_center, dec=dec_center)
@@ -176,4 +179,21 @@ for p_i, plan_item in enumerate(plan_list):
           f'"{plan_corner_color}", 6, false, 0) ;')
     print(f'MarkerMgr.markerEquatorial("{corner4.ra.value}", "{corner4.dec.value}", true, true, "dashed-square", '
           f'"{plan_corner_color}", 6, false, 0) ;')
+
+print(f'; ========auto plan start {len(plan_list)} end================')
+obj_count = 0
+for p_i, plan_item in enumerate(plan_list):
+    plan_color = generate_color(p_i)
+    for point_item in plan_item:
+        center_plan_item = point_item
+        obj_count = obj_count + 1
+    center_plan_item = plan_list_centers[p_i]
+    ra_center = center_plan_item[0] * u.degree
+    dec_center = center_plan_item[1] * u.degree
+    a = SkyCoord(ra=ra_center, dec=dec_center)
+    # print(f';begin')
+    print(f'P_{p_i}    {center_plan_item[0]/15}    {center_plan_item[1]:+f}')
+    # print(f';end')
+
+print(f'; ========auto plan end exp_count:{len(plan_list)}  ojb_count:{obj_count} end================')
 
