@@ -8,8 +8,12 @@ dec_list = []
 in_line_count = 0
 out_line_count = 0
 
-ra_span = 4 * u.degree
-dec_span = 4 * u.degree
+ra_img_w = 3.3333
+dec_img_h = 2.21666
+ra_img_wide = ra_img_w * u.degree
+dec_img_high = dec_img_h * u.degree
+ra_span = ra_img_w * 0.8 * u.degree
+dec_span = dec_img_h * 0.8 * u.degree
 
 with open('classify_fix.txt', 'r') as file:
     for line in file:
@@ -167,10 +171,10 @@ for p_i, plan_item in enumerate(plan_list):
     ra_center = center_plan_item[0] * u.degree
     dec_center = center_plan_item[1] * u.degree
     a = SkyCoord(ra=ra_center, dec=dec_center)
-    corner1 = a.spherical_offsets_by(ra_span / 2, dec_span / 2)
-    corner2 = a.spherical_offsets_by(-ra_span / 2, dec_span / 2)
-    corner3 = a.spherical_offsets_by(-ra_span / 2, -dec_span / 2)
-    corner4 = a.spherical_offsets_by(ra_span / 2, -dec_span / 2)
+    corner1 = a.spherical_offsets_by(ra_img_wide / 2, dec_img_high / 2)
+    corner2 = a.spherical_offsets_by(-ra_img_wide / 2, dec_img_high / 2)
+    corner3 = a.spherical_offsets_by(-ra_img_wide / 2, -dec_img_high / 2)
+    corner4 = a.spherical_offsets_by(ra_img_wide / 2, -dec_img_high / 2)
     print(f'MarkerMgr.markerEquatorial("{corner1.ra.value}", "{corner1.dec.value}", true, true, "dashed-square", '
           f'"{plan_corner_color}", 6, false, 0) ;')
     print(f'MarkerMgr.markerEquatorial("{corner2.ra.value}", "{corner2.dec.value}", true, true, "dashed-square", '
