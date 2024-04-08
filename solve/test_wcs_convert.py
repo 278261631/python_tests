@@ -42,10 +42,12 @@ def my_all_world2pix_fix(wcs_info, world_coords):
     return pixel_coords
 
 
-hdul = fits.open(r"E:/testimg/tycho/GY1_K008-5_No Filter_60S_Bin2_UTC20231218_141114_-25C_.fit")
+# hdul = fits.open(r"E:/testimg/tycho/GY1_K008-5_No Filter_60S_Bin2_UTC20231218_141114_-25C_.fit")
+# hdul = fits.open(r"E:/testimg/tycho/GY1_K040-6_No Filter_60S_Bin2_UTC20231010_200646_-19.9C_.fit")
+hdul = fits.open(r"E:/testimg/tycho/12_7deg.fits")
 header = hdul[0].header
 
-w = wcs.WCS(header)
+w = wcs.WCS(header, naxis=2)
 print(f'{w}')
 print(f'{w.wcs.crval}')
 print(f'{w.wcs.crpix}')
