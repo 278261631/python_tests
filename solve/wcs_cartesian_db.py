@@ -8,7 +8,42 @@ import numpy as np
 from numpy.linalg import inv
 
 
-def vector_angle_deg(u_x, u_y, u_z, v_x, v_y, v_z):
+def normalize_vector(vector):
+    # 计算向量的模长
+    magnitude = np.linalg.norm(vector)
+    # 避免除以零的情况
+    if magnitude == 0:
+        raise ValueError("Cannot normalize a zero vector.")
+    # 归一化向量
+    normalized_vector = vector / magnitude
+    return normalized_vector
+
+
+def plane_equation(p1, p2, p3):
+    # 计算向量V和W
+    v = np.array([p2[0] - p1[0], p2[1] - p1[1], p2[2] - p1[2]])
+    w = np.array([p3[0] - p1[0], p3[1] - p1[1], p3[2] - p1[2]])
+
+    # 计算叉积，得到法向量N
+    n = np.cross(v, w)
+
+    # 计算D
+    d = -(n[0] * p1[0] + n[1] * p1[1] + n[2] * p1[2])
+
+    # 返回平面方程的系数
+    return n[0], n[1], n[2], d
+
+
+def plane_normal_vector(p1, p2, p3):
+    # 计算向量V和W
+    v = np.array([p2[0] - p1[0], p2[1] - p1[1], p2[2] - p1[2]])
+    w = np.array([p3[0] - p1[0], p3[1] - p1[1], p3[2] - p1[2]])
+    # 计算叉积，得到法向量N
+    n = np.cross(v, w)
+    return normalize_vector(n)
+
+
+def normal_vector_angle_deg(u_x, u_y, u_z, v_x, v_y, v_z):
     # 计算点积
     dot_product = u_x * v_x + u_y * v_y + u_z * v_z
     # 计算余弦值
@@ -19,6 +54,20 @@ def vector_angle_deg(u_x, u_y, u_z, v_x, v_y, v_z):
 
     return theta_degrees
 
+
+def vector_plane_angle(e, n):
+    # 计算向量E和法向量N的点积
+    dot_product = np.dot(e, n)
+    # 计算向量E和法向量N的模
+    magnitude_e = np.linalg.norm(e)
+    magnitude_n = np.linalg.norm(n)
+    # 计算夹角的余弦值
+    cos_theta = dot_product / (magnitude_e * magnitude_n)
+    # 计算夹角的弧度值
+    angle_rad = np.arccos(cos_theta)
+    # 将夹角的弧度值转换为度数
+    angle_deg_from_rad = np.degrees(angle_rad)
+    return angle_deg_from_rad
 
 # 打开 FITS 文件
 # hdul = fits.open(r"E:/testimg/tycho/GY1_K008-5_No Filter_60S_Bin2_UTC20231218_141114_-25C_.fit")
@@ -72,14 +121,35 @@ angle_deg = coord_img_center.separation(coord_img_corner)
 # 输出结果
 print(f"astropy separation: {angle_deg} 度")
 
-theta_deg = vector_angle_deg(cartesian_img_corner.x, cartesian_img_corner.y, cartesian_img_corner.z,
-                             cartesian_img_center.x, cartesian_img_center.y, cartesian_img_center.z)
+theta_deg = normal_vector_angle_deg(cartesian_img_corner.x, cartesian_img_corner.y, cartesian_img_corner.z,
+                                    cartesian_img_center.x, cartesian_img_center.y, cartesian_img_center.z)
 print(f"img corner deg: {theta_deg}   {coord_img_corner}  {cartesian_img_corner}  to {cartesian_img_center} ")
 
-theta_deg = vector_angle_deg(cartesian_mid_x.x, cartesian_mid_x.y, cartesian_mid_x.z,
-                             cartesian_img_center.x, cartesian_img_center.y, cartesian_img_center.z)
+theta_deg = normal_vector_angle_deg(cartesian_mid_x.x, cartesian_mid_x.y, cartesian_mid_x.z,
+                                    cartesian_img_center.x, cartesian_img_center.y, cartesian_img_center.z)
 print(f"img width deg: {theta_deg}   {coord_mid_x}  {cartesian_mid_x}  to {cartesian_img_center} ")
 
-theta_deg = vector_angle_deg(cartesian_mid_y.x, cartesian_mid_y.y, cartesian_mid_y.z,
-                             cartesian_img_center.x, cartesian_img_center.y, cartesian_img_center.z)
+theta_deg = normal_vector_angle_deg(cartesian_mid_y.x, cartesian_mid_y.y, cartesian_mid_y.z,
+                                    cartesian_img_center.x, cartesian_img_center.y, cartesian_img_center.z)
 print(f"img height deg: {theta_deg}   {coord_mid_y}  {cartesian_mid_y}  to {cartesian_img_center} ")
+
+o_center = [0, 0, 0]
+img_center = [cartesian_img_center.x, cartesian_img_center.y, cartesian_img_center.z]
+img_x_center = [cartesian_mid_x.x, cartesian_mid_x.y, cartesian_mid_x.z]
+img_y_center = [cartesian_mid_y.x, cartesian_mid_y.y, cartesian_mid_y.z]
+plane_normal_vector_x = plane_normal_vector(o_center, img_center, img_x_center)
+plane_normal_vector_y = plane_normal_vector(o_center, img_center, img_y_center)
+target_vector = [cartesian_img_corner.x, cartesian_img_corner.y, cartesian_img_corner.z]
+
+theta_deg = vector_plane_angle(target_vector, plane_normal_vector_x)
+theta_deg = abs(90-theta_deg)
+print(f'v {cartesian_img_corner}  {plane_normal_vector_x}')
+print(f"img corner to x_plan deg: {theta_deg}   {coord_mid_y}  {cartesian_mid_y}  to {cartesian_img_center} ")
+
+
+theta_deg = vector_plane_angle(target_vector, plane_normal_vector_y)
+theta_deg = abs(90-theta_deg)
+print(f'v {cartesian_img_corner}  {plane_normal_vector_y}')
+print(f"img corner to y_plan deg: {theta_deg}   {coord_mid_y}  {cartesian_mid_y}  to {cartesian_img_center} ")
+
+
