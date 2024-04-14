@@ -1,7 +1,6 @@
 import datetime
 import re
 import subprocess
-import os
 
 
 def scan_by_day_path(year_in_path, ymd_in_paht):
@@ -33,9 +32,9 @@ def scan_by_day_path(year_in_path, ymd_in_paht):
             urls = [url.decode('utf-8') for url in urls]
             assert len(urls) == 1
             # 把文件url添加到文件url列表中
-            file_url_list.extend(urls)
+            file_url_list.append(urls[0])
 
-            print(urls)
+            # print(urls)
             download_file_counter = download_file_counter + 1
         # print(line)
 
@@ -66,5 +65,5 @@ def scan_by_days(yyyymmdd_str, day_count):
     return file_url_list_all_days
 
 
-scan_by_days('20231007', 2)
-print("--------------")
+# scan_by_days('20231007', 2)
+# print("--------------")
