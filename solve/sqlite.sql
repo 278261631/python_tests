@@ -12,7 +12,8 @@ CREATE TABLE image_info (
     b_v_x  DOUBLE         CHECK (b_v_x >= -1 AND b_v_x <= 1),
     b_v_y  DOUBLE         CHECK (b_v_y >= -1 AND b_v_y <= 1),
 	b_v_z  DOUBLE         CHECK (b_v_z >= -1 AND b_v_z <= 1),
-    center_b_theta  DOUBLE
+    center_b_theta  DOUBLE,
+    status         DECIMAL
 
 );
 
