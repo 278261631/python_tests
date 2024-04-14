@@ -1,17 +1,17 @@
-def my_all_world2pix(wcs_info, world_coords):
-  """
-  简化的世界坐标到像素坐标转换函数
-  """
-  # 解析 WCS 信息 (示例，需要根据实际情况进行修改)
-  ctype = wcs_info['CTYPE']
-  crval = wcs_info['CRVAL']
-  cd = wcs_info['CD']
+import subprocess
 
-  # 计算中间坐标系坐标
-  intermediate_coords = world_coords - crval
+# "E:/Tycho-10.8.5Pro/Tycho.exe" 1 "E:/test_download"
+solve_bin_path = r'E:/Tycho-10.8.5Pro/Tycho.exe'
+solve_file_path = r'E:/test_download/tycho/'
 
-  # 应用线性变换矩阵
-  pixel_coords = cd @ intermediate_coords
+process = subprocess.Popen([solve_bin_path, "1", solve_file_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+print("the commandline is {}".format(process.args))
+process.communicate()
 
-  # 返回像素坐标
-  return pixel_coords
+# 检查wget的退出状态
+if process.returncode == 0:
+    print("Download was successful.")
+
+else:
+    print("Download failed.")
+    print("Error message:", process.stderr)
