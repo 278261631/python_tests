@@ -28,23 +28,25 @@ def scan_by_day_path(year_in_path, ymd_in_paht):
     # 迭代进程对象的输出，提取文件url
     for line in process.stderr:
         # 如果输出行以“--”开头，说明是一个文件url
-        if line.startswith(b"--") and line.strip().endswith(b".fts"):
+        line = line.strip()
+        # print(f'??{line.strip()}')
+        if line.startswith(b"--") and (line.endswith(b".fts") or line.endswith(b".fit") or line.endswith(b".fits")):
             # 去掉开头和结尾的空格和换行符，得到文件url
             file_url = line.strip()
             urls = re.findall(b'https?://\\S+', file_url)
             urls = [url.decode('utf-8') for url in urls]
             assert len(urls) == 1
             # skip east Calibration
-            if urls[0].__contains__(b"Calibration"):
+            if urls[0].__contains__("Calibration"):
                 skip_counter = skip_counter + 1
                 # print(f' skip Calibration {line}')
                 continue
             # skip Kats Flat and fiel
-            if urls[0].__contains__(b"Flat"):
+            if urls[0].__contains__("Flat"):
                 skip_counter = skip_counter + 1
                 print(f' skip Flat {line}')
                 continue
-            if urls[0].__contains__(b"fiel"):
+            if urls[0].__contains__("fiel"):
                 skip_counter = skip_counter + 1
                 print(f' skip fiel {line}')
                 continue
