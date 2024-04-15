@@ -66,7 +66,7 @@ for idx, s_item in enumerate(result):
     solve_file_path = os.path.join(solve_file_path_root, file_name)
     # 拷贝文件
     # shutil.copy(download_file_path, solve_file_path)
-    process = subprocess.Popen([solve_bin_path, "1", solve_file_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    process = subprocess.Popen([solve_bin_path, '1', solve_file_path_root], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     print("the commandline is {}".format(process.args))
     process.communicate()
     process.wait()
