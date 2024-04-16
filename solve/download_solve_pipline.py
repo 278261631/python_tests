@@ -65,7 +65,7 @@ if os.path.exists(solve_file_path_root):
             print(f'- remove  {full_path}')
 
 cursor.execute('''
-    SELECT id, file_path FROM image_info WHERE status = 1  limit 10
+    SELECT id, file_path FROM image_info WHERE status = 1  limit 100
 ''')
 result = cursor.fetchall()
 for idx, s_item in enumerate(result):
@@ -102,7 +102,17 @@ for idx, s_item in enumerate(result):
     print('-----------------')
     print(wcs_info.wcs.crval)
     print(wcs_info.wcs.crpix)
-    print(wcs_info.wcs.cd)
+    if wcs_info.wcs.crpix.any() < 2:
+        print(f'-------- skip crpix = 0 {idx} {s_item[0]}    {s_item[1]} ---------')
+        os.remove(solve_file_path)
+        continue
+    try:
+        print(wcs_info.wcs.cd)
+    except Exception as e:
+        print(f"错误: {e}")
+        print(f'-------- skip wcs.cd error {idx} {s_item[0]}    {s_item[1]} ---------')
+        os.remove(solve_file_path)
+        continue
     print('-----------------')
 
     # 获取图像的宽度和高度

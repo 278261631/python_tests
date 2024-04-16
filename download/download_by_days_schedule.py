@@ -21,6 +21,7 @@ def run_download():
     process = subprocess.Popen(["wget", "-N",
                                 # ###   no download no dir creat
                                 # "--spider", "-nd",
+                                "--no-check-certificate",
                                 "-r", "-np", "-nH", "-R", "index.html", "-P", temp_path, "--level=0",
                                 download_url_root], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     print("the commandline is {}".format(process.args))
