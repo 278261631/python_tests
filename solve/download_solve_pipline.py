@@ -55,6 +55,15 @@ cursor = conn.cursor()
 solve_bin_path = r'E:/Tycho-10.8.5Pro/Tycho.exe'
 solve_file_path_root = r'E:/test_download/tycho/'
 temp_download_path_root = r'E:/test_download/'
+# 清空目录里的文件
+if os.path.exists(solve_file_path_root):
+    entries = os.listdir(solve_file_path_root)
+    for entry in entries:
+        full_path = os.path.join(solve_file_path_root, entry)
+        if os.path.isfile(full_path) or os.path.islink(full_path):
+            os.remove(full_path)
+            print(f'- remove  {full_path}')
+
 cursor.execute('''
     SELECT id, file_path FROM image_info WHERE status = 1  limit 2
 ''')
@@ -65,7 +74,7 @@ for idx, s_item in enumerate(result):
     download_file_path = os.path.join(temp_download_path_root, file_name)
     solve_file_path = os.path.join(solve_file_path_root, file_name)
     # 拷贝文件
-    # shutil.copy(download_file_path, solve_file_path)
+    shutil.copy(download_file_path, solve_file_path)
     process = subprocess.Popen([solve_bin_path, '1', solve_file_path_root], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     print("the commandline is {}".format(process.args))
     process.communicate()
@@ -78,7 +87,11 @@ for idx, s_item in enumerate(result):
         print("tycho failed.")
         print("Error message:", process.stderr)
     # 检测wcs
-    hdul = fits.open(solve_file_path)
+    hdul = None
+    image_data = None
+    with fits.open(solve_file_path) as fits_hdul:
+        hdul = fits_hdul
+        image_data = hdul[0].data
     # 获取 WCS 信息
     wcs_info = wcs.WCS(hdul[0].header, naxis=2)
 
@@ -92,7 +105,6 @@ for idx, s_item in enumerate(result):
     print(wcs_info.wcs.cd)
     print('-----------------')
 
-    image_data = hdul[0].data
     # 获取图像的宽度和高度
     width, height = image_data.shape[1], image_data.shape[0]
     print(f'x: {width}  y:{height}    x/2 {(width + 1) / 2}   y/2 {(height + 1) / 2}')
@@ -131,15 +143,24 @@ for idx, s_item in enumerate(result):
     print(f'v {cartesian_img_corner}  {plane_normal_vector_y}')
     print(f"img corner to y_plan deg: {theta_deg_corner_to_y}   {coord_mid_y}  {cartesian_mid_y}  to {cartesian_img_center} ")
 
-    cursor.execute('''
-        UPDATE image_info
-        SET status = ?, wcs_info = ?, center_v_x=?, center_v_y=?, center_v_z=?, a_v_x=?, a_v_y=?, a_v_z=?,
-        center_a_theta=?, b_v_x=?, b_v_y=?, b_v_z=?, center_b_theta=?
-        WHERE id = ?
-    ''', (100, s_item[0], str(wcs_info),cartesian_img_center.x, cartesian_img_center.y, cartesian_img_center.z,
-          cartesian_mid_x.x, cartesian_mid_x.y, cartesian_mid_x.z, theta_deg_corner_to_x,
-          cartesian_mid_y.x, cartesian_mid_y.y, cartesian_mid_y.z, theta_deg_corner_to_y
-          ))
+    sql_str = f'UPDATE image_info SET status=100, wcs_info ="{wcs_info}", center_v_x={cartesian_img_center.x},' \
+              f' center_v_y={cartesian_img_center.y}, center_v_z={cartesian_img_center.z},' \
+              f' a_v_x={cartesian_mid_x.x}, a_v_y={cartesian_mid_x.y}, a_v_z={cartesian_mid_x.z},' \
+              f'center_a_theta={theta_deg_corner_to_x},' \
+              f' b_v_x={cartesian_mid_y.x}, b_v_y={cartesian_mid_y.x}, b_v_z={cartesian_mid_y.x}, ' \
+              f'center_b_theta={theta_deg_corner_to_y}  WHERE id = {s_item[0]}'
+    print(sql_str)
+
+    cursor.execute(sql_str)
+    # cursor.execute('''
+    #     UPDATE image_info
+    #     SET status = ?, wcs_info = ?, center_v_x=?, center_v_y=?, center_v_z=?, a_v_x=?, a_v_y=?, a_v_z=?,
+    #     center_a_theta=?, b_v_x=?, b_v_y=?, b_v_z=?, center_b_theta=?
+    #     WHERE id = ?
+    # ''', (100, str('-'), cartesian_img_center.x, cartesian_img_center.y, cartesian_img_center.z,
+    #       cartesian_mid_x.x, cartesian_mid_x.y, cartesian_mid_x.z, theta_deg_corner_to_x,
+    #       cartesian_mid_y.x, cartesian_mid_y.y, cartesian_mid_y.z, theta_deg_corner_to_y, s_item[0]
+    #       ))
     conn.commit()
     # 删除文件
     os.remove(solve_file_path)
