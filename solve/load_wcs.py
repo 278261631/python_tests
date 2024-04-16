@@ -37,12 +37,14 @@ def wcs_world2pix_raw(ra, dec, crval1, crval2, crpix1, crpix2, cd11, cd12, cd21,
     return x, y
 
 
+header_string = ''
+print(f'1.  {header_string}')
 # # 打开 FITS 文件
 # with fits.open(r'E:\testimg\input_1\GY1_K040-6_No Filter_60S_Bin2_UTC20231010_200646_-19.9C_.fit') as hdulist:
 #     # 获取 WCS 信息
 #     wcs_info = wcs.WCS(hdulist[0].header)
+#     header_string = wcs_info.to_header_string()
 
-header_string = ''
 # 连接到SQLite数据库
 conn = sqlite3.connect('fits_wcs.db')
 cursor = conn.cursor()
@@ -54,12 +56,12 @@ for idx, s_item in enumerate(result):
     header_string = s_item[1]
     print(f' {idx}   {s_item[0]}  {s_item[1]}')
 
-print(header_string)
+print(f'2.  {header_string}')
 wcs_info = wcs.WCS(header_string)
 print('-----------------')
 print(wcs_info.wcs.crval)
 print(wcs_info.wcs.crpix)
-print(wcs_info.wcs.cd)
+# print(wcs_info.wcs.cd)
 print('-----------------')
 
 ra_1, dec_1 = wcs_info.wcs_pix2world(0, 0, 1)
@@ -81,20 +83,20 @@ print(f'{x2}   {y2}')
 print(f'{x3}   {y3}')
 print(f'{x4}   {y4}')
 
-sql_x, sql_y = wcs_world2pix_raw(ra_1, dec_1, wcs_info.wcs.crval[0], wcs_info.wcs.crval[1], wcs_info.wcs.crpix[0],
-                                 wcs_info.wcs.crpix[1], wcs_info.wcs.cd[0][0], wcs_info.wcs.cd[0][1],
-                                 wcs_info.wcs.cd[1][0], wcs_info.wcs.cd[1][1])
-print(f'------- {sql_x} {sql_y} -----------')
-sql_x, sql_y = wcs_world2pix_raw(ra_2, dec_2, wcs_info.wcs.crval[0], wcs_info.wcs.crval[1], wcs_info.wcs.crpix[0],
-                                 wcs_info.wcs.crpix[1], wcs_info.wcs.cd[0][0], wcs_info.wcs.cd[0][1],
-                                 wcs_info.wcs.cd[1][0], wcs_info.wcs.cd[1][1])
-print(f'------- {sql_x} {sql_y} -----------')
-sql_x, sql_y = wcs_world2pix_raw(ra_3, dec_3, wcs_info.wcs.crval[0], wcs_info.wcs.crval[1], wcs_info.wcs.crpix[0],
-                                 wcs_info.wcs.crpix[1], wcs_info.wcs.cd[0][0], wcs_info.wcs.cd[0][1],
-                                 wcs_info.wcs.cd[1][0], wcs_info.wcs.cd[1][1])
-print(f'------- {sql_x} {sql_y} -----------')
-sql_x, sql_y = wcs_world2pix_raw(ra_4, dec_4, wcs_info.wcs.crval[0], wcs_info.wcs.crval[1], wcs_info.wcs.crpix[0],
-                                 wcs_info.wcs.crpix[1], wcs_info.wcs.cd[0][0], wcs_info.wcs.cd[0][1],
-                                 wcs_info.wcs.cd[1][0], wcs_info.wcs.cd[1][1])
-cord = calculate_pixel_position(ra_4, dec_4, wcs_info)
-print(f'------- {cord}  -----------')
+# sql_x, sql_y = wcs_world2pix_raw(ra_1, dec_1, wcs_info.wcs.crval[0], wcs_info.wcs.crval[1], wcs_info.wcs.crpix[0],
+#                                  wcs_info.wcs.crpix[1], wcs_info.wcs.cd[0][0], wcs_info.wcs.cd[0][1],
+#                                  wcs_info.wcs.cd[1][0], wcs_info.wcs.cd[1][1])
+# print(f'------- {sql_x} {sql_y} -----------')
+# sql_x, sql_y = wcs_world2pix_raw(ra_2, dec_2, wcs_info.wcs.crval[0], wcs_info.wcs.crval[1], wcs_info.wcs.crpix[0],
+#                                  wcs_info.wcs.crpix[1], wcs_info.wcs.cd[0][0], wcs_info.wcs.cd[0][1],
+#                                  wcs_info.wcs.cd[1][0], wcs_info.wcs.cd[1][1])
+# print(f'------- {sql_x} {sql_y} -----------')
+# sql_x, sql_y = wcs_world2pix_raw(ra_3, dec_3, wcs_info.wcs.crval[0], wcs_info.wcs.crval[1], wcs_info.wcs.crpix[0],
+#                                  wcs_info.wcs.crpix[1], wcs_info.wcs.cd[0][0], wcs_info.wcs.cd[0][1],
+#                                  wcs_info.wcs.cd[1][0], wcs_info.wcs.cd[1][1])
+# print(f'------- {sql_x} {sql_y} -----------')
+# sql_x, sql_y = wcs_world2pix_raw(ra_4, dec_4, wcs_info.wcs.crval[0], wcs_info.wcs.crval[1], wcs_info.wcs.crpix[0],
+#                                  wcs_info.wcs.crpix[1], wcs_info.wcs.cd[0][0], wcs_info.wcs.cd[0][1],
+#                                  wcs_info.wcs.cd[1][0], wcs_info.wcs.cd[1][1])
+# cord = calculate_pixel_position(ra_4, dec_4, wcs_info)
+# print(f'------- {cord}  -----------')
