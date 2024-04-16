@@ -65,7 +65,7 @@ if os.path.exists(solve_file_path_root):
             print(f'- remove  {full_path}')
 
 cursor.execute('''
-    SELECT id, file_path FROM image_info WHERE status = 1  limit 2
+    SELECT id, file_path FROM image_info WHERE status = 1  limit 10
 ''')
 result = cursor.fetchall()
 for idx, s_item in enumerate(result):
@@ -143,7 +143,7 @@ for idx, s_item in enumerate(result):
     print(f'v {cartesian_img_corner}  {plane_normal_vector_y}')
     print(f"img corner to y_plan deg: {theta_deg_corner_to_y}   {coord_mid_y}  {cartesian_mid_y}  to {cartesian_img_center} ")
 
-    sql_str = f'UPDATE image_info SET status=100, wcs_info ="{wcs_info}", center_v_x={cartesian_img_center.x},' \
+    sql_str = f'UPDATE image_info SET status=100, wcs_info ="{wcs_info.to_header_string()}", center_v_x={cartesian_img_center.x},' \
               f' center_v_y={cartesian_img_center.y}, center_v_z={cartesian_img_center.z},' \
               f' a_v_x={cartesian_mid_x.x}, a_v_y={cartesian_mid_x.y}, a_v_z={cartesian_mid_x.z},' \
               f'center_a_theta={theta_deg_corner_to_x},' \

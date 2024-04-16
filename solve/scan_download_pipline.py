@@ -14,7 +14,7 @@ cursor = conn.cursor()
 temp_download_path = r'E:/test_download/'
 print(f'path: {temp_download_path}')
 cursor.execute('''
-    SELECT id, file_path FROM image_info WHERE status = 0  limit 2
+    SELECT id, file_path FROM image_info WHERE status = 0  limit 10
 ''')
 result = cursor.fetchall()
 for idx, s_item in enumerate(result):

@@ -1,3 +1,5 @@
+import sqlite3
+
 from astropy.io import fits
 from astropy import wcs
 import numpy as np
@@ -35,16 +37,25 @@ def wcs_world2pix_raw(ra, dec, crval1, crval2, crpix1, crpix2, cd11, cd12, cd21,
     return x, y
 
 
-# 打开 FITS 文件
-with fits.open(r'E:\testimg\input_1\GY1_K040-6_No Filter_60S_Bin2_UTC20231010_200646_-19.9C_.fit') as hdulist:
-    # 获取 WCS 信息
-    wcs_info = wcs.WCS(hdulist[0].header)
+# # 打开 FITS 文件
+# with fits.open(r'E:\testimg\input_1\GY1_K040-6_No Filter_60S_Bin2_UTC20231010_200646_-19.9C_.fit') as hdulist:
+#     # 获取 WCS 信息
+#     wcs_info = wcs.WCS(hdulist[0].header)
 
-# 打印 WCS 信息
-print(wcs_info)
-header_string = wcs_info.to_header_string()
+header_string = ''
+# 连接到SQLite数据库
+conn = sqlite3.connect('fits_wcs.db')
+cursor = conn.cursor()
+cursor.execute('''
+    SELECT id, wcs_info FROM image_info WHERE status = 100  limit 1
+''')
+result = cursor.fetchall()
+for idx, s_item in enumerate(result):
+    header_string = s_item[1]
+    print(f' {idx}   {s_item[0]}  {s_item[1]}')
+
 print(header_string)
-# wcs_info_load = wcs.WCS(header_string)
+wcs_info = wcs.WCS(header_string)
 print('-----------------')
 print(wcs_info.wcs.crval)
 print(wcs_info.wcs.crpix)
