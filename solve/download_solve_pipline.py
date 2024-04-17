@@ -101,9 +101,14 @@ for idx, s_item in enumerate(result):
     # wcs_info_load = wcs.WCS(header_string)
     print('-----------------')
     print(wcs_info.wcs.crval)
-    print(wcs_info.wcs.crpix)
-    if wcs_info.wcs.crpix.any() < 2:
+    print(f'{len(wcs_info.wcs.crpix)}    {wcs_info.wcs.crpix}')
+    if wcs_info.wcs.crpix[0] < 2 or wcs_info.wcs.crpix[1] < 2:
         print(f'-------- skip crpix = 0 {idx} {s_item[0]}    {s_item[1]} ---------')
+        sql_str = f'UPDATE image_info SET status=101 WHERE id = {s_item[0]}'
+        print(sql_str)
+        cursor.execute(sql_str)
+        conn.commit()
+
         os.remove(solve_file_path)
         continue
     try:
