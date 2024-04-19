@@ -61,8 +61,8 @@ if os.path.exists(solve_file_path_root):
     for entry in entries:
         full_path = os.path.join(solve_file_path_root, entry)
         if os.path.isfile(full_path) or os.path.islink(full_path):
-            os.remove(full_path)
-            print(f'- remove  {full_path}')
+            # os.remove(full_path)
+            print(f'-not remove  {full_path}')
 
 cursor.execute('''
     SELECT id, file_path FROM image_info WHERE status = 1  limit 1
@@ -110,14 +110,14 @@ for idx, s_item in enumerate(result):
         cursor.execute(sql_str)
         conn.commit()
 
-        os.remove(solve_file_path)
+        # os.remove(solve_file_path)
         continue
     try:
         print(wcs_info.wcs.cd)
     except Exception as e:
         print(f"错误: {e}")
         print(f'-------- skip wcs.cd error {idx} {s_item[0]}    {s_item[1]} ---------')
-        os.remove(solve_file_path)
+        # os.remove(solve_file_path)
         continue
     print('-----------------')
 
@@ -179,7 +179,7 @@ for idx, s_item in enumerate(result):
     #       ))
     conn.commit()
     # 删除文件
-    os.remove(solve_file_path)
+    # os.remove(solve_file_path)
 
 # 解析fits wcs
 
