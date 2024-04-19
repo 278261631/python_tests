@@ -52,7 +52,7 @@ conn = sqlite3.connect('fits_wcs.db')
 cursor = conn.cursor()
 
 
-solve_bin_path = r'D:/astap/astap.exe'
+solve_bin_path = r'E:/astap/astap.exe'
 solve_file_path_root = r'E:/test_download/astap/'
 temp_download_path_root = r'E:/test_download/'
 # 清空目录里的文件
@@ -61,22 +61,27 @@ if os.path.exists(solve_file_path_root):
     for entry in entries:
         full_path = os.path.join(solve_file_path_root, entry)
         if os.path.isfile(full_path) or os.path.islink(full_path):
-            # os.remove(full_path)
+            os.remove(full_path)
             print(f'-not remove  {full_path}')
 
 cursor.execute('''
-    SELECT id, file_path FROM image_info WHERE status = 1  limit 1
+    SELECT id, file_path FROM image_info WHERE status = 1  order by  id desc  limit 500
 ''')
 result = cursor.fetchall()
 for idx, s_item in enumerate(result):
     parsed_url = urlparse(s_item[1])
     file_name = "{}.fits".format(s_item[0])
+    file_name_wcs = "{}.wcs".format(s_item[0])
+    file_name_ini = "{}.ini".format(s_item[0])
+    wcs_file_path = os.path.join(solve_file_path_root, file_name_wcs)
+    ini_file_path = os.path.join(solve_file_path_root, file_name_ini)
     download_file_path = os.path.join(temp_download_path_root, file_name)
     solve_file_path = os.path.join(solve_file_path_root, file_name)
     # solve_wcs_file_path = os.path.join(solve_file_path_root, )
     # 拷贝文件
     shutil.copy(download_file_path, solve_file_path)
-    process = subprocess.Popen([solve_bin_path, '-f', solve_file_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    process = subprocess.Popen([solve_bin_path, '-z', '4', '-f',
+                                solve_file_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     print("the commandline is {}".format(process.args))
     process.communicate()
     process.wait()
@@ -87,14 +92,40 @@ for idx, s_item in enumerate(result):
     else:
         print("tycho failed.")
         print("Error message:", process.stderr)
+        sql_str = f'UPDATE image_info SET status=101 WHERE id = {s_item[0]}'
+        print(sql_str)
+        cursor.execute(sql_str)
+        conn.commit()
+        os.remove(solve_file_path)
+        os.remove(ini_file_path)
+        continue
     # 检测wcs
-    hdul = None
-    image_data = None
-    with fits.open(solve_file_path) as fits_hdul:
-        hdul = fits_hdul
-        image_data = hdul[0].data
-    # 获取 WCS 信息
-    wcs_info = wcs.WCS(hdul[0].header, naxis=2)
+
+    # 读取文本文件并解析每一行以提取头信息
+
+    header_dict = {}
+    with open(wcs_file_path, 'r') as file:
+        for line in file:
+            line = line.strip()
+            if line and not line.startswith('END') and '=' in line:
+                if '/' in line:
+                    comment_index = line.index('/')
+                    line = line[:comment_index]
+                line = line.replace("'", "")
+                key, value = line.split('=', 1)
+                key = key.strip()
+                value = value.strip()
+
+                # 尝试将值转换为适当的数据类型
+                try:
+                    value = float(value) if '.' in value else int(value)
+                except ValueError:
+                    # 如果转换失败，保留原始字符串值
+                    pass
+
+                header_dict[key] = value
+
+    wcs_info = wcs.WCS(header_dict)
 
     print(wcs_info)
     header_string = wcs_info.to_header_string()
@@ -117,10 +148,15 @@ for idx, s_item in enumerate(result):
     except Exception as e:
         print(f"错误: {e}")
         print(f'-------- skip wcs.cd error {idx} {s_item[0]}    {s_item[1]} ---------')
-        # os.remove(solve_file_path)
+        os.remove(solve_file_path)
+        os.remove(ini_file_path)
+        os.remove(wcs_file_path)
         continue
     print('-----------------')
 
+    with fits.open(solve_file_path) as fits_hdul:
+        hdul = fits_hdul
+        image_data = hdul[0].data
     # 获取图像的宽度和高度
     width, height = image_data.shape[1], image_data.shape[0]
     print(f'x: {width}  y:{height}    x/2 {(width + 1) / 2}   y/2 {(height + 1) / 2}')
@@ -179,7 +215,9 @@ for idx, s_item in enumerate(result):
     #       ))
     conn.commit()
     # 删除文件
-    # os.remove(solve_file_path)
+    os.remove(solve_file_path)
+    os.remove(wcs_file_path)
+    os.remove(ini_file_path)
 
 # 解析fits wcs
 
