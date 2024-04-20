@@ -65,7 +65,7 @@ if os.path.exists(solve_file_path_root):
             print(f'-not remove  {full_path}')
 
 cursor.execute('''
-    SELECT id, file_path FROM image_info WHERE status = 1  order by  id desc  limit 500
+    SELECT id, file_path FROM image_info WHERE status = 1  order by  id desc  limit 5000
 ''')
 result = cursor.fetchall()
 for idx, s_item in enumerate(result):
@@ -78,9 +78,13 @@ for idx, s_item in enumerate(result):
     download_file_path = os.path.join(temp_download_path_root, file_name)
     solve_file_path = os.path.join(solve_file_path_root, file_name)
     # solve_wcs_file_path = os.path.join(solve_file_path_root, )
+    print(f'process:  {idx} / {len(result)}    {s_item[0]}    {s_item[1]}')
     # 拷贝文件
     shutil.copy(download_file_path, solve_file_path)
-    process = subprocess.Popen([solve_bin_path, '-z', '4', '-f',
+    #  -z 4  -z  4
+    # process = subprocess.Popen([solve_bin_path, '-fov', '2', '-D', 'd50', '-r', '180', '-f',
+    # process = subprocess.Popen([solve_bin_path, '-ra', '12', '-spd', '100', '-z', '0', '-fov', '2', '-D', 'd50', '-r', '180', '-f',
+    process = subprocess.Popen([solve_bin_path, '-ra', '18', '-spd', '100', '-z', '0', '-fov', '2', '-D', 'd50', '-r', '180', '-f',
                                 solve_file_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     print("the commandline is {}".format(process.args))
     process.communicate()

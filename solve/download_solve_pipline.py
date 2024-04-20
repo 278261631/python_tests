@@ -65,7 +65,7 @@ if os.path.exists(solve_file_path_root):
             print(f'- remove  {full_path}')
 
 cursor.execute('''
-    SELECT id, file_path FROM image_info WHERE status = 1  limit 100
+    SELECT id, file_path FROM image_info WHERE status = 1 and id%10=3   limit 100
 ''')
 result = cursor.fetchall()
 for idx, s_item in enumerate(result):
@@ -73,13 +73,14 @@ for idx, s_item in enumerate(result):
     file_name = "{}.fits".format(s_item[0])
     download_file_path = os.path.join(temp_download_path_root, file_name)
     solve_file_path = os.path.join(solve_file_path_root, file_name)
+    print(f'process:  {idx} / {len(result)}    {s_item[0]}    {s_item[1]}')
     # 拷贝文件
     shutil.copy(download_file_path, solve_file_path)
     process = subprocess.Popen([solve_bin_path, '1', solve_file_path_root], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     print("the commandline is {}".format(process.args))
     process.communicate()
     process.wait()
-    print(f'{idx} / {len(result)}')
+    # print(f'process:  {idx} / {len(result)}    {s_item[0]}    {parsed_url}')
     # 检查wget的退出状态
     if process.returncode == 0:
         print("tycho was successful.")
