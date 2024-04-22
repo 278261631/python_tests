@@ -11,6 +11,8 @@ from astropy.io import fits
 from solve.scan_by_days import scan_by_days
 import sqlite3
 
+from solve.test_name_to_ra_dec import get_ra_dec_from_path
+
 
 def normalize_vector(vector):
     # 计算向量的模长
@@ -80,11 +82,21 @@ for idx, s_item in enumerate(result):
     # solve_wcs_file_path = os.path.join(solve_file_path_root, )
     print(f'process:  {idx} / {len(result)}    {s_item[0]}    {s_item[1]}')
     # 拷贝文件
-    shutil.copy(download_file_path, solve_file_path)
+    try:
+        shutil.copy(download_file_path, solve_file_path)
+    except IOError:
+        sql_str = f'UPDATE image_info SET status=-1 WHERE id = {s_item[0]}'
+        print(sql_str)
+        cursor.execute(sql_str)
+        conn.commit()
+        continue
+    astap_ra_h, astap_dec = get_ra_dec_from_path(s_item[1])
+    astap_dec_spd = astap_dec + 90
     #  -z 4  -z  4
     # process = subprocess.Popen([solve_bin_path, '-fov', '2', '-D', 'd50', '-r', '180', '-f',
     # process = subprocess.Popen([solve_bin_path, '-ra', '12', '-spd', '100', '-z', '0', '-fov', '2', '-D', 'd50', '-r', '180', '-f',
-    process = subprocess.Popen([solve_bin_path, '-ra', '18', '-spd', '100', '-z', '0', '-fov', '2', '-D', 'd50', '-r', '180', '-f',
+    process = subprocess.Popen([solve_bin_path, '-ra', str(astap_ra_h), '-spd', str(astap_dec_spd),
+                                '-z', '2', '-fov', '2', '-D', 'd50', '-r', '60', '-f',
                                 solve_file_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     print("the commandline is {}".format(process.args))
     process.communicate()

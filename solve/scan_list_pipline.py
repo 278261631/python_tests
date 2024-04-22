@@ -10,7 +10,7 @@ conn = sqlite3.connect('fits_wcs.db')
 cursor = conn.cursor()
 
 # 记录文件
-url_list = scan_by_days('20240201', 1)
+url_list = scan_by_days('20240227', 90)
 
 for idx, item in enumerate(url_list):
     # 首先检查file_path是否已存在
