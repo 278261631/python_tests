@@ -1,5 +1,6 @@
 import sqlite3
 
+from astropy.coordinates import SkyCoord
 from astropy.io import fits
 from astropy import wcs
 import numpy as np
@@ -48,8 +49,10 @@ print(f'1.  {header_string}')
 # 连接到SQLite数据库
 conn = sqlite3.connect('fits_wcs.db')
 cursor = conn.cursor()
+# cursor.execute('''
+#     SELECT id, wcs_info FROM image_info WHERE status = 100 and id = 2266  limit 1
 cursor.execute('''
-    SELECT id, wcs_info FROM image_info WHERE status = 100  limit 1
+    SELECT id, wcs_info FROM image_info WHERE status = 100 and id = 3829  limit 1
 ''')
 result = cursor.fetchall()
 for idx, s_item in enumerate(result):
@@ -68,20 +71,30 @@ ra_1, dec_1 = wcs_info.wcs_pix2world(0, 0, 1)
 ra_2, dec_2 = wcs_info.wcs_pix2world(4799, 0, 1)
 ra_3, dec_3 = wcs_info.wcs_pix2world(4799, 3210, 1)
 ra_4, dec_4 = wcs_info.wcs_pix2world(3210, 0, 1)
+ra_a, dec_a = wcs_info.wcs_pix2world(2400, 0, 1)
+ra_b, dec_b = wcs_info.wcs_pix2world(0, 1605, 1)
+a_coord = SkyCoord(ra=ra_a, dec=dec_a, unit='deg')
+a_coord_cartesian = a_coord.cartesian
+b_coord = SkyCoord(ra=ra_b, dec=dec_b, unit='deg')
+b_coord_cartesian = b_coord.cartesian
 print(f'{ra_1}   {dec_1}')
 print(f'{ra_2}   {dec_2}')
 print(f'{ra_3}   {dec_3}')
 print(f'{ra_4}   {dec_4}')
+print(f'a:   {ra_a}   {dec_a}     {a_coord_cartesian} ')
+print(f'b:   {ra_b}   {dec_b}     {b_coord_cartesian} ')
 
 x1, y1 = wcs_info.wcs_world2pix(ra_1, dec_1, 1)
 x2, y2 = wcs_info.wcs_world2pix(ra_2, dec_2, 1)
 x3, y3 = wcs_info.wcs_world2pix(ra_3, dec_3, 1)
 x4, y4 = wcs_info.wcs_world2pix(ra_4, dec_4, 1)
+xt, yt = wcs_info.wcs_world2pix(160.8333, 39, 1)
 
 print(f'{x1}   {y1}')
 print(f'{x2}   {y2}')
 print(f'{x3}   {y3}')
 print(f'{x4}   {y4}')
+print(f't    {xt}   {yt}')
 
 # sql_x, sql_y = wcs_world2pix_raw(ra_1, dec_1, wcs_info.wcs.crval[0], wcs_info.wcs.crval[1], wcs_info.wcs.crpix[0],
 #                                  wcs_info.wcs.crpix[1], wcs_info.wcs.cd[0][0], wcs_info.wcs.cd[0][1],

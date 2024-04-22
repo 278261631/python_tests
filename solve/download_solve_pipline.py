@@ -163,7 +163,7 @@ for idx, s_item in enumerate(result):
               f' center_v_y={cartesian_img_center.y}, center_v_z={cartesian_img_center.z},' \
               f' a_v_x={cartesian_mid_x.x}, a_v_y={cartesian_mid_x.y}, a_v_z={cartesian_mid_x.z},' \
               f'center_a_theta={theta_deg_corner_to_x},' \
-              f' b_v_x={cartesian_mid_y.x}, b_v_y={cartesian_mid_y.x}, b_v_z={cartesian_mid_y.x}, ' \
+              f' b_v_x={cartesian_mid_y.x}, b_v_y={cartesian_mid_y.y}, b_v_z={cartesian_mid_y.z}, ' \
               f'center_b_theta={theta_deg_corner_to_y}  WHERE id = {s_item[0]}'
     print(sql_str)
 

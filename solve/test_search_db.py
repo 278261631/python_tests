@@ -8,11 +8,14 @@ from astropy.coordinates import SkyCoord
 from solve.scan_by_days import scan_by_days
 import sqlite3
 
-
+# 10.72340	+39.0
+target_ra_deg = 160.8333
+target_dec_deg = 39
+# [-0.7340666984702854, 0.25515079385691664, 0.6293203910498374]
 # 6:44:39.747 +16:49:7.30
 # 101.1656125  16.818694444444443
-target_ra_deg = 101.1656125
-target_dec_deg = 16.818694444444443
+# target_ra_deg = 101.1656125
+# target_dec_deg = 16.818694444444443
 target_coord = SkyCoord(ra=target_ra_deg, dec=target_dec_deg, unit='deg')
 target_coord_cartesian = target_coord.cartesian
 target_vector = [target_coord_cartesian.x.value, target_coord_cartesian.y.value, target_coord_cartesian.z.value]
