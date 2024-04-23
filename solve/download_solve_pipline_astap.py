@@ -217,7 +217,10 @@ for idx, s_item in enumerate(result):
               f' a_v_x={cartesian_mid_x.x}, a_v_y={cartesian_mid_x.y}, a_v_z={cartesian_mid_x.z},' \
               f'center_a_theta={theta_deg_corner_to_x},' \
               f' b_v_x={cartesian_mid_y.x}, b_v_y={cartesian_mid_y.y}, b_v_z={cartesian_mid_y.z}, ' \
-              f'center_b_theta={theta_deg_corner_to_y}  WHERE id = {s_item[0]}'
+              f'center_b_theta={theta_deg_corner_to_y},' \
+              f'a_n_x={plane_normal_vector_x[0]}, a_n_y={plane_normal_vector_x[1]},a_n_z={plane_normal_vector_x[2]},' \
+              f'b_n_x={plane_normal_vector_y[0]}, b_n_y={plane_normal_vector_y[1]},b_n_z={plane_normal_vector_y[2]}' \
+              f'  WHERE id = {s_item[0]}'
     print(sql_str)
 
     cursor.execute(sql_str)

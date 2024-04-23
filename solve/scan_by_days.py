@@ -81,6 +81,8 @@ def scan_by_days(yyyymmdd_str, day_count):
         print(f'{yyyy}   {yyyymmdd}')
         url_list_by_day = scan_by_day_path(yyyy, yyyymmdd)
         file_url_list_all_days.extend(url_list_by_day)
+        # TODO add gy1-7
+    #     TODO add new data 2024 to new db
     return file_url_list_all_days
 
 

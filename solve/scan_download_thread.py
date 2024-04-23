@@ -12,7 +12,7 @@ from threading import Lock
 # 连接到SQLite数据库
 conn = sqlite3.connect('fits_wcs.db')
 cursor = conn.cursor()
-
+# TODO need thread
 
 # 下载文件
 temp_download_path = r'E:/test_download/'

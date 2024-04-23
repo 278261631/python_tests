@@ -115,8 +115,12 @@ select center_a_theta, abs(90-(degrees(acos(((-0.7340666984702854*t.a_n_x) +(0.2
 from  image_info as t where id = 3829
 
 
--0.7351623107802017, 0.33411621568195654, 0.5898327993818946
+-- -0.7351623107802017, 0.33411621568195654, 0.5898327993818946
 
+select center_a_theta, abs(90-(degrees(acos(((-0.7351623107802017*t.a_n_x) +(0.33411621568195654*t.a_n_y)+(0.5898327993818946*t.a_n_z) ))))) as ta,
+       center_b_theta, abs(90-(degrees(acos(((-0.7351623107802017*t.b_n_x) +(0.33411621568195654*t.b_n_y)+(0.5898327993818946*t.b_n_z) ))))) as tb,
+       *
+from  image_info as t where t.status=100 and t.center_a_theta>ta and t.center_b_theta>tb
 select center_a_theta, abs(90-(degrees(acos(((-0.7351623107802017*t.a_n_x) +(0.33411621568195654*t.a_n_y)+(0.5898327993818946*t.a_n_z) ))))) as ta,
        center_b_theta, abs(90-(degrees(acos(((-0.7351623107802017*t.b_n_x) +(0.33411621568195654*t.b_n_y)+(0.5898327993818946*t.b_n_z) ))))) as tb,
        *

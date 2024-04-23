@@ -58,7 +58,8 @@ for idx, s_item in enumerate(result):
     over_exp = False
     # 输出峰值位置和对应的灰度级
     print(f"{peak_position}Peak Value: {peak_value}  gray {peak_graylevel}       idx {idx}   {s_item[0]}")
-    if peak_graylevel < 6000:
+    if peak_graylevel < 10:
+        over_exp = True
         print(f"!!!1-> {peak_position}Peak Value: {peak_value}  gray {peak_graylevel}       idx {idx}   {s_item[0]}")
     if peak_position < 40:
         print(f"!!!2-> {peak_position}Peak Value: {peak_value}  gray {peak_graylevel}       idx {idx}   {s_item[0]}")

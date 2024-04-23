@@ -30,6 +30,22 @@ for idx, s_item in enumerate(result):
     # 检查wget的退出状态
     if process.returncode == 0:
         print("Download was successful.")
+        # todo check fits check focus
+        # from scipy.ndimage import gaussian_gradient_magnitude
+        #
+        # sharpness = gaussian_gradient_magnitude(image_data)
+        # plt.imshow(sharpness, cmap='gray')
+        # plt.title('Sharpness Map')
+        # plt.show()
+
+        # todo check lines
+        # from skimage.feature import canny
+        # edges = canny(image_data)
+
+        # todo check source number
+        # from skimage.source_detector import detect_sources
+        # sources = detect_sources(image_data, threshold=5.0, nlabels=2)
+
         cursor.execute('''
             UPDATE image_info
             SET status = ?
