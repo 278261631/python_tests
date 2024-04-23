@@ -37,6 +37,7 @@ def vector_plane_angle(e, n):
     angle_rad = np.arccos(cos_theta)
     # 将夹角的弧度值转换为度数
     angle_deg_from_rad = np.degrees(angle_rad)
+    print(f'dot product    {dot_product}    theta_rad  {angle_rad}  angle_deg   {angle_deg_from_rad}')
     return angle_deg_from_rad
 
 

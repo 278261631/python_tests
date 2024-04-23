@@ -6,6 +6,8 @@ from astropy import wcs
 import numpy as np
 from numpy.linalg import inv
 
+from solve.download_solve_pipline_astap import vector_plane_angle
+
 
 def calculate_pixel_position(ra, dec, wcs_info_p):
     CRVAL1 = wcs_info_p.wcs.crval[0]
@@ -52,49 +54,62 @@ cursor = conn.cursor()
 # cursor.execute('''
 #     SELECT id, wcs_info FROM image_info WHERE status = 100 and id = 2266  limit 1
 cursor.execute('''
-    SELECT id, wcs_info FROM image_info WHERE status = 100 and id = 3829  limit 1
+    SELECT id, wcs_info,a_n_x,a_n_y,a_n_z FROM image_info WHERE status = 100 and id = 3829  limit 1
 ''')
 result = cursor.fetchall()
 for idx, s_item in enumerate(result):
     header_string = s_item[1]
     print(f' {idx}   {s_item[0]}  {s_item[1]}')
 
-print(f'2.  {header_string}')
-wcs_info = wcs.WCS(header_string)
-print('-----------------')
-print(wcs_info.wcs.crval)
-print(wcs_info.wcs.crpix)
-# print(wcs_info.wcs.cd)
-print('-----------------')
+    print(f'2.  {header_string}')
+    wcs_info = wcs.WCS(header_string)
+    print('-----------------')
+    print(wcs_info.wcs.crval)
+    print(wcs_info.wcs.crpix)
+    # print(wcs_info.wcs.cd)
+    print('-----------------')
 
-ra_1, dec_1 = wcs_info.wcs_pix2world(0, 0, 1)
-ra_2, dec_2 = wcs_info.wcs_pix2world(4799, 0, 1)
-ra_3, dec_3 = wcs_info.wcs_pix2world(4799, 3210, 1)
-ra_4, dec_4 = wcs_info.wcs_pix2world(3210, 0, 1)
-ra_a, dec_a = wcs_info.wcs_pix2world(2400, 0, 1)
-ra_b, dec_b = wcs_info.wcs_pix2world(0, 1605, 1)
-a_coord = SkyCoord(ra=ra_a, dec=dec_a, unit='deg')
-a_coord_cartesian = a_coord.cartesian
-b_coord = SkyCoord(ra=ra_b, dec=dec_b, unit='deg')
-b_coord_cartesian = b_coord.cartesian
-print(f'{ra_1}   {dec_1}')
-print(f'{ra_2}   {dec_2}')
-print(f'{ra_3}   {dec_3}')
-print(f'{ra_4}   {dec_4}')
-print(f'a:   {ra_a}   {dec_a}     {a_coord_cartesian} ')
-print(f'b:   {ra_b}   {dec_b}     {b_coord_cartesian} ')
+    ra_1, dec_1 = wcs_info.wcs_pix2world(0, 0, 1)
+    ra_2, dec_2 = wcs_info.wcs_pix2world(4799, 0, 1)
+    ra_3, dec_3 = wcs_info.wcs_pix2world(4799, 3210, 1)
+    ra_4, dec_4 = wcs_info.wcs_pix2world(3210, 0, 1)
+    ra_a, dec_a = wcs_info.wcs_pix2world(2400, 0, 1)
+    ra_b, dec_b = wcs_info.wcs_pix2world(0, 1605, 1)
+    ra_500, dec_500 = wcs_info.wcs_pix2world(500, 500, 1)
+    a_coord = SkyCoord(ra=ra_a, dec=dec_a, unit='deg')
+    a_coord_cartesian = a_coord.cartesian
+    b_coord = SkyCoord(ra=ra_b, dec=dec_b, unit='deg')
+    b_coord_cartesian = b_coord.cartesian
+    print(f'{ra_1}   {dec_1}')
+    print(f'{ra_2}   {dec_2}')
+    print(f'{ra_3}   {dec_3}')
+    print(f'{ra_4}   {dec_4}')
+    print(f'500: {ra_500}   {dec_500}')
+    print(f'a:   {ra_a}   {dec_a}     {a_coord_cartesian} ')
+    print(f'b:   {ra_b}   {dec_b}     {b_coord_cartesian} ')
 
-x1, y1 = wcs_info.wcs_world2pix(ra_1, dec_1, 1)
-x2, y2 = wcs_info.wcs_world2pix(ra_2, dec_2, 1)
-x3, y3 = wcs_info.wcs_world2pix(ra_3, dec_3, 1)
-x4, y4 = wcs_info.wcs_world2pix(ra_4, dec_4, 1)
-xt, yt = wcs_info.wcs_world2pix(160.8333, 39, 1)
+    x1, y1 = wcs_info.wcs_world2pix(ra_1, dec_1, 1)
+    x2, y2 = wcs_info.wcs_world2pix(ra_2, dec_2, 1)
+    x3, y3 = wcs_info.wcs_world2pix(ra_3, dec_3, 1)
+    x4, y4 = wcs_info.wcs_world2pix(ra_4, dec_4, 1)
+    xt, yt = wcs_info.wcs_world2pix(160.8333, 39, 1)
 
-print(f'{x1}   {y1}')
-print(f'{x2}   {y2}')
-print(f'{x3}   {y3}')
-print(f'{x4}   {y4}')
-print(f't    {xt}   {yt}')
+    print(f'{x1}   {y1}')
+    print(f'{x2}   {y2}')
+    print(f'{x3}   {y3}')
+    print(f'{x4}   {y4}')
+    print(f't    {xt}   {yt}')
+
+    plane_normal_vector_x = [s_item[2], s_item[3], s_item[4]]
+    coord_img_corner = SkyCoord(ra=ra_500, dec=dec_500, unit='deg')
+    cartesian_img_corner = coord_img_corner.cartesian
+    target_vector = [cartesian_img_corner.x.value, cartesian_img_corner.y.value, cartesian_img_corner.z.value]
+    print(f'target V {target_vector}     a_v {plane_normal_vector_x}')
+    theta_deg_corner_to_a = vector_plane_angle(target_vector, plane_normal_vector_x)
+    theta_deg_corner_to_a = abs(90 - theta_deg_corner_to_a)
+    print(f'v   p_V{plane_normal_vector_x}  {theta_deg_corner_to_a}')
+
+
 
 # sql_x, sql_y = wcs_world2pix_raw(ra_1, dec_1, wcs_info.wcs.crval[0], wcs_info.wcs.crval[1], wcs_info.wcs.crpix[0],
 #                                  wcs_info.wcs.crpix[1], wcs_info.wcs.cd[0][0], wcs_info.wcs.cd[0][1],

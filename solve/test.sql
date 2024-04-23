@@ -89,7 +89,7 @@ select center_a_theta, abs(90-(degrees(acos(((-0.7340666984702854*image_info.a_n
 from  image_info where status=100 and ta not null and  center_a_theta>ta and center_b_theta>tb order by  ta
 
 select * from image_info where  file_path like '%K028%'
-select a_n_x,a_n_y,a_n_z,b_n_x,b_n_y,b_n_z from image_info where id = 3829
+select a_n_x,a_n_y,a_n_z,b_n_x,b_n_y,b_n_z,* from image_info where id = 3829
 
 select center_a_theta, abs(90-(degrees(acos(((-0.7340666984702854*image_info.a_n_x) +(0.25515079385691664*image_info.a_n_y)+(0.6293203910498374*image_info.a_n_z) ))))) as ta,
        center_b_theta, abs(90-(degrees(acos(((-0.7340666984702854*image_info.b_n_x) +(0.25515079385691664*image_info.b_n_y)+(0.6293203910498374*image_info.b_n_z) ))))) as tb,
@@ -100,5 +100,26 @@ select center_a_theta, abs(90-(degrees(acos(((-0.7340666984702854*image_info.a_n
        center_b_theta, abs(90-(degrees(acos(((-0.7340666984702854*image_info.b_n_x) +(0.25515079385691664*image_info.b_n_y)+(0.6293203910498374*image_info.b_n_z) ))))) as tb,
        *
 from  image_info where status=100 and ta not null and  center_a_theta>ta and center_b_theta>tb order by  ta
+
+
+select t.status, center_a_theta, abs(90-(degrees(acos(((-0.7340666984702854*t.a_n_x) +(0.25515079385691664*t.a_n_y)+(0.6293203910498374*t.a_n_z) ))))) as ta,
+       center_b_theta, abs(90-(degrees(acos(((-0.7340666984702854*t.b_n_x) +(0.25515079385691664*t.b_n_y)+(0.6293203910498374*t.b_n_z) ))))) as tb,
+       *
+from  image_info as t where t.status=100 and tb is null order by  ta
+
+
+
+select center_a_theta, abs(90-(degrees(acos(((-0.7340666984702854*t.a_n_x) +(0.25515079385691664*t.a_n_y)+(0.6293203910498374*t.a_n_z) ))))) as ta,
+       center_b_theta, abs(90-(degrees(acos(((-0.7340666984702854*t.b_n_x) +(0.25515079385691664*t.b_n_y)+(0.6293203910498374*t.b_n_z) ))))) as tb,
+       *
+from  image_info as t where id = 3829
+
+
+-0.7351623107802017, 0.33411621568195654, 0.5898327993818946
+
+select center_a_theta, abs(90-(degrees(acos(((-0.7351623107802017*t.a_n_x) +(0.33411621568195654*t.a_n_y)+(0.5898327993818946*t.a_n_z) ))))) as ta,
+       center_b_theta, abs(90-(degrees(acos(((-0.7351623107802017*t.b_n_x) +(0.33411621568195654*t.b_n_y)+(0.5898327993818946*t.b_n_z) ))))) as tb,
+       *
+from  image_info as t where t.status=100 and t.center_a_theta>ta and t.center_b_theta>tb and file_path not like '%K028%'
 
 
