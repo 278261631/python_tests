@@ -7,7 +7,8 @@ from skimage.exposure import histogram
 from skimage.util import img_as_float
 
 # 替换为你的 FITS 文件路径
-fits_file_path = r'E:/test_download/img_check/lines.fit'
+fits_file_path = r'E:/test_download/img_check/23775.fits'
+# fits_file_path = r'E:/test_download/img_check/25025.fits'
 
 # 使用 astropy 读取 FITS 文件
 with fits.open(fits_file_path) as hdul:
@@ -44,6 +45,7 @@ plt.show()
 threshold_percentage = 95
 threshold_index = int(threshold_percentage / 100 * len(cdf))
 is_overexposed = cdf[-1] - cdf[threshold_index] > 0.9  # 阈值可能需要调整
+print(f' value  {cdf[-1] - cdf[threshold_index]}  > {0.9}')
 
 print(f"The image is {'---- overexposed' if is_overexposed else '++++ not overexposed'} .")
 

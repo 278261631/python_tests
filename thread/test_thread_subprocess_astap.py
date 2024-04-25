@@ -31,7 +31,7 @@ def wget_download(url, identifier):
         # 使用subprocess.Popen启动wget进程，并捕获输出
         file_name = "{}.fits".format(url[0])
         save_file_path = os.path.join(temp_download_path, file_name)
-        print(f'[{url[0]}]:       {identifier} / {len(result)}')
+        print(f'{url[0]} / {len(result)}')
         with subprocess.Popen(["wget", "-O", save_file_path, "-nd", "--no-check-certificate", url[1]], stdout=subprocess.PIPE, text=True, bufsize=1, universal_newlines=True) \
                 as proc:
             print("the commandline is {}".format(subprocess.args))
