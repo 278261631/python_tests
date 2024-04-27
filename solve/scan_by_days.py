@@ -3,10 +3,13 @@ import re
 import subprocess
 
 
-def scan_by_day_path(year_in_path, ymd_in_paht):
+def scan_by_day_path(year_in_path, ymd_in_paht, recent_data, sys_name_root='GY6-DATA'):
     # 最后的斜线很重要，否则wget np参数会不识别，造成下载其他不必要的数据
     # download_url_root = f'https://download.china-vo.org/psp/east/{year_in_path}/{ymd_in_paht}/'
-    download_url_root = f'https://download.china-vo.org/psp/KATS/GY6-DATA/{year_in_path}/{ymd_in_paht}/'
+    if recent_data:
+        download_url_root = f'https://download.china-vo.org/psp/KATS/{sys_name_root}/{ymd_in_paht}/'
+    else:
+        download_url_root = f'https://download.china-vo.org/psp/KATS/{sys_name_root}/{year_in_path}/{ymd_in_paht}/'
     # download_url_root = r'https://download.china-vo.org/psp/east/2023/20230511/P033_22.22%2B35.0/'
     temp_path = r'E:/test_download'
     print(f'path: {temp_path}')
@@ -55,7 +58,7 @@ def scan_by_day_path(year_in_path, ymd_in_paht):
 
             # print(urls)
             download_file_counter = download_file_counter + 1
-        print(line)
+        # print(line)
 
     # 将匹配到的URL从bytes转换为strings
 
@@ -79,7 +82,7 @@ def scan_by_days(yyyymmdd_str, day_count):
         yyyymmdd = current_date.strftime('%Y%m%d')
         print(current_date.strftime('%Y-%m-%d'))
         print(f'{yyyy}   {yyyymmdd}')
-        url_list_by_day = scan_by_day_path(yyyy, yyyymmdd)
+        url_list_by_day = scan_by_day_path(yyyy, yyyymmdd, False)
         file_url_list_all_days.extend(url_list_by_day)
         # TODO add gy1-7
     #     TODO add new data 2024 to new db

@@ -1,3 +1,4 @@
+import matplotlib
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import fits
@@ -5,9 +6,12 @@ from scipy.ndimage import gaussian_filter
 from skimage import exposure
 from skimage.exposure import histogram
 from skimage.util import img_as_float
+matplotlib.use('TkAgg')
 
 # 替换为你的 FITS 文件路径
-fits_file_path = r'E:/test_download/img_check/23775.fits'
+# fits_file_path = r'E:/test_download/img_check/23775.fits'
+# fits_file_path = r'E:/test_download/img_check/8973.fits'
+fits_file_path = r'E:/test_download/img_check/1.fits'
 # fits_file_path = r'E:/test_download/img_check/25025.fits'
 
 # 使用 astropy 读取 FITS 文件
@@ -42,12 +46,17 @@ plt.show()
 # 检查直方图是否存在过曝的迹象
 # 通常，如果大量像素集中在直方图的右侧，可能表明图像过曝
 # 这里我们检查超过一定百分比（如 95%）的像素是否集中在最高的 5% 的 bin 中
-threshold_percentage = 95
-threshold_index = int(threshold_percentage / 100 * len(cdf))
-is_overexposed = cdf[-1] - cdf[threshold_index] > 0.9  # 阈值可能需要调整
-print(f' value  {cdf[-1] - cdf[threshold_index]}  > {0.9}')
+threshold_percentage_95 = 95
+threshold_index_95 = int(threshold_percentage_95 / 100 * len(cdf))
+threshold_percentage_10 = 3
+threshold_index_10 = int(threshold_percentage_10 / 100 * len(cdf))
+is_overexposed = cdf[-1] - cdf[threshold_index_95] > 0.9  # 阈值可能需要调整
+is_underexposed = cdf[-1] - cdf[threshold_index_10] < 0.1  # 阈值可能需要调整
+print(f' value  {cdf[-1] - cdf[threshold_index_95]}  > {0.9}')
+print(f' value  {cdf[-1] - cdf[threshold_index_10]}  < {0.1}')
 
 print(f"The image is {'---- overexposed' if is_overexposed else '++++ not overexposed'} .")
+print(f"The image is {'---- underexposed' if is_underexposed else '++++ not underexposed'} .")
 
 
 # # 将图像转换为 float 类型，范围在 0 到 1 之间

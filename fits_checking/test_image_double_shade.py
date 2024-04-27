@@ -1,11 +1,14 @@
+import matplotlib
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import fits
 from scipy.ndimage import median_filter, sobel
 from skimage import feature
+matplotlib.use('TkAgg')
 
 # 请确保这是您的 FITS 文件的实际路径
-fits_file_path = r'E:/test_download/img_check/lines.fit'
+# fits_file_path = r'E:/test_download/img_check/lines.fit'
+fits_file_path = r'E:/test_download/img_check/24904.fits'
 
 # 使用 astropy 读取 FITS 文件
 with fits.open(fits_file_path) as hdul:
@@ -59,7 +62,7 @@ ghost_edges = edges.copy()
 influenced_directions = (directions > dominant_angle - np.pi / 4) & \
                        (directions < dominant_angle + np.pi / 4)
 ghost_edges[influenced_directions] = 0
-
+print(f'{len(ghost_edges)}')
 # 可视化重影边缘
 plt.figure(figsize=(10, 5))
 plt.imshow(ghost_edges, cmap='gray', vmin=0, vmax=1)
