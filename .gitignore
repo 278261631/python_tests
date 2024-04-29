@@ -1,3 +1,4 @@
 /.idea
 /solve/wget.exe
 /solve/fits_wcs.db
+/solve/__pycache__

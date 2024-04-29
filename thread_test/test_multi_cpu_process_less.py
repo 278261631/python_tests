@@ -5,19 +5,20 @@ import time
 mp_lock = multiprocessing.Lock()
 
 
-def worker(data_queue, results_queue, name):
-    while not data_queue.empty():
+def worker(d_queue, r_queue, p_name):
+    while not d_queue.empty():
         try:
-            num = data_queue.get_nowait()  # 从队列中获取数据
+            num_item = d_queue.get_nowait()  # 从队列中获取数据
+            print(f'queue num  {num_item}')
         except Exception as e:
             break  # 如果队列为空，则结束进程
 
         # 使用锁来同步对共享资源的访问
         with mp_lock:
-            print(f"Process {name} is processing data: {num}")
-            time.sleep(1)  # 模拟耗时的工作
-            results_queue.put(num)  # 将结果放回结果队列
-            print(f"Process {name} has finished processing data: {num}")
+            print(f"Process {p_name} is processing data: ")
+            time.sleep(3)  # 模拟耗时的工作
+            r_queue.put(p_name)  # 将结果放回结果队列
+            print(f"Process {p_name} has finished processing data: ")
 
 
 if __name__ == '__main__':
@@ -40,7 +41,7 @@ if __name__ == '__main__':
 
     # 启动进程
     for i in range(MAX_CONCURRENT_PROCESSES):
-        name = f"Worker-{i+1}"
+        name = f"Worker_{i+1}"
         proc = multiprocessing.Process(target=worker, args=(data_queue, results_queue, name))
         processes.append(proc)
         proc.start()

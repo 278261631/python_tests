@@ -24,7 +24,7 @@ threshold_percentage_10 = 3
 conn_search = sqlite3.connect(db_path)
 cursor_search = conn_search.cursor()
 cursor_search.execute('''
-    SELECT id, file_path FROM image_info WHERE status = 0   limit 100
+    SELECT id, file_path FROM image_info WHERE status = 0   limit 17
 ''')
 db_search_result = cursor_search.fetchall()
 cursor_search.close()
@@ -66,37 +66,37 @@ def wget_download(search_result, identifier):
         proc.communicate()
 
         if proc.returncode == 0:
-            with fits.open(save_file_path) as hdul:
-                # 假设数据在第一个 HDU 中
-                data = hdul[0].data
-            hist, bin_edges = histogram(data)
-            # print(f'{len(hist)}   {len(bin_edges)}')
-            # 计算直方图的累积分布函数 (CDF)
-            cdf = np.cumsum(hist) / np.sum(hist)
-            threshold_index_95 = int(threshold_percentage_95 / 100 * len(cdf))
-            threshold_index_10 = int(threshold_percentage_10 / 100 * len(cdf))
-            is_overexposed = cdf[-1] - cdf[threshold_index_95] > 0.9
-            is_underexposed = cdf[-1] - cdf[threshold_index_10] < 0.1
-            exp_check_pass = not (is_underexposed or is_overexposed)
-            # blobs_dog = blob_dog(data, max_sigma=30, threshold=0.05)
-            # blobs_dog[:, 2] = blobs_dog[:, 2] * sqrt(2)
-            # blog_num = len(blobs_dog)
-            # all_check_pass = exp_check_pass and (blog_num > 200)
-            image_data_float = data.astype(np.float64)
-            bkg = sep.Background(image_data_float)
-            data_sub = image_data_float - bkg
-            objects = sep.extract(data_sub, 10, err=bkg.globalrms)
-            sep_obj_len = len(objects)
-            all_check_pass = exp_check_pass and (sep_obj_len > 200)
-
+            # with fits.open(save_file_path) as hdul:
+            #     # 假设数据在第一个 HDU 中
+            #     data = hdul[0].data
+            # hist, bin_edges = histogram(data)
+            # # print(f'{len(hist)}   {len(bin_edges)}')
+            # # 计算直方图的累积分布函数 (CDF)
+            # cdf = np.cumsum(hist) / np.sum(hist)
+            # threshold_index_95 = int(threshold_percentage_95 / 100 * len(cdf))
+            # threshold_index_10 = int(threshold_percentage_10 / 100 * len(cdf))
+            # is_overexposed = cdf[-1] - cdf[threshold_index_95] > 0.9
+            # is_underexposed = cdf[-1] - cdf[threshold_index_10] < 0.1
+            # exp_check_pass = not (is_underexposed or is_overexposed)
+            # # blobs_dog = blob_dog(data, max_sigma=30, threshold=0.05)
+            # # blobs_dog[:, 2] = blobs_dog[:, 2] * sqrt(2)
+            # # blog_num = len(blobs_dog)
+            # # all_check_pass = exp_check_pass and (blog_num > 200)
+            # image_data_float = data.astype(np.float64)
+            # bkg = sep.Background(image_data_float)
+            # data_sub = image_data_float - bkg
+            # objects = sep.extract(data_sub, 10, err=bkg.globalrms)
+            # sep_obj_len = len(objects)
+            # all_check_pass = exp_check_pass and (sep_obj_len > 200)
+            # TODO lock after all download?
             with lock:
                 conn = sqlite3.connect(db_path)
                 cursor = conn.cursor()
-                sql_str = f'UPDATE image_info SET status=1,' \
-                          f'chk_exp_hist={1 if exp_check_pass else -1},blob_dog_num={sep_obj_len},' \
-                          f'chk_result =  {1 if all_check_pass else -1},status=1 ' \
+                sql_str = f'UPDATE image_info SET status=1 ' \
                           f'WHERE id = {search_result[0]}'
                 cursor.execute(sql_str)
+                print(db_path)
+                print(sql_str)
                 conn.commit()
                 cursor.close()
                 conn.close()
