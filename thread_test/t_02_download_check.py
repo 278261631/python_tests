@@ -24,7 +24,7 @@ threshold_percentage_10 = 3
 conn_search = sqlite3.connect(db_path)
 cursor_search = conn_search.cursor()
 cursor_search.execute('''
-    SELECT id, file_path FROM image_info WHERE status = 0   limit 17
+    SELECT id, file_path FROM image_info WHERE status = 0   limit 11
 ''')
 db_search_result = cursor_search.fetchall()
 cursor_search.close()
