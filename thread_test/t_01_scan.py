@@ -10,7 +10,7 @@ db_path = config_manager.ini_config.get('database', 'path')
 temp_download_path = config_manager.ini_config.get('download', 'temp_download_path')
 recent_data = config_manager.ini_config.get('download', 'recent_data')
 
-start_day = '20240401'
+start_day = '20240301'
 day_count = 90
 
 lock = Lock()

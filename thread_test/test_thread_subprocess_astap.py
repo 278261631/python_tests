@@ -2,6 +2,7 @@ import os
 import subprocess
 from urllib.parse import urlparse
 
+from solve import config_manager
 from solve.scan_by_days import scan_by_days
 import sqlite3
 
@@ -9,12 +10,12 @@ import concurrent.futures
 import subprocess
 from threading import Lock
 
-# 连接到SQLite数据库
-conn = sqlite3.connect('../solve/fits_wcs.db')
+db_path = config_manager.ini_config.get('database', 'path')
+temp_download_path = config_manager.ini_config.get('download', 'temp_download_path')
+conn = sqlite3.connect(db_path)
 cursor = conn.cursor()
-temp_download_path = r'E:/test_download/thread/'
 cursor.execute('''
-    SELECT id, file_path FROM image_info WHERE status = 111 order by id desc  limit 1000
+    SELECT id, file_path FROM image_info WHERE status = 1 and chk_result=1 order by id desc  limit 1000
 ''')
 result = cursor.fetchall()
 cursor.close()
@@ -23,7 +24,7 @@ conn.close()
 lock = Lock()
 progress_info = {}
 # 最大同时下载的线程数
-MAX_DOWNLOADS = 2
+MAX_DOWNLOADS = 5
 
 
 def wget_download(url, identifier):
