@@ -117,8 +117,8 @@ def worker_check_fits(d_queue, r_queue, s_queue, p_name):
         astap_ra_h, astap_dec = get_ra_dec_from_path(d_item[1])
         astap_dec_spd = astap_dec + 90
         process = subprocess.Popen([solve_bin_path, '-ra', str(astap_ra_h), '-spd', str(astap_dec_spd),
-                                    '-s', '800',
-                                    '-z', '2', '-fov', '2', '-D', 'd50', '-r', '60', '-f',
+                                    '-s', '1000',
+                                    '-z', '1', '-fov', '2', '-D', 'd50', '-r', '60', '-f',
                                     solve_file_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         # print("the commandline is {}".format(process.args))
         print(" ".join(process.args))

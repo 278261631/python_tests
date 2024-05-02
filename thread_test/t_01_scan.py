@@ -8,15 +8,15 @@ from threading import Lock
 # 连接到SQLite数据库
 db_path = config_manager.ini_config.get('database', 'path')
 temp_download_path = config_manager.ini_config.get('download', 'temp_download_path')
-recent_data = config_manager.ini_config.get('download', 'recent_data')
+recent_data = config_manager.ini_config.get('download', 'recent_data') == 'True'
 
-start_day = '20240301'
-day_count = 90
+start_day = '20230101'
+day_count = 367
 
 lock = Lock()
 progress_info = {}
 # 最大线程数
-max_thread = 5
+max_thread = 10
 
 
 def calc_days_list(yyyymmdd_str, day_count_param):

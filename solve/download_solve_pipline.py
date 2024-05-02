@@ -8,6 +8,7 @@ from astropy import wcs
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
 
+from solve import config_manager
 from solve.scan_by_days import scan_by_days
 import sqlite3
 
@@ -48,13 +49,14 @@ def plane_normal_vector(p1, p2, p3):
 
 
 # 连接到SQLite数据库
-conn = sqlite3.connect('fits_wcs.db')
+db_path = config_manager.ini_config.get('database', 'path')
+temp_download_path = config_manager.ini_config.get('download', 'temp_download_path')
+conn = sqlite3.connect(db_path)
 cursor = conn.cursor()
-
 
 solve_bin_path = r'E:/Tycho-10.8.5Pro/Tycho.exe'
 solve_file_path_root = r'E:/test_download/tycho/'
-temp_download_path_root = r'E:/test_download/'
+
 # 清空目录里的文件
 if os.path.exists(solve_file_path_root):
     entries = os.listdir(solve_file_path_root)
@@ -65,13 +67,13 @@ if os.path.exists(solve_file_path_root):
             print(f'- remove  {full_path}')
 
 cursor.execute('''
-    SELECT id, file_path FROM image_info WHERE status = 1   limit 3000
+    SELECT id, file_path FROM image_info WHERE status = 1 and chk_result=1 and blob_dog_num>1000  limit 30000
 ''')
 result = cursor.fetchall()
 for idx, s_item in enumerate(result):
     parsed_url = urlparse(s_item[1])
     file_name = "{}.fits".format(s_item[0])
-    download_file_path = os.path.join(temp_download_path_root, file_name)
+    download_file_path = os.path.join(temp_download_path, file_name)
     solve_file_path = os.path.join(solve_file_path_root, file_name)
     print(f'process:  {idx} / {len(result)}    {s_item[0]}    {s_item[1]}')
     # 拷贝文件
