@@ -44,6 +44,10 @@ def scan_by_day_path(year_in_path, ymd_in_paht, recent_data, sys_name_root='GY6-
                 skip_counter = skip_counter + 1
                 # print(f' skip Calibration {line}')
                 continue
+            if urls[0].__contains__("_FZ"):
+                skip_counter = skip_counter + 1
+                # print(f' skip Calibration {line}')
+                continue
             # skip Kats Flat and fiel
             if urls[0].__contains__("Flat"):
                 skip_counter = skip_counter + 1

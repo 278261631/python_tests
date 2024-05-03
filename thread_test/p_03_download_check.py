@@ -25,7 +25,7 @@ threshold_percentage_10 = 3
 conn_search = sqlite3.connect(db_path)
 cursor_search = conn_search.cursor()
 cursor_search.execute('''
-    SELECT id, file_path FROM image_info WHERE status = 1 and chk_result is  null   limit 30000
+    SELECT id, file_path FROM image_info WHERE status = 1 and chk_result is  null    limit 200000
 ''')
 db_search_result = cursor_search.fetchall()
 cursor_search.close()
@@ -47,10 +47,21 @@ def worker_check_fits(d_queue, r_queue, p_name):
         file_name = "{}.fits".format(d_item[0])
         save_file_path = os.path.join(temp_download_path, file_name)
         print(f'[{d_item[0]}]:{file_name}       {p_name} {r_queue.qsize() + 1} / {len(db_search_result)}')
-
-        with fits.open(save_file_path) as hdul:
-            # 假设数据在第一个 HDU 中
-            data = hdul[0].data
+        try:
+            with fits.open(save_file_path) as hdul:
+                # 假设数据在第一个 HDU 中
+                data = hdul[0].data
+        except (FileNotFoundError, OSError):
+            with mp_lock:
+                conn = sqlite3.connect(db_path)
+                cursor = conn.cursor()
+                sql_str = f'UPDATE image_info SET status=0 ' \
+                          f'WHERE id = {d_item[0]}'
+                cursor.execute(sql_str)
+                conn.commit()
+                cursor.close()
+                conn.close()
+            continue
         hist, bin_edges = histogram(data)
         # print(f'{len(hist)}   {len(bin_edges)}')
         # 计算直方图的累积分布函数 (CDF)
@@ -66,8 +77,20 @@ def worker_check_fits(d_queue, r_queue, p_name):
         data_sub = image_data_float - bkg
         try:
             objects = sep.extract(data_sub, 10, err=bkg.globalrms)
-        except Exception as e:
+        except (FileNotFoundError, Exception) as e:
             print(e)
+            print(f'err:  {d_item[0]}  {d_item[1]}')
+            with mp_lock:
+                conn = sqlite3.connect(db_path)
+                cursor = conn.cursor()
+                sql_str = f'UPDATE image_info SET status=-1,  ' \
+                          f'chk_exp_hist=-1,blob_dog_num=-1,' \
+                          f'chk_result =  -1 ' \
+                          f'WHERE id = {d_item[0]}'
+                cursor.execute(sql_str)
+                conn.commit()
+                cursor.close()
+                conn.close()
             continue
         sep_obj_len = len(objects)
         all_check_pass = exp_check_pass and (sep_obj_len > 200)
@@ -77,7 +100,7 @@ def worker_check_fits(d_queue, r_queue, p_name):
             cursor = conn.cursor()
             sql_str = f'UPDATE image_info SET status=1,' \
                       f'chk_exp_hist={1 if exp_check_pass else -1},blob_dog_num={sep_obj_len},' \
-                      f'chk_result =  {1 if all_check_pass else -1},status=1 ' \
+                      f'chk_result =  {1 if all_check_pass else -1} ' \
                       f'WHERE id = {d_item[0]}'
             cursor.execute(sql_str)
             # print(f'{sql_str}')
