@@ -20,7 +20,7 @@ temp_download_path = config_manager.ini_config.get('download', 'temp_download_pa
 conn_search = sqlite3.connect(db_path)
 cursor_search = conn_search.cursor()
 cursor_search.execute('''
-    SELECT id, file_path FROM image_info WHERE status = 0   limit 100000
+    SELECT id, file_path FROM image_info WHERE status = 0   limit 5000
 ''')
 db_search_result = cursor_search.fetchall()
 cursor_search.close()
@@ -29,7 +29,7 @@ conn_search.close()
 # 创建一个锁
 mp_lock = multiprocessing.Lock()
 # 最大线程数
-max_process = 15
+max_process = 6
 
 
 def worker_download_fits(d_queue, r_queue, p_name):
@@ -42,21 +42,31 @@ def worker_download_fits(d_queue, r_queue, p_name):
         file_name = "{}.fits".format(d_item[0])
         save_file_path = os.path.join(temp_download_path, file_name)
         print(f'[{d_item[0]}]:{file_name}       {p_name} {r_queue.qsize()} / {len(db_search_result)}')
-
+        download_code = 0
         with subprocess.Popen(["wget", "-O", save_file_path, "-nd", "--no-check-certificate", d_item[1]],
                               stdout=subprocess.PIPE, stderr=subprocess.PIPE) \
                 as proc_down:
             print("the commandline is {}".format(proc_down.args))
-            proc_down.communicate()
+            stdout_data, stderr_data = proc_down.communicate()
+            if proc_down.returncode == 0:
+                download_code = 1
+            else:
+                download_code = 301
+                if stderr_data.decode().__contains__('ERROR 404'):
+                    download_code = 404
+                os.remove(save_file_path)
+                print(f'xxx')
+            # print("Output:\n", stdout_data.decode())
+            # print("-------:\n", stderr_data.decode())
 
         with mp_lock:
             conn = sqlite3.connect(db_path)
             cursor = conn.cursor()
-            sql_str = f'UPDATE image_info SET status=1 ' \
+            sql_str = f'UPDATE image_info SET status={download_code} ' \
                       f'WHERE id = {d_item[0]}'
             cursor.execute(sql_str)
             print(f'{sql_str}')
-            print(f'{db_path}')
+            # print(f'{db_path}')
             conn.commit()
             cursor.close()
             conn.close()
