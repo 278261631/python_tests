@@ -124,7 +124,7 @@ def get_ra_dec_from_path(url_path):
     k_string = None
     if len(matches) > 1:
         k_string = matches[0]
-        print(f'K__ ra dec   {matches[0]}  {k_data_dict[k_string][0]}   {k_data_dict[k_string][1]}')
+        # print(f'K__ ra dec   {matches[0]}  {k_data_dict[k_string][0]}   {k_data_dict[k_string][1]}')
 
     return k_data_dict[k_string]
 
