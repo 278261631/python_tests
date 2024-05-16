@@ -52,15 +52,15 @@ def worker_check_fits(d_queue, r_queue, p_name):
                 # 假设数据在第一个 HDU 中
                 data = hdul[0].data
         except (FileNotFoundError, OSError):
-            with mp_lock:
-                conn = sqlite3.connect(db_path)
-                cursor = conn.cursor()
-                sql_str = f'UPDATE image_info SET status=0 ' \
-                          f'WHERE id = {d_item[0]}'
-                cursor.execute(sql_str)
-                conn.commit()
-                cursor.close()
-                conn.close()
+            # with mp_lock:
+            #     conn = sqlite3.connect(db_path)
+            #     cursor = conn.cursor()
+            #     sql_str = f'UPDATE image_info SET status=0 ' \
+            #               f'WHERE id = {d_item[0]}'
+            #     cursor.execute(sql_str)
+            #     conn.commit()
+            #     cursor.close()
+            #     conn.close()
             continue
         hist, bin_edges = histogram(data)
         # print(f'{len(hist)}   {len(bin_edges)}')

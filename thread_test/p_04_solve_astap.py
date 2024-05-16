@@ -99,7 +99,7 @@ def worker_check_fits(d_queue, r_queue, s_queue, p_name):
         download_file_path = os.path.join(temp_download_path, file_name)
         solve_file_path = os.path.join(solve_file_path_root, file_name)
         print(f'process:  {r_queue.qsize()+1}/{s_queue.qsize()} / {len(db_search_result)}    '
-              f'{d_item[0]}    {d_item[1]}   [{p_name}]')
+              f'{d_item[0]}.fits    {d_item[1]}   [{p_name}]')
         # 拷贝文件
         try:
             shutil.copy(download_file_path, solve_file_path)
@@ -109,7 +109,7 @@ def worker_check_fits(d_queue, r_queue, s_queue, p_name):
                 cursor = conn.cursor()
                 sql_str = f'UPDATE image_info SET status=-1 WHERE id = {d_item[0]}'
                 print(sql_str)
-                cursor.execute(sql_str)
+                # cursor.execute(sql_str)
                 conn.commit()
                 cursor.close()
                 conn.close()

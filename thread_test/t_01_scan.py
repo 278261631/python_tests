@@ -1,4 +1,6 @@
 import datetime
+import re
+
 from solve import config_manager
 from solve.scan_by_days import scan_by_day_path
 import sqlite3
@@ -10,8 +12,8 @@ db_path = config_manager.ini_config.get('database', 'path')
 temp_download_path = config_manager.ini_config.get('download', 'temp_download_path')
 recent_data = config_manager.ini_config.get('download', 'recent_data') == 'True'
 
-start_day = '20230101'
-day_count = 367
+start_day = '20211229'
+day_count = 4
 
 lock = Lock()
 progress_info = {}
@@ -58,16 +60,40 @@ def wget_scan(item_yyyy, item_ymd, identifier):
     with lock:
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
+        date_time_pattern = re.compile(r"UTC(\d{8})_(\d{6})_")
+        gy_pattern = re.compile(r"GY(\d)")
+        k_pattern = re.compile(r"K(\d+)")
         for idx, item in enumerate(file_url_list_all_days):
             cursor.execute('''
                 SELECT 1 FROM image_info WHERE file_path = ?
             ''', (item,))
             result = cursor.fetchone()
             if not result:
-                cursor.execute('''
-                    INSERT INTO image_info (file_path, status)
-                    VALUES (?,?)
-                ''', (item, 0))
+                # 使用正则表达式提取年月日时分秒
+                match = date_time_pattern.search(item)
+                if match:
+                    year_month_day = match.group(1)  # 年月日
+                    hour_minute_second = match.group(2)  # 时分秒
+                    # print(f"Date: {year_month_day}, Time: {hour_minute_second}")
+
+                # 提取"K011"和"GY1"
+                match = gy_pattern.search(item)
+                gy_sys_id = ''
+                k_id = ''
+                if match:
+                    gy_sys_id = match.group(1)  # "K011" 或者其他匹配的标识符
+                    # print(f"Identifier: {gy_sys_id}  {k_id}")
+                else:
+                    print(f'---!!no gy')
+                match = k_pattern.search(item)
+                if match:
+                    k_id = match.group(1)
+                else:
+                    print(f'---!!no kid')
+                sql_str = f'INSERT INTO image_info (id, file_path, status) VALUES ({gy_sys_id}{k_id}' \
+                          f'{year_month_day}{hour_minute_second},"{item}",{0})'
+                print(sql_str)
+                cursor.execute(sql_str)
                 if idx % 10 == 0:
                     print(f'{idx}/ {len(file_url_list_all_days)} {item}')
         # 提交所有更改
