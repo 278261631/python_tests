@@ -124,7 +124,19 @@ def get_ra_dec_from_path(url_path):
     k_string = None
     if len(matches) > 1:
         k_string = matches[0]
-        # print(f'K__ ra dec   {matches[0]}  {k_data_dict[k_string][0]}   {k_data_dict[k_string][1]}')
+        print(f'++K__ ra dec   {matches[0]}  {k_data_dict[k_string][0]}   {k_data_dict[k_string][1]}')
+    else:
+        print(f'--K__')
+        if '_KK' in url_path:
+            k_string = 'K021'
+        else:
+            if '_ST_' in url_path:
+                k_string = 'K021'
+            else:
+                # GY3_38-1
+                k_string = 'K038'
+
+        print(f'--{k_string}')
 
     return k_data_dict[k_string]
 
