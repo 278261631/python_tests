@@ -23,7 +23,7 @@ temp_download_path = config_manager.ini_config.get('download', 'temp_download_pa
 conn_search = sqlite3.connect(db_path)
 cursor_search = conn_search.cursor()
 cursor_search.execute('''
-    SELECT id, file_path FROM image_info WHERE status = 1 and chk_result=1  limit 30000
+    SELECT id, file_path FROM image_info WHERE status = 1 and chk_result=1 and id > 820210926172002  limit 30000
 ''')
 db_search_result = cursor_search.fetchall()
 cursor_search.close()
@@ -32,7 +32,7 @@ conn_search.close()
 # 创建一个锁
 mp_lock = multiprocessing.Lock()
 # 最大线程数
-max_process = 10
+max_process = 1
 
 
 def vector_plane_angle(e, n):

@@ -14,8 +14,8 @@ import subprocess
 
 
 # 连接到SQLite数据库
-db_path = config_manager.ini_config.get('database', 'path')
-temp_download_path = config_manager.ini_config.get('download', 'temp_download_path')
+db_path = 'fits_wcs_2022_456.db'
+temp_download_path = 'e:/2022_456/'
 
 conn_search = sqlite3.connect(db_path)
 cursor_search = conn_search.cursor()
