@@ -1,4 +1,3 @@
-
 import multiprocessing
 import os
 import shutil
@@ -16,23 +15,22 @@ from astropy import wcs
 from solve.test_name_to_ra_dec import get_ra_dec_from_path
 
 # 连接到SQLite数据库
-db_path = config_manager.ini_config.get('database', 'path')
-temp_download_path = config_manager.ini_config.get('download', 'temp_download_path')
-
+db_path = 'fits_wcs_2022_789.db'
+temp_download_path = 'e:/2022_789/'
+temp_txt_path_chk = 'c:/2022_789_chk'
+temp_txt_path_solve = 'e:/2022_789_solve'
 
 conn_search = sqlite3.connect(db_path)
 cursor_search = conn_search.cursor()
 cursor_search.execute('''
-    SELECT id, file_path FROM image_info WHERE status = 101 and chk_result=1 and blob_dog_num>2000  limit 30000
+    SELECT id, file_path FROM image_info WHERE status = 1   limit 60000
 ''')
 db_search_result = cursor_search.fetchall()
 cursor_search.close()
 conn_search.close()
 
-# 创建一个锁
-mp_lock = multiprocessing.Lock()
 # 最大线程数
-max_process = 16
+max_process = 12
 
 
 def vector_plane_angle(e, n):
@@ -47,7 +45,7 @@ def vector_plane_angle(e, n):
     angle_rad = np.arccos(cos_theta)
     # 将夹角的弧度值转换为度数
     angle_deg_from_rad = np.degrees(angle_rad)
-    print(f'dot product    {dot_product}    theta_rad  {angle_rad}  angle_deg   {angle_deg_from_rad}')
+    # print(f'dot product    {dot_product}    theta_rad  {angle_rad}  angle_deg   {angle_deg_from_rad}')
     return angle_deg_from_rad
 
 
@@ -79,8 +77,7 @@ def worker_check_fits(d_queue, r_queue, s_queue, p_name):
         except Exception as e:
             break  # 如果队列为空，则结束进程
 
-        with mp_lock:
-            r_queue.put(d_item[0])
+        r_queue.put(d_item[0])
         solve_bin_path = r'E:/astap/astap.exe'
         solve_file_path_root = r'E:/test_download/astap/'
         # # 清空目录里的文件
@@ -98,64 +95,40 @@ def worker_check_fits(d_queue, r_queue, s_queue, p_name):
         ini_file_path = os.path.join(solve_file_path_root, file_name_ini)
         download_file_path = os.path.join(temp_download_path, file_name)
         solve_file_path = os.path.join(solve_file_path_root, file_name)
-        print(f'process:  {r_queue.qsize()+1}/{s_queue.qsize()} / {len(db_search_result)}    '
+        file_name_txt = "{}.txt".format(d_item[0])
+        save_file_path_txt = os.path.join(temp_txt_path_solve, file_name_txt)
+        print(f'process:  {r_queue.qsize() + 1}/{s_queue.qsize()} / {len(db_search_result)}    '
               f'{d_item[0]}.fits    {d_item[1]}   [{p_name}]')
         # 拷贝文件
         try:
             shutil.copy(download_file_path, solve_file_path)
         except IOError:
-            with mp_lock:
-                conn = sqlite3.connect(db_path)
-                cursor = conn.cursor()
-                sql_str = f'UPDATE image_info SET status=-1 WHERE id = {d_item[0]}'
-                print(sql_str)
-                # cursor.execute(sql_str)
-                conn.commit()
-                cursor.close()
-                conn.close()
+            print(f'-1  file not found{download_file_path}')
             continue
         astap_ra_h, astap_dec = get_ra_dec_from_path(d_item[1])
         astap_dec_spd = astap_dec + 90
         process = subprocess.Popen([solve_bin_path, '-ra', str(astap_ra_h), '-spd', str(astap_dec_spd),
-        # process = subprocess.Popen([solve_bin_path, '-ra', '106', '-spd', '141',
+                                    # process = subprocess.Popen([solve_bin_path, '-ra', '106', '-spd', '141',
                                     '-s', '1000',
                                     '-z', '1', '-fov', '2', '-D', 'd50', '-r', '180', '-f',
                                     solve_file_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         # print("the commandline is {}".format(process.args))
-        print(" ".join(process.args))
+        # print(" ".join(process.args))
         process.communicate()
         process.wait()
         if process.returncode == 0:
-            print("tycho was successful.")
+            # print("tycho was successful.")
             if not os.path.exists(wcs_file_path):
-                with mp_lock:
-                    conn = sqlite3.connect(db_path)
-                    cursor = conn.cursor()
-                    print("tycho failed.")
-                    print("Error message:", process.stderr)
-                    sql_str = f'UPDATE image_info SET status=101 WHERE id = {d_item[0]}'
-                    print(sql_str)
-                    cursor.execute(sql_str)
-                    conn.commit()
-                    cursor.close()
-                    conn.close()
-                    os.remove(solve_file_path)
-                    continue
-        else:
-            with mp_lock:
-                conn = sqlite3.connect(db_path)
-                cursor = conn.cursor()
-                print("tycho failed.")
-                print("Error message:", process.stderr)
-                sql_str = f'UPDATE image_info SET status=101 WHERE id = {d_item[0]}'
-                print(sql_str)
-                cursor.execute(sql_str)
-                conn.commit()
-                cursor.close()
-                conn.close()
+                print(f'-1  file not found{wcs_file_path}')
                 os.remove(solve_file_path)
-                os.remove(ini_file_path)
                 continue
+        else:
+            print(f'astap error {download_file_path}')
+            with open(save_file_path_txt, 'w', encoding='utf-8') as file:
+                file.write(f'{file_name_txt},{d_item[0]},{101}')
+            os.remove(solve_file_path)
+            os.remove(ini_file_path)
+            continue
         # 检测wcs
 
         # 读取文本文件并解析每一行以提取头信息
@@ -184,28 +157,19 @@ def worker_check_fits(d_queue, r_queue, s_queue, p_name):
 
         wcs_info = wcs.WCS(header_dict)
 
-        print(wcs_info)
+        # print(wcs_info)
         header_string = wcs_info.to_header_string()
-        print(header_string)
+        # print(header_string)
         # wcs_info_load = wcs.WCS(header_string)
-        print('-----------------')
-        print(wcs_info.wcs.crval)
-        print(f'{len(wcs_info.wcs.crpix)}    {wcs_info.wcs.crpix}')
+        # print('-----------------')
+        # print(wcs_info.wcs.crval)
+        # print(f'{len(wcs_info.wcs.crpix)}    {wcs_info.wcs.crpix}')
         if wcs_info.wcs.crpix[0] < 2 or wcs_info.wcs.crpix[1] < 2:
-            with mp_lock:
-                conn = sqlite3.connect(db_path)
-                cursor = conn.cursor()
-                print(f'-------- skip crpix = 0  {d_item[0]}    {d_item[1]} ---------')
-                sql_str = f'UPDATE image_info SET status=101 WHERE id = {d_item[0]}'
-                print(sql_str)
-                cursor.execute(sql_str)
-                conn.commit()
-                cursor.close()
-                conn.close()
-                os.remove(solve_file_path)
-                os.remove(ini_file_path)
-
-            # os.remove(solve_file_path)
+            print(f'wcs chk error {download_file_path}')
+            with open(save_file_path_txt, 'w', encoding='utf-8') as file:
+                file.write(f'{file_name_txt},{d_item[0]},{101}')
+            os.remove(solve_file_path)
+            os.remove(ini_file_path)
             continue
         try:
             print(wcs_info.wcs.cd)
@@ -216,22 +180,22 @@ def worker_check_fits(d_queue, r_queue, s_queue, p_name):
             os.remove(ini_file_path)
             os.remove(wcs_file_path)
             continue
-        print('-----------------')
+        # print('-----------------')
 
         with fits.open(solve_file_path) as fits_hdul:
             hdul = fits_hdul
             image_data = hdul[0].data
         # 获取图像的宽度和高度
         width, height = image_data.shape[1], image_data.shape[0]
-        print(f'x: {width}  y:{height}    x/2 {(width + 1) / 2}   y/2 {(height + 1) / 2}')
+        # print(f'x: {width}  y:{height}    x/2 {(width + 1) / 2}   y/2 {(height + 1) / 2}')
         # 获取x y中点
         ra_mid_x, dec_mid_x = wcs_info.wcs_pix2world((width + 1) / 2, 0, 1)
         ra_mid_y, dec_mid_y = wcs_info.wcs_pix2world(0, (height + 1) / 2, 1)
         #  tycho 的识别结果有时候不是以图像中心点为 crpix ,会有少量偏移?
         ra_mid_img, dec_mid_img = wcs_info.wcs_pix2world((width + 1) / 2, (height + 1) / 2, 1)
         ra_corner_img, dec_corner_img = wcs_info.wcs_pix2world(0, 0, 1)
-        print(
-            f'x_mid: {ra_mid_x}  {dec_mid_x}    y_mid: {ra_mid_y}  {dec_mid_y}   img_mid: {ra_mid_img}  {dec_mid_img}  ')
+        # print(
+        #     f'x_mid: {ra_mid_x}  {dec_mid_x}    y_mid: {ra_mid_y}  {dec_mid_y}   img_mid: {ra_mid_img}  {dec_mid_img}  ')
         # 获取x y 中点 图像中心点image_c test_target cartesian坐标
         coord_img_center = SkyCoord(ra=ra_mid_img, dec=dec_mid_img, unit='deg')
         cartesian_img_center = coord_img_center.cartesian
@@ -241,7 +205,7 @@ def worker_check_fits(d_queue, r_queue, s_queue, p_name):
         cartesian_mid_x = coord_mid_x.cartesian
         coord_mid_y = SkyCoord(ra=ra_mid_y, dec=dec_mid_y, unit='deg')
         cartesian_mid_y = coord_mid_y.cartesian
-        print(f'center {coord_img_center}   {cartesian_img_center}   ')
+        # print(f'center {coord_img_center}   {cartesian_img_center}   ')
         o_center = [0, 0, 0]
         img_center = [cartesian_img_center.x, cartesian_img_center.y, cartesian_img_center.z]
         img_x_center = [cartesian_mid_x.x, cartesian_mid_x.y, cartesian_mid_x.z]
@@ -252,51 +216,74 @@ def worker_check_fits(d_queue, r_queue, s_queue, p_name):
 
         theta_deg_corner_to_x = vector_plane_angle(target_vector, plane_normal_vector_x)
         theta_deg_corner_to_x = abs(90 - theta_deg_corner_to_x)
-        print(f'v {cartesian_img_corner}  {plane_normal_vector_x}')
-        print(
-            f"img corner to x_plan deg: {theta_deg_corner_to_x}   {coord_mid_y}  {cartesian_mid_y}  to {cartesian_img_center} ")
+        # print(f'v {cartesian_img_corner}  {plane_normal_vector_x}')
+        # print(
+        #     f"img corner to x_plan deg: {theta_deg_corner_to_x}   {coord_mid_y}  {cartesian_mid_y}  to {cartesian_img_center} ")
 
         theta_deg_corner_to_y = vector_plane_angle(target_vector, plane_normal_vector_y)
         theta_deg_corner_to_y = abs(90 - theta_deg_corner_to_y)
-        print(f'v {cartesian_img_corner}  {plane_normal_vector_y}')
-        print(
-            f"img corner to y_plan deg: {theta_deg_corner_to_y}   {coord_mid_y}  {cartesian_mid_y}  to {cartesian_img_center} ")
-        with mp_lock:
-            conn = sqlite3.connect(db_path)
-            cursor = conn.cursor()
-            sql_str = f'UPDATE image_info SET status=100, wcs_info ="{wcs_info.to_header_string()}", center_v_x={cartesian_img_center.x},' \
-                      f' center_v_y={cartesian_img_center.y}, center_v_z={cartesian_img_center.z},' \
-                      f' a_v_x={cartesian_mid_x.x}, a_v_y={cartesian_mid_x.y}, a_v_z={cartesian_mid_x.z},' \
-                      f'center_a_theta={theta_deg_corner_to_x},' \
-                      f' b_v_x={cartesian_mid_y.x}, b_v_y={cartesian_mid_y.y}, b_v_z={cartesian_mid_y.z}, ' \
-                      f'center_b_theta={theta_deg_corner_to_y},' \
-                      f'a_n_x={plane_normal_vector_x[0]}, a_n_y={plane_normal_vector_x[1]},a_n_z={plane_normal_vector_x[2]},' \
-                      f'b_n_x={plane_normal_vector_y[0]}, b_n_y={plane_normal_vector_y[1]},b_n_z={plane_normal_vector_y[2]}' \
-                      f'  WHERE id = {d_item[0]}'
-            print(sql_str)
+        # print(f'v {cartesian_img_corner}  {plane_normal_vector_y}')
+        # print(
+        #     f"img corner to y_plan deg: {theta_deg_corner_to_y}   {coord_mid_y}  {cartesian_mid_y}  to {cartesian_img_center} ")
 
-            cursor.execute(sql_str)
-            conn.commit()
-            cursor.close()
-            conn.close()
-            # 删除文件
-            os.remove(solve_file_path)
-            os.remove(wcs_file_path)
-            os.remove(ini_file_path)
-            s_queue.put(d_item[0])
+        sql_str = f'UPDATE image_info SET status=100, wcs_info ="{wcs_info.to_header_string()}", center_v_x={cartesian_img_center.x},' \
+                  f' center_v_y={cartesian_img_center.y}, center_v_z={cartesian_img_center.z},' \
+                  f' a_v_x={cartesian_mid_x.x}, a_v_y={cartesian_mid_x.y}, a_v_z={cartesian_mid_x.z},' \
+                  f'center_a_theta={theta_deg_corner_to_x},' \
+                  f' b_v_x={cartesian_mid_y.x}, b_v_y={cartesian_mid_y.y}, b_v_z={cartesian_mid_y.z}, ' \
+                  f'center_b_theta={theta_deg_corner_to_y},' \
+                  f'a_n_x={plane_normal_vector_x[0]}, a_n_y={plane_normal_vector_x[1]},a_n_z={plane_normal_vector_x[2]},' \
+                  f'b_n_x={plane_normal_vector_y[0]}, b_n_y={plane_normal_vector_y[1]},b_n_z={plane_normal_vector_y[2]}' \
+                  f'  WHERE id = {d_item[0]}'
+        with open(save_file_path_txt, 'w', encoding='utf-8') as file:
+            file.write(f'{file_name_txt},{d_item[0]},{100},{wcs_info.to_header_string()},{cartesian_img_center.x},'
+                       f'{cartesian_img_center.y},{cartesian_img_center.z},'
+                       f'{cartesian_mid_x.x},{cartesian_mid_x.y},{cartesian_mid_x.z},'
+                       f'{theta_deg_corner_to_x},'
+                       f'{cartesian_mid_y.x},{cartesian_mid_y.y},{cartesian_mid_y.z},'
+                       f'{theta_deg_corner_to_y},'
+                       f'{plane_normal_vector_x[0]},{plane_normal_vector_x[1]},{plane_normal_vector_x[2]},'
+                       f'{plane_normal_vector_y[0]},{plane_normal_vector_y[1]},{plane_normal_vector_y[2]},'
+                       f'{d_item[0]}')
+        # print(sql_str)
+
+        # 删除文件
+        os.remove(solve_file_path)
+        os.remove(wcs_file_path)
+        os.remove(ini_file_path)
+        s_queue.put(d_item[0])
 
 
 if __name__ == '__main__':
     data_queue = multiprocessing.Queue()
     results_queue = multiprocessing.Queue()
     success_queue = multiprocessing.Queue()
+    print(f'len: {len(db_search_result)}')
     for search_item in db_search_result:
-        data_queue.put(search_item)
+        file_name_txt_chk = "{}.txt".format(search_item[0])
+        file_name_txt_solve = "{}.txt".format(search_item[0])
+        save_file_path_txt_chk = os.path.join(temp_txt_path_chk, file_name_txt_chk)
+        save_file_path_txt_solve = os.path.join(temp_txt_path_solve, file_name_txt_solve)
+        if os.path.exists(save_file_path_txt_chk):
+            if os.path.exists(save_file_path_txt_solve):
+                print(f'ss  {save_file_path_txt_solve}')
+            else:
+                with open(save_file_path_txt_chk, 'r', encoding='utf-8') as file:
+                    line = file.readline()
+                    parts = line.split(',')
+                    print(parts)
+                if parts[4] == '1':
+                    print(f'++')
+                    data_queue.put(search_item)
+                else:
+                    print(f'xx')
+        else:
+            print(f'no chk')
     processes = []
 
     # 启动进程
     for i in range(max_process):
-        name = f"p_{i+1}"
+        name = f"p_{i + 1}"
         proc = multiprocessing.Process(target=worker_check_fits, args=(data_queue, results_queue, success_queue, name))
         processes.append(proc)
         proc.start()
@@ -305,11 +292,6 @@ if __name__ == '__main__':
     for proc in processes:
         proc.join()
 
-    # 打印结果
-    # while not results_queue.empty():
-    #     print(f"Result: {results_queue.get()}")
     print(f'[{results_queue.qsize()}]')
 
     print("All tasks have been completed.")
-
-

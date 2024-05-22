@@ -5,12 +5,12 @@ import subprocess
 
 
 # 连接到SQLite数据库
-db_path = 'fits_wcs_2021.db'
-temp_download_path = 'e:/2021/'
+db_path = 'fits_wcs_2022_456.db'
+temp_download_path = 'e:/2022_456/'
 
 conn_search = sqlite3.connect(db_path)
 cursor_search = conn_search.cursor()
-remove_sql = f'SELECT id, file_path FROM image_info WHERE status = 100 and wcs_info is not null   limit 20000'
+remove_sql = f'SELECT id, file_path FROM image_info WHERE status = 100 and wcs_info is not null   limit 40000'
 cursor_search.execute(remove_sql)
 db_search_result = cursor_search.fetchall()
 cursor_search.close()

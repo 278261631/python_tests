@@ -24,7 +24,7 @@ temp_download_path = config_manager.ini_config.get('download', 'temp_download_pa
 conn_search = sqlite3.connect(db_path)
 cursor_search = conn_search.cursor()
 cursor_search.execute('''
-    SELECT id, file_path FROM image_info WHERE status = 0   limit 1
+    SELECT id, file_path FROM image_info WHERE status = 0   limit 30000
 ''')
 db_search_result = cursor_search.fetchall()
 cursor_search.close()
@@ -33,7 +33,7 @@ conn_search.close()
 # 创建一个锁
 mp_lock = multiprocessing.Lock()
 # 最大线程数
-max_process = 1
+max_process = 16
 #  拥挤在过曝区域 %5
 threshold_percentage_95 = 95
 # 拥挤在低曝光 3% 的范围
@@ -207,7 +207,16 @@ def worker_download_fits(d_queue, r_queue, s_queue, p_name):
                     cursor.close()
                     conn.close()
                 continue
-            astap_ra_h, astap_dec = get_ra_dec_from_path(d_item[1])
+            print(f'-- {d_item[1]}')
+            if len(d_item[1]) == 1:
+                print(f'-- {d_item[1]}')
+            try:
+                astap_ra_h, astap_dec = get_ra_dec_from_path(d_item[1])
+            except Exception as ex:
+                print(ex)
+                # astap_ra_h = 0
+                # astap_dec = 0
+                continue
             astap_dec_spd = astap_dec + 90
             process = subprocess.Popen([solve_bin_path, '-ra', str(astap_ra_h), '-spd', str(astap_dec_spd),
                                         '-s', '1000',
