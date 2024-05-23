@@ -20,8 +20,7 @@ temp_download_path = 'e:/2022_789/'
 threshold_percentage_95 = 95
 # 拥挤在低曝光 3% 的范围
 threshold_percentage_10 = 2
-temp_txt_path = 'c:/2022_789'
-
+temp_txt_path = 'e:/2022_789_chk'
 
 conn_search = sqlite3.connect(db_path)
 cursor_search = conn_search.cursor()
@@ -34,10 +33,11 @@ cursor_search.close()
 conn_search.close()
 
 # 最大线程数
-max_process = 12
+max_process = 8
 
 
 def worker_check_fits(d_queue, r_queue, p_name):
+    d_queue_size = d_queue.qsize()
     while not d_queue.empty():
         try:
             d_item = d_queue.get_nowait()  # 从队列中获取数据
@@ -48,7 +48,7 @@ def worker_check_fits(d_queue, r_queue, p_name):
         file_name_txt = "{}.txt".format(d_item[0])
         save_file_path = os.path.join(temp_download_path, file_name)
         save_file_path_txt = os.path.join(temp_txt_path, file_name_txt)
-        print(f'[{d_item[0]}]:{file_name}       {p_name} {r_queue.qsize() + 1} / {len(db_search_result)}')
+        print(f'[{d_item[0]}]:{file_name}       {p_name} {r_queue.qsize() + 1} / {d_queue_size}')
         if os.path.exists(save_file_path_txt):
             print(f'SS')
             continue

@@ -20,7 +20,7 @@ temp_download_path = 'e:/2022_789/'
 conn_search = sqlite3.connect(db_path)
 cursor_search = conn_search.cursor()
 cursor_search.execute('''
-    SELECT id, file_path FROM image_info WHERE status = 0   limit 10000
+    SELECT id, file_path FROM image_info WHERE status = 0   limit 2000
 ''')
 db_search_result = cursor_search.fetchall()
 cursor_search.close()

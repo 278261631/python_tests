@@ -70,6 +70,7 @@ def plane_normal_vector(p1, p2, p3):
 
 
 def worker_check_fits(d_queue, r_queue, s_queue, p_name):
+    d_queue_size = d_queue.qsize()
     while not d_queue.empty():
         try:
             d_item = d_queue.get_nowait()  # 从队列中获取数据
@@ -97,7 +98,7 @@ def worker_check_fits(d_queue, r_queue, s_queue, p_name):
         solve_file_path = os.path.join(solve_file_path_root, file_name)
         file_name_txt = "{}.txt".format(d_item[0])
         save_file_path_txt = os.path.join(temp_txt_path_solve, file_name_txt)
-        print(f'process:  {r_queue.qsize() + 1}/{s_queue.qsize()} / {len(db_search_result)}    '
+        print(f'process:  {r_queue.qsize() + 1}/{s_queue.qsize()} / {d_queue_size}    '
               f'{d_item[0]}.fits    {d_item[1]}   [{p_name}]')
         # 拷贝文件
         try:
@@ -252,6 +253,8 @@ def worker_check_fits(d_queue, r_queue, s_queue, p_name):
         os.remove(wcs_file_path)
         os.remove(ini_file_path)
         s_queue.put(d_item[0])
+        print(f'process:  {r_queue.qsize() + 1}/{s_queue.qsize()} / {len(db_search_result)}    '
+              f'{d_item[0]}.fits    {d_item[0]}   [{p_name}]')
 
 
 if __name__ == '__main__':
@@ -264,21 +267,37 @@ if __name__ == '__main__':
         file_name_txt_solve = "{}.txt".format(search_item[0])
         save_file_path_txt_chk = os.path.join(temp_txt_path_chk, file_name_txt_chk)
         save_file_path_txt_solve = os.path.join(temp_txt_path_solve, file_name_txt_solve)
-        if os.path.exists(save_file_path_txt_chk):
-            if os.path.exists(save_file_path_txt_solve):
-                print(f'ss  {save_file_path_txt_solve}')
-            else:
-                with open(save_file_path_txt_chk, 'r', encoding='utf-8') as file:
-                    line = file.readline()
-                    parts = line.split(',')
-                    print(parts)
-                if parts[4] == '1':
-                    print(f'++')
-                    data_queue.put(search_item)
-                else:
-                    print(f'xx')
+        # if os.path.exists(save_file_path_txt_chk):
+        #     if os.path.exists(save_file_path_txt_solve):
+        #         print(f'ss  {save_file_path_txt_solve}')
+        #     else:
+        #         with open(save_file_path_txt_chk, 'r', encoding='utf-8') as file:
+        #             line = file.readline()
+        #             parts = line.split(',')
+        #             print(parts)
+        #         if parts[4] == '1':
+        #             print(f'++')
+        #             data_queue.put(search_item)
+        #         else:
+        #             print(f'xx')
+        # else:
+        #     print(f'no chk')
+
+        if os.path.exists(save_file_path_txt_solve):
+            print(f'ss  {save_file_path_txt_solve}')
         else:
-            print(f'no chk')
+            print(f'++')
+            data_queue.put(search_item)
+            # with open(save_file_path_txt_chk, 'r', encoding='utf-8') as file:
+            #     line = file.readline()
+            #     parts = line.split(',')
+            #     print(parts)
+            # if parts[4] == '1':
+            #     print(f'++')
+            #     data_queue.put(search_item)
+            # else:
+            #     print(f'xx')
+
     processes = []
 
     # 启动进程
