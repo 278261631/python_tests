@@ -7,8 +7,8 @@ import sqlite3
 if __name__ == '__main__':
 
     # 连接到SQLite数据库
-    db_path = 'fits_wcs_2022_789.db'
-    temp_txt_path = 'e:/2022_789_solve'
+    db_path = 'fits_wcs_2022_101112.db'
+    temp_txt_path = 'e:/2022_101112_solve'
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
@@ -40,7 +40,7 @@ if __name__ == '__main__':
                       f'center_b_theta={parts[16]},' \
                       f'a_n_x={parts[17]}, a_n_y={parts[18]},a_n_z={parts[19]},' \
                       f'b_n_x={parts[20]}, b_n_y={parts[21]},b_n_z={parts[22]}' \
-                      f'  WHERE id = {parts[23]}'
+                      f'  WHERE id = {parts[23]} and status != 100'
             # print(sql_str)
             if file_index % 100 == 0:
                 conn.commit()
