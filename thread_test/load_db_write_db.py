@@ -10,7 +10,7 @@ if __name__ == '__main__':
     counter_fail = 0
     # 连接到SQLite数据库
     db_path_157 = 'fits_wcs_2022_123.db'
-    db_path_10 = 'fits_wcs_2022_101112.db'
+    db_path_10 = 'fits_wcs_2022.db'
     conn_157 = sqlite3.connect(db_path_157)
     cursor_157 = conn_157.cursor()
     conn_10 = sqlite3.connect(db_path_10)
