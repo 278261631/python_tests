@@ -127,3 +127,17 @@ select center_a_theta, abs(90-(degrees(acos(((-0.7351623107802017*t.a_n_x) +(0.3
 from  image_info as t where t.status=100 and t.center_a_theta>ta and t.center_b_theta>tb and file_path not like '%K028%'
 
 
+select
+        'av=('|| a_n_x ||',' || a_n_y ||',' || a_n_z || ')' as a_v,
+        'bv=('|| b_n_x ||',' || b_n_y ||',' || b_n_z || ')' as b_v,
+        'cv=('|| center_v_x ||',' || center_v_y ||',' || center_v_z || ')' as c_v,
+        'uv=('|| 0.968017583222184 ||',' || 0.17941145435133168 ||',' || 0.1753667260919871 || ')' as u_v,
+    id,file_path,wcs_info,center_a_theta,
+       abs(90-(degrees(acos(((0.968017583222184*t.a_n_x) +(0.17941145435133168*t.a_n_y)+(0.1753667260919871*t.a_n_z) ))))) as ta,center_b_theta,
+       abs(90-(degrees(acos(((0.968017583222184*t.b_n_x) +(0.17941145435133168*t.b_n_y)+(0.1753667260919871*t.b_n_z) ))))) as tb,
+       degrees(acos(((0.968017583222184*t.center_v_x) +(0.17941145435133168*t.center_v_y)+(0.1753667260919871*t.center_v_z) ))) as tc,
+
+       *
+from  image_info as t
+where t.status=100 and t.center_a_theta>ta and t.center_b_theta>tb and tc < 90
+

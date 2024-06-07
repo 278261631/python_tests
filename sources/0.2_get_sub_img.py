@@ -10,13 +10,13 @@ from matplotlib.patches import Circle
 
 matplotlib.use('TkAgg')
 
-file_root = r'e:/src_process/1.500000_30.10000000/'
-ra = 1.5
-dec = 30.1
+file_root = r'e:/src_process/10.500000_10.10000000/'
+ra = 10.5
+dec = 10.1
 item_coord = SkyCoord(ra=ra, dec=dec, unit='deg')
 files = os.listdir(file_root)
-img_sub_x_wid = 200
-img_sub_y_wid = 200
+img_sub_x_wid = 4800
+img_sub_y_wid = 3211
 
 for file_index, file in enumerate(files):
     if file.endswith('.txt'):
