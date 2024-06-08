@@ -20,7 +20,7 @@ from tools.ra_dec_tool import get_ra_dec_from_string
 db_path = '../thread_test/fits_wcs_2020_2024.db'
 
 src_string_hms_dms = ''
-src_string_ra_dec = '10.5 10.1'
+src_string_ra_dec = '20.5 20.1'
 ra, dec = get_ra_dec_from_string(src_string_hms_dms, src_string_ra_dec)
 
 temp_download_path = f'e:/src_process/{ra:0>3.6f}_{dec:0>2.8f}/'
