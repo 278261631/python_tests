@@ -64,7 +64,7 @@ if hms is None:
     hms = ''
 if radec is None:
     radec = ''
-ra, dec = get_ra_dec_from_string(args.hms, args.radec)
+ra, dec = get_ra_dec_from_string(hms, radec)
 
 temp_download_path = f'src_process/{ra:0>3.6f}_{dec:0>2.8f}/'
 os.makedirs(temp_download_path, exist_ok=True)
