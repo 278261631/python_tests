@@ -3,11 +3,18 @@ import os
 from astropy.coordinates import SkyCoord
 import sqlite3
 import subprocess
-
+import argparse
 from tools.ra_dec_tool import get_ra_dec_from_string
 
 # 连接到SQLite数据库
 db_path = 'fits_wcs_2020_2024.db'
+
+parser = argparse.ArgumentParser(description='radec 单位是度 ,Hms 单位是 时分秒 等. 两个参数只能输入一个')
+parser.add_argument('--radec', help='Ra dec deg:(10.5 9.1) 举例 (10.5 9.1) 单位:度')
+parser.add_argument('--Hms', help='Ra dec :(19:06:49.020 +15:00:34.20)  举例 (19:06:49.020 +15:00:34.20) 单位:时分秒 度分秒')
+args = parser.parse_args()
+print(f"ra dec: {args.radec}")
+print(f"Hms : {args.Hms}")
 
 src_string_hms_dms = '19:06:49.020 +15:00:34.20'
 src_string_ra_dec = ''
