@@ -107,7 +107,7 @@ for file_index, file in enumerate(files):
         ax.add_patch(circle)
 
         # 保存图像到本地文件
-        plt.savefig(png_full_path, bbox_inches='tight')
+        plt.savefig(png_full_path, dpi=300, format='png', bbox_inches='tight')
         plt.close(fig)
         # 关闭FITS文件
 
