@@ -1,29 +1,19 @@
-import datetime
 import multiprocessing
 import os
-import re
-from math import sqrt
-import numpy as np
-import sep
 from astropy.coordinates import SkyCoord
-from astropy.io import fits
-from skimage.exposure import histogram
-
-from solve import config_manager
 import sqlite3
-import concurrent.futures
 import subprocess
 
 from tools.ra_dec_tool import get_ra_dec_from_string
 
 # 连接到SQLite数据库
-db_path = '../thread_test/fits_wcs_2020_2024.db'
+db_path = 'fits_wcs_2020_2024.db'
 
-src_string_hms_dms = ''
-src_string_ra_dec = '20.5 20.1'
+src_string_hms_dms = '19:06:49.020 +15:00:34.20'
+src_string_ra_dec = ''
 ra, dec = get_ra_dec_from_string(src_string_hms_dms, src_string_ra_dec)
 
-temp_download_path = f'e:/src_process/{ra:0>3.6f}_{dec:0>2.8f}/'
+temp_download_path = f'src_process/{ra:0>3.6f}_{dec:0>2.8f}/'
 os.makedirs(temp_download_path, exist_ok=True)
 item_coord = SkyCoord(ra=ra, dec=dec, unit='deg')
 item_cart = item_coord.cartesian

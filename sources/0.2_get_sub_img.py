@@ -9,11 +9,18 @@ from astropy.io import fits
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
 
+from tools.ra_dec_tool import get_ra_dec_from_string
+
 matplotlib.use('TkAgg')
 
-file_root = r'e:/src_process/20.500000_20.10000000_small/'
-ra = 20.5
-dec = 20.1
+src_string_hms_dms = '19:06:49.020 +15:00:34.20'
+src_string_ra_dec = ''
+ra, dec = get_ra_dec_from_string(src_string_hms_dms, src_string_ra_dec)
+
+file_root = f'src_process/{ra:0>3.6f}_{dec:0>2.8f}/'
+# file_root = r'e:/src_process/20.500000_20.10000000_small/'
+# ra = 20.5
+# dec = 20.1
 item_coord = SkyCoord(ra=ra, dec=dec, unit='deg')
 files = os.listdir(file_root)
 # img_sub_x_wid = 4800
