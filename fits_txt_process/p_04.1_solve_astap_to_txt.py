@@ -14,9 +14,9 @@ from astropy import wcs
 
 from solve.test_name_to_ra_dec import get_ra_dec_from_path
 
-temp_download_path = 'e:/fix_data/2023/'
+temp_download_path = 'e:/fix_data/2022/'
 fits_list = []
-max_process = 13
+max_process = 5
 
 
 def vector_plane_angle(e, n):
@@ -264,9 +264,9 @@ if __name__ == '__main__':
         # else:
         #     print(f'no chk')
 
-        if not os.path.exists(save_file_path_txt_ok):
-            print(f'ss  {save_file_path_txt_solve}')
-            continue
+        # if not os.path.exists(save_file_path_txt_ok):
+        #     print(f'ss  {save_file_path_txt_solve}')
+        #     continue
         if os.path.exists(save_file_path_txt_solve):
             print(f'ss  {save_file_path_txt_solve}')
         else:

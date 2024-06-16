@@ -49,8 +49,8 @@ def plane_normal_vector(p1, p2, p3):
 
 
 # 连接到SQLite数据库
-db_path = config_manager.ini_config.get('database', 'path')
-temp_download_path = config_manager.ini_config.get('download', 'temp_download_path')
+db_path = '../thread_test/fits_wcs_2020_2024.db'
+temp_download_path = 'e:/fix_data/2022/'
 conn = sqlite3.connect(db_path)
 cursor = conn.cursor()
 
@@ -67,7 +67,7 @@ if os.path.exists(solve_file_path_root):
             print(f'- remove  {full_path}')
 
 cursor.execute('''
-    SELECT id, file_path FROM image_info WHERE status = 1 and chk_result=1 and blob_dog_num>1000  limit 30000
+    SELECT id, file_path FROM image_info WHERE wcs_info is null and status=1   and file_path like '%UTC2022%'  order by blob_dog_num asc
 ''')
 result = cursor.fetchall()
 for idx, s_item in enumerate(result):
@@ -107,7 +107,7 @@ for idx, s_item in enumerate(result):
     print(f'{len(wcs_info.wcs.crpix)}    {wcs_info.wcs.crpix}')
     if wcs_info.wcs.crpix[0] < 2 or wcs_info.wcs.crpix[1] < 2:
         print(f'-------- skip crpix = 0 {idx} {s_item[0]}    {s_item[1]} ---------')
-        sql_str = f'UPDATE image_info SET status=101 WHERE id = {s_item[0]}'
+        sql_str = f'UPDATE image_info SET status=111 WHERE id = {s_item[0]}'
         print(sql_str)
         cursor.execute(sql_str)
         conn.commit()
