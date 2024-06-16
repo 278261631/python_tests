@@ -15,22 +15,22 @@ from astropy import wcs
 from solve.test_name_to_ra_dec import get_ra_dec_from_path
 
 # 连接到SQLite数据库
-db_path = 'fits_wcs_2022_789.db'
-temp_download_path = 'e:/2022_789/'
-temp_txt_path_chk = 'c:/2022_789_chk'
-temp_txt_path_solve = 'e:/2022_789_solve'
+db_path = 'fits_wcs_2022_101112.db'
+temp_download_path = 'e:/2022_101112/'
+temp_txt_path_chk = 'e:/2022_101112_chk'
+temp_txt_path_solve = 'e:/2022_101112_solve'
 
 conn_search = sqlite3.connect(db_path)
 cursor_search = conn_search.cursor()
 cursor_search.execute('''
-    SELECT id, file_path FROM image_info WHERE status = 1   limit 60000
+    SELECT id, file_path FROM image_info WHERE status = 1 and wcs_info is null   limit 140000
 ''')
 db_search_result = cursor_search.fetchall()
 cursor_search.close()
 conn_search.close()
 
 # 最大线程数
-max_process = 12
+max_process = 15
 
 
 def vector_plane_angle(e, n):
@@ -114,7 +114,7 @@ def worker_check_fits(d_queue, r_queue, s_queue, p_name):
                                     '-z', '1', '-fov', '2', '-D', 'd50', '-r', '180', '-f',
                                     solve_file_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         # print("the commandline is {}".format(process.args))
-        # print(" ".join(process.args))
+        print(" ".join(process.args))
         process.communicate()
         process.wait()
         if process.returncode == 0:
@@ -265,8 +265,10 @@ if __name__ == '__main__':
     for search_item in db_search_result:
         file_name_txt_chk = "{}.txt".format(search_item[0])
         file_name_txt_solve = "{}.txt".format(search_item[0])
+        file_name_download = "{}.fits".format(search_item[0])
         save_file_path_txt_chk = os.path.join(temp_txt_path_chk, file_name_txt_chk)
         save_file_path_txt_solve = os.path.join(temp_txt_path_solve, file_name_txt_solve)
+        save_file_path_download = os.path.join(temp_download_path, file_name_download)
         # if os.path.exists(save_file_path_txt_chk):
         #     if os.path.exists(save_file_path_txt_solve):
         #         print(f'ss  {save_file_path_txt_solve}')
@@ -286,8 +288,11 @@ if __name__ == '__main__':
         if os.path.exists(save_file_path_txt_solve):
             print(f'ss  {save_file_path_txt_solve}')
         else:
-            print(f'++')
-            data_queue.put(search_item)
+            if os.path.exists(save_file_path_download):
+                print(f'++')
+                data_queue.put(search_item)
+            else:
+                print(f'--')
             # with open(save_file_path_txt_chk, 'r', encoding='utf-8') as file:
             #     line = file.readline()
             #     parts = line.split(',')

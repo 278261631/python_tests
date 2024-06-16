@@ -7,14 +7,14 @@ import sqlite3
 if __name__ == '__main__':
 
     # 连接到SQLite数据库
-    db_path = 'fits_wcs_2022_101112.db'
-    temp_txt_path = 'e:/2022_101112_solve'
+    db_path = 'fits_wcs_2020_2024.db'
+    temp_txt_path = 'e:/fix_data/2023'
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
     files = os.listdir(temp_txt_path)
     for file_index, file in enumerate(files):
-        if file.endswith('.txt'):
+        if file.endswith('_solve.txt'):
             txt_full_path = os.path.join(temp_txt_path, file)
             with open(txt_full_path, 'r', encoding='utf-8') as txt_file:
                 line = txt_file.readline()
@@ -48,7 +48,7 @@ if __name__ == '__main__':
             cursor.execute(sql_str)
             # if file_index > 100:
             #     break
-
+    conn.commit()
     cursor.close()
     conn.close()
 

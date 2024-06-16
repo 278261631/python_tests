@@ -9,14 +9,14 @@ if __name__ == '__main__':
     counter_success = 0
     counter_fail = 0
     # 连接到SQLite数据库
-    db_path_157 = 'fits_wcs_2022_123.db'
-    db_path_10 = 'fits_wcs_2022.db'
+    db_path_157 = '../solve/fits_wcs.db'
+    db_path_10 = 'fits_wcs_2020_2024.db'
     conn_157 = sqlite3.connect(db_path_157)
     cursor_157 = conn_157.cursor()
     conn_10 = sqlite3.connect(db_path_10)
     cursor_10 = conn_10.cursor()
 
-    sql_157 = f'SELECT * FROM image_info limit 70000'
+    sql_157 = f'SELECT * FROM image_info where file_path like "%UTC2024%"'
     cursor_157.execute(sql_157)
     db_search_157 = cursor_157.fetchall()
     cursor_157.close()

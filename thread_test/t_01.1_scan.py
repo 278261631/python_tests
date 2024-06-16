@@ -8,15 +8,15 @@ import concurrent.futures
 from threading import Lock
 
 # 连接到SQLite数据库
-db_path = 'fits_wcs_2022_123.db'
+db_path = 'fits_wcs_2024_123.db'
 recent_data = False
-start_day = '20220101'
-day_count = 93
+start_day = '20240101'
+day_count = 99
 
 lock = Lock()
 progress_info = {}
 # 最大线程数
-max_thread = 1
+max_thread = 6
 
 
 def calc_days_list(yyyymmdd_str, day_count_param):

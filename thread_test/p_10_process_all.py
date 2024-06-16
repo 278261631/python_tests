@@ -132,7 +132,7 @@ def worker_download_fits(d_queue, r_queue, s_queue, p_name):
             print(f'601   {d_item[0]} {sql_str}')
             cursor.execute(sql_str)
             conn.commit()
-            continue
+        continue
         hist, bin_edges = histogram(data)
         # print(f'{len(hist)}   {len(bin_edges)}')
         # 计算直方图的累积分布函数 (CDF)

@@ -23,7 +23,7 @@ file_in_disk_path_root = 'e:/'
 
 conn_search = sqlite3.connect(db_path)
 cursor_search = conn_search.cursor()
-sql_search = f'select id,file_path from  image_info where wcs_info is null and status=1  and file_path like "%UTC2023%"'
+sql_search = f'select id,file_path from  image_info where wcs_info is null and chk_result=1 and blob_dog_num>500 and status=111'
 cursor_search.execute(sql_search)
 db_search_result = cursor_search.fetchall()
 cursor_search.close()

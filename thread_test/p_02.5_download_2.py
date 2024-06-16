@@ -15,12 +15,12 @@ import subprocess
 
 # 连接到SQLite数据库
 db_path = 'fits_wcs_2022_789.db'
-temp_download_path = 'e:/2022_789/'
+temp_download_path = 'i:/2022_789/'
 
 conn_search = sqlite3.connect(db_path)
 cursor_search = conn_search.cursor()
 cursor_search.execute('''
-    SELECT id, file_path FROM image_info WHERE status = 0   limit 2000
+    SELECT id, file_path FROM image_info WHERE status = 0   limit 20000
 ''')
 db_search_result = cursor_search.fetchall()
 cursor_search.close()
@@ -29,7 +29,7 @@ conn_search.close()
 # 创建一个锁
 mp_lock = multiprocessing.Lock()
 # 最大线程数
-max_process = 5
+max_process = 1
 
 
 def worker_download_fits(d_queue, r_queue, p_name):
