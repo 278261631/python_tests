@@ -14,9 +14,9 @@ from astropy import wcs
 
 from solve.test_name_to_ra_dec import get_ra_dec_from_path
 
-temp_download_path = 'e:/fix_data/2022/'
+temp_download_path = 'e:/fix_data/2024/'
 fits_list = []
-max_process = 5
+max_process = 16
 
 
 def vector_plane_angle(e, n):
@@ -84,7 +84,8 @@ def worker_check_fits(d_queue, r_queue, s_queue, p_name):
         except IOError:
             print(f'-1  file not found{download_file_path}')
             continue
-        astap_ra_h, astap_dec = get_ra_dec_from_path(d_item[1])
+        fack_url_path = f'K{d_item[0][1:4]}_K{d_item[0][1:4]}'
+        astap_ra_h, astap_dec = get_ra_dec_from_path(fack_url_path)
         astap_dec_spd = astap_dec + 90
         process = subprocess.Popen([solve_bin_path, '-ra', str(astap_ra_h), '-spd', str(astap_dec_spd),
                                     # process = subprocess.Popen([solve_bin_path, '-ra', '106', '-spd', '141',
