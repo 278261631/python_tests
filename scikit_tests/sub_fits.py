@@ -9,7 +9,7 @@ output_fits_file_path = 'sub_fits.fits'
 with fits.open(fits_file_path) as hdul:
     # 读取数据，假设数据存储在第一个HDU中
     image_data = hdul[0].data
-    cropped_data = image_data[:400, :400]
+    cropped_data = image_data[800:1600, 800:1600]
 
     new_hdu = fits.PrimaryHDU(cropped_data)
     hdul_new = fits.HDUList(new_hdu)

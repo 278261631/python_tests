@@ -27,7 +27,8 @@ def plot_result(image, background):
 
 
 # 读取FITS文件
-fits_file = f'sub_fits.fits'
+# fits_file = f'sub_fits.fits'
+fits_file = f'w_hat_r.fits'
 with fits.open(fits_file) as hdul:
     image_FITS = hdul[0].data  # 假设数据存储在HDU 0中
 
@@ -46,8 +47,8 @@ hdu_background = fits.HDUList(hdu_background_p)
 hdu_result_p = fits.PrimaryHDU(result_image)
 hdu_result = fits.HDUList(hdu_result_p)
 
-background_fits_file = 'background.fits'
-result_fits_file = 'result.fits'
+background_fits_file = 'bg_rb_background.fits'
+result_fits_file = 'bg_rb_result.fits'
 
 hdu_background.writeto(background_fits_file, overwrite=True)
 print(f'Background image saved as {background_fits_file}')
