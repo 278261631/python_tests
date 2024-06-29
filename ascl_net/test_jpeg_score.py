@@ -1,34 +1,61 @@
+import os
+
+from PIL import Image
 import numpy as np
-from scipy.ndimage import gaussian_filter
 
 
-def jpeg_quality_score(img):
-    # 版权和使用说明的注释（略）
-
-    # 检查输入参数数量
-    if img.ndim != 2 or img.dtype != np.uint8:
+def jpeg_quality_score(img_path):
+    # 从文件加载JPEG图像
+    try:
+        img = Image.open(img_path).convert('L')  # 转换为灰度图像
+    except IOError as e:
+        print(f"无法加载图像文件：{e}")
         return -1
 
-    [M, N] = img.shape
+    # 将图像转换为numpy数组
+    img_array = np.array(img)
+
+    # 检查输入参数数量和数据类型
+    if img_array.ndim != 2 or img_array.dtype != np.uint8:
+        return -1
+
+    [M, N] = img_array.shape
     if M < 16 or N < 16:
         return -2
 
-    x = img.astype(np.double)
+    x = img_array.astype(np.double)
 
     # 特征提取
     def feature_extraction(x, axis):
         d = np.diff(x, axis=axis)
-        B = np.mean(np.abs(d[:, N//8*(N//8):N//8*(N//8+1)]))
+        # 检查切片是否有效
+        if d.shape[axis] < 16:  # 确保至少有16个像素用于计算
+            return 0, 0, 0  # 如果图像太小，返回0作为特征值
+
+        # 计算B值
+        center_start = d.shape[axis] // 2 - 8  # 从中心开始减去8
+        center_end = center_start + 16  # 确保至少取16个像素
+        B_slice = d[center_start:center_end]  # 直接使用切片操作符
+        B = np.mean(np.abs(B_slice))
+
+        # 计算A值
         A = (8 * np.mean(np.abs(d)) - B) / 7
+
+        # 计算Z值，确保切片不为空
         sig = np.sign(d)
         if axis == 0:
-            Z = np.mean((sig[1:, :] * sig[:-1, :]) < 0)
+            Z_slice = (sig[1:, :] * sig[:-1, :])
         else:
-            Z = np.mean((sig[1:, :] * sig[:-1, :]) < 0)
+            Z_slice = (sig[:-1, :] * sig[1:, :])
+        if Z_slice.size > 0:
+            Z = np.mean(Z_slice < 0)
+        else:
+            Z = 0  # 如果Z_slice为空，设置Z为0
+
         return B, A, Z
 
-    B_h, A_h, Z_h = feature_extraction(x, 1)
-    B_v, A_v, Z_v = feature_extraction(x, 0)
+    B_h, A_h, Z_h = feature_extraction(x, 0)  # 对于灰度图像，使用0轴提取水平特征
+    B_v, A_v, Z_v = feature_extraction(x, 1)  # 使用1轴提取垂直特征
 
     # 组合特征
     B = (B_h + B_v) / 2
@@ -45,6 +72,19 @@ def jpeg_quality_score(img):
 
     return score
 
-# 使用示例
-# img = np.array(...)  # 加载或创建一个8位像素的灰度图像
-# quality_score = jpeg_quality_score(img)
+
+temp_jpeg_path = 'e:/fix_data/'
+scores_list = []
+files = os.listdir(temp_jpeg_path)
+for file_index, file in enumerate(files):
+    if file.endswith('.jpg'):
+        jpg_full_path = os.path.join(temp_jpeg_path, file)
+        quality_score = jpeg_quality_score(jpg_full_path)
+        print(f"JPEG质量评分：{quality_score}  {file}")
+        scores_list.append((file, quality_score))
+
+print(f'=======================')
+sorted_scores = sorted(scores_list, key=lambda x: x[1], reverse=True)
+for file, score in sorted_scores:
+    print(f"JPEG质量评分：{score}  {file}")
+
