@@ -23,7 +23,7 @@ def get_ra_dec_from_string(src_string_hms_dms, src_string_ra_dec):
                 len(src_string_hms_dms) == 0 and len(src_string_ra_dec) > 0)
     src_string = src_string_hms_dms if len(src_string_hms_dms) > 0 else src_string_ra_dec
 
-    cord_array = re.findall(r'\d+(?:\.\d+)?', src_string)
+    cord_array = re.findall(r'-?\d+(?:\.\d+)?', src_string)
     if not cord_array:
         print(f"座标提取长度错误:  [{src_string}]")
         return

@@ -13,7 +13,7 @@ from tools.ra_dec_tool import get_ra_dec_from_string
 
 matplotlib.use('TkAgg')
 
-src_string_hms_dms = '19:06:49.020 +15:00:34.20'
+src_string_hms_dms = '16:22:54.448 -16:11:0.93'
 src_string_ra_dec = ''
 ra, dec = get_ra_dec_from_string(src_string_hms_dms, src_string_ra_dec)
 

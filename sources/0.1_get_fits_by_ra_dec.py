@@ -8,6 +8,7 @@ from tools.ra_dec_tool import get_ra_dec_from_string
 
 # 连接到SQLite数据库
 db_path = 'fits_wcs_2020_2024.db'
+# db_path = 'fits_wcs_recent.db'
 
 parser = argparse.ArgumentParser(description='radec 单位是度 ,Hms 单位是 时分秒 等. 两个参数只能输入一个')
 parser.add_argument('--radec', help='Ra dec deg:(10.5 9.1) 举例 (10.5 9.1) 单位:度')
@@ -16,11 +17,12 @@ args = parser.parse_args()
 print(f"ra dec: {args.radec}")
 print(f"Hms : {args.Hms}")
 
-src_string_hms_dms = '19:06:49.020 +15:00:34.20'
+src_string_hms_dms = '16:22:54.448 -16:11:0.93'
 src_string_ra_dec = ''
 ra, dec = get_ra_dec_from_string(src_string_hms_dms, src_string_ra_dec)
 
-temp_download_path = f'src_process/{ra:0>3.6f}_{dec:0>2.8f}/'
+temp_download_path = f'src_process/{ra:0>3.6f}_{dec:0>2.8f}_recent/'
+# temp_download_path = f'src_process/{ra:0>3.6f}_{dec:0>2.8f}/'
 os.makedirs(temp_download_path, exist_ok=True)
 item_coord = SkyCoord(ra=ra, dec=dec, unit='deg')
 item_cart = item_coord.cartesian
