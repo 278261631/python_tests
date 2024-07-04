@@ -74,6 +74,7 @@ files = os.listdir(file_root)
 img_sub_x_wid = 400
 img_sub_y_wid = 300
 
+source_map = {}
 for file_index, file in enumerate(files):
     if file.endswith('.txt'):
         fits_id = file.replace('.txt', '')
@@ -140,6 +141,7 @@ for file_index, file in enumerate(files):
         circle = Circle((mark_position_x, mark_position_y), 10, edgecolor='green', facecolor='none')
         ax.add_patch(circle)
 
+
         # 在图像上为每个源绘制圆圈
         for obj in objects:
             # 圆圈的中心位置
@@ -153,9 +155,23 @@ for file_index, file in enumerate(files):
                 # 绘制圆圈
                 circle = plt.Circle((s_center_x, s_center_y), radius, color='red', fill=False, linewidth=0.2)
                 ax.add_patch(circle)
+                # wcs_info.pixel_to_world([[s_center_x, s_center_y]])
+                item_cord = wcs_info.wcs_pix2world(obj['x'], obj['y'], 0)
+                # wcs_info.wcs_pix2world([[obj['x'], obj['y']]])
+                s_key = f'{item_cord[0]: .3f}_{item_cord[1]: .3f}'
+                print(f'ra_dec pixel_to_world      {item_cord} {item_cord[0]:}_{item_cord[1]}  {s_key} ')
+                # item_ra, item_dec = wcs_info.pixel_to_world([[obj['x'], obj['y']]])[0]
+                # print(f'ra_dec pixel_to_world   {item_ra}   {item_dec}')
+                if s_key not in source_map:
+                    source_map[s_key] = [obj['flux']]
+                else:
+                    source_map[s_key].append(obj['flux'])
+
 
         ax.axis('off')
 
         plt.savefig(png_full_path, dpi=300, format='png', bbox_inches='tight')
         plt.close(fig)
-        break
+        # break
+print(source_map)
+
