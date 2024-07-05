@@ -105,7 +105,8 @@ for file_index, file in enumerate(files):
         # 使用SEP进行源检测
         bkg = sep.Background(data)
         bkg_image = bkg.back()
-        objects = sep.extract(data - bkg_image, 1.5, err=bkg.globalrms)
+        data_no_bg = data - bkg_image
+        objects = sep.extract(data_no_bg, 6, err=bkg.globalrms)
         print(f'objs = {len(objects)}')
 
         height, width = data.shape
@@ -129,7 +130,7 @@ for file_index, file in enumerate(files):
         mark_position_y = center_y - start_y + y_offset
 
         print(f'{start_x}  {end_x} [{end_x - start_x}]            {start_y} {end_y} [{end_y - start_y}]')
-        region = data[start_y:end_y, start_x:end_x]
+        region = data_no_bg[start_y:end_y, start_x:end_x]
         # 创建一个新的图像数组，大小为期望的尺寸，初始填充为0（或其他背景值）
         new_image = np.zeros((img_sub_y_wid, img_sub_x_wid), dtype=data.dtype)
 
@@ -138,7 +139,7 @@ for file_index, file in enumerate(files):
         fig, ax = plt.subplots()
         ax.imshow(new_image, cmap='gray')
 
-        circle = Circle((mark_position_x, mark_position_y), 10, edgecolor='green', facecolor='none')
+        circle = Circle((mark_position_x, mark_position_y), 10, edgecolor='green', facecolor='none', linewidth=0.4)
         ax.add_patch(circle)
 
 
@@ -147,7 +148,7 @@ for file_index, file in enumerate(files):
             # 圆圈的中心位置
             s_center_x = obj['x']
             s_center_y = obj['y']
-            if start_x+100 < s_center_x < end_x-100 and start_y+100 < s_center_y < end_y-100:
+            if center_x-100 < s_center_x < center_x+100 and center_y-100 < s_center_y < center_y+100:
                 s_center_x = s_center_x - start_x + x_offset
                 s_center_y = s_center_y - start_y + y_offset
                 # 圆圈的半径，这里使用a参数的一半作为圆圈半径
@@ -158,7 +159,7 @@ for file_index, file in enumerate(files):
                 # wcs_info.pixel_to_world([[s_center_x, s_center_y]])
                 item_cord = wcs_info.wcs_pix2world(obj['x'], obj['y'], 0)
                 # wcs_info.wcs_pix2world([[obj['x'], obj['y']]])
-                s_key = f'{item_cord[0]: .3f}_{item_cord[1]: .3f}'
+                s_key = f'{item_cord[0]:.3f}_{item_cord[1]:.3f}'
                 print(f'ra_dec pixel_to_world      {item_cord} {item_cord[0]:}_{item_cord[1]}  {s_key} ')
                 # item_ra, item_dec = wcs_info.pixel_to_world([[obj['x'], obj['y']]])[0]
                 # print(f'ra_dec pixel_to_world   {item_ra}   {item_dec}')
@@ -174,4 +175,12 @@ for file_index, file in enumerate(files):
         plt.close(fig)
         # break
 print(source_map)
+sorted_items = sorted(source_map.items(), key=lambda item: len(item[1]), reverse=True)
+sorted_dict = dict(sorted_items)
+print(sorted_dict)
+flux_txt_full_path = os.path.join(file_root, 'sep_flux_list.log')
+with open(flux_txt_full_path, 'w', encoding='utf-8') as file:
+    for key, value in sorted_dict.items():
+        # 将键值对写入文件，键和值之间用等号连接，然后换行
+        file.write(f"{key} = {value}\n")
 
