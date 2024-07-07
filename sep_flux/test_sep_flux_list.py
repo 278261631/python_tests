@@ -128,7 +128,7 @@ for file_index, file in enumerate(files):
         mark_position_x = center_x - start_x + x_offset
         mark_position_y = center_y - start_y + y_offset
 
-        print(f'{start_x}  {end_x} [{end_x - start_x}]            {start_y} {end_y} [{end_y - start_y}]')
+        print(f'---{fits_id} --  {start_x}  {end_x} [{end_x - start_x}]            {start_y} {end_y} [{end_y - start_y}]')
         region = data_no_bg[start_y:end_y, start_x:end_x]
         # 创建一个新的图像数组，大小为期望的尺寸，初始填充为0（或其他背景值）
         new_image = np.zeros((img_sub_y_wid, img_sub_x_wid), dtype=data.dtype)
@@ -159,7 +159,7 @@ for file_index, file in enumerate(files):
                 item_cord = wcs_info.wcs_pix2world(obj['x'], obj['y'], 0)
                 # wcs_info.wcs_pix2world([[obj['x'], obj['y']]])
                 s_key = f'{item_cord[0]:.3f}_{item_cord[1]:.3f}'
-                print(f'ra_dec pixel_to_world      {item_cord} {item_cord[0]:}_{item_cord[1]}  {s_key} ')
+                # print(f'ra_dec pixel_to_world      {item_cord} {item_cord[0]:}_{item_cord[1]}  {s_key} ')
                 # item_ra, item_dec = wcs_info.pixel_to_world([[obj['x'], obj['y']]])[0]
                 # print(f'ra_dec pixel_to_world   {item_ra}   {item_dec}')
                 if s_key not in source_map:
@@ -173,10 +173,10 @@ for file_index, file in enumerate(files):
         plt.savefig(png_full_path, dpi=300, format='png', bbox_inches='tight')
         plt.close(fig)
         # break
-print(source_map)
+# print(source_map)
 sorted_items = sorted(source_map.items(), key=lambda item: len(item[1]), reverse=True)
 sorted_dict = dict(sorted_items)
-print(sorted_dict)
+# print(sorted_dict)
 flux_txt_full_path = os.path.join(file_root, 'sep_flux_list.log')
 with open(flux_txt_full_path, 'w', encoding='utf-8') as file:
     for key, value in sorted_dict.items():
@@ -196,7 +196,7 @@ for file_index, file in enumerate(files):
             line = txt_file.readline()
             wcs_info = wcs.WCS(line)
         pix_xy = wcs_info.world_to_pixel(item_coord)
-        print(f'pix:   {pix_xy}')
+        # print(f'pix:   {pix_xy}')
 
         # 打开FITS文件
         hdu = fits.open(fits_full_path)
@@ -227,7 +227,7 @@ for file_index, file in enumerate(files):
         mark_position_x = center_x - start_x + x_offset
         mark_position_y = center_y - start_y + y_offset
 
-        print(f'{start_x}  {end_x} [{end_x - start_x}]            {start_y} {end_y} [{end_y - start_y}]')
+        print(f'---{fits_id} --  {start_x}  {end_x} [{end_x - start_x}]            {start_y} {end_y} [{end_y - start_y}]')
         region = data_no_bg[start_y:end_y, start_x:end_x]
         # 创建一个新的图像数组，大小为期望的尺寸，初始填充为0（或其他背景值）
         new_image = np.zeros((img_sub_y_wid, img_sub_x_wid), dtype=data.dtype)
