@@ -158,7 +158,12 @@ for file_index, file in enumerate(files):
                 # wcs_info.pixel_to_world([[s_center_x, s_center_y]])
                 item_cord = wcs_info.wcs_pix2world(obj['x'], obj['y'], 0)
                 # wcs_info.wcs_pix2world([[obj['x'], obj['y']]])
-                s_key = f'{item_cord[0]:.3f}_{item_cord[1]:.3f}'
+                # s_key = f'{item_cord[0]:.3f}_{item_cord[1]:.3f}'
+                key_area_mask = 0b11111110
+                key_cord_0 = math.floor(item_cord[0]*1000) & key_area_mask
+                key_cord_1 = math.floor(item_cord[1]*1000) & key_area_mask
+                s_key = f'{key_cord_0}_{key_cord_1}'
+
                 # print(f'ra_dec pixel_to_world      {item_cord} {item_cord[0]:}_{item_cord[1]}  {s_key} ')
                 # item_ra, item_dec = wcs_info.pixel_to_world([[obj['x'], obj['y']]])[0]
                 # print(f'ra_dec pixel_to_world   {item_ra}   {item_dec}')
@@ -166,7 +171,6 @@ for file_index, file in enumerate(files):
                     source_map[s_key] = [[fits_id, obj['x'], obj['y'], s_center_x, s_center_y, obj['flux'], obj['a']]]
                 else:
                     source_map[s_key].append([fits_id, obj['x'], obj['y'], s_center_x, s_center_y, obj['flux'], obj['a']])
-
 
         ax.axis('off')
 
@@ -228,7 +232,7 @@ for file_index, file in enumerate(files):
         mark_position_y = center_y - start_y + y_offset
 
         print(f'---{fits_id} --  {start_x}  {end_x} [{end_x - start_x}]            {start_y} {end_y} [{end_y - start_y}]')
-        region = data_no_bg[start_y:end_y, start_x:end_x]
+        region = data[start_y:end_y, start_x:end_x]
         # 创建一个新的图像数组，大小为期望的尺寸，初始填充为0（或其他背景值）
         new_image = np.zeros((img_sub_y_wid, img_sub_x_wid), dtype=data.dtype)
 
@@ -250,7 +254,13 @@ for file_index, file in enumerate(files):
                     # 圆圈的半径，这里使用a参数的一半作为圆圈半径
                     radius = sources_val[6] * 3.0
                     # 绘制圆圈
-                    circle = plt.Circle((s_center_x, s_center_y), radius, color='yellow', fill=False, linewidth=0.2)
+                    len_src = len(item_value)
+                    color = 'yellow'
+                    text_shift = 3
+                    if len_src > 1:
+                        color = (0.5, 0.5, 0.5)
+                    plt.text(x=s_center_x+text_shift, y=s_center_y+text_shift, s=f'({len_src})_{item_key}', color=color, fontsize=4, ha='center', va='center')
+                    circle = plt.Circle((s_center_x, s_center_y), radius, color=color, fill=False, linewidth=0.2)
                     ax.add_patch(circle)
 
         ax.axis('off')
