@@ -14,17 +14,12 @@ from tools.ra_dec_tool import get_ra_dec_from_string
 
 matplotlib.use('TkAgg')
 
-
-src_string_hms_dms = '16:22:54.448 -16:11:0.93'
-src_string_ra_dec = ''
-ra, dec = get_ra_dec_from_string(src_string_hms_dms, src_string_ra_dec)
-
-file_root = f'src_process/{ra:0>3.6f}_{dec:0>2.8f}/'
-# file_root = r'e:/src_process/20.500000_20.10000000_small/'
-item_coord = SkyCoord(ra=ra, dec=dec, unit='deg')
+# file_root = f'src_process/test_2/'
+file_root = f'src_process/245.726867_-16.18359167/'
+file_out_root = f'src_process/245.726867_-16.18359167_align/'
+os.makedirs(file_out_root, exist_ok=True)
 files = os.listdir(file_root)
-img_sub_x_wid = 400
-img_sub_y_wid = 300
+
 hdu1 = None
 wcs1 = None
 hdu2 = None
@@ -46,18 +41,23 @@ for file_index, file in enumerate(files):
             wcs_info = wcs.WCS(line)
         # print(f'{line}')
         # print(f'{item_coord}')
-        pix_xy = wcs_info.world_to_pixel(item_coord)
-        print(f'pix:   {pix_xy}')
+
         if file_counter == 1:
             wcs1 = wcs_info
-            hdu1 = fits.open(get_pkg_data_filename(fits_full_path))[0]
-            print(wcs1)
-            print(hdu1)
+            hdu1_list = fits.open(get_pkg_data_filename(fits_full_path))
+            hdu1 = hdu1_list[0]
+            hdu1.header.update(wcs1.to_header())
+            first_fits_full_path = os.path.join(file_out_root, f'{fits_id}.fits')
+            hdu1_list.writeto(first_fits_full_path)
+            hdu1_list.close()  # 关闭原始FITS文件
+            # print(wcs1)
+            # print(hdu1)
         else:
             wcs2 = wcs_info
             hdu2 = fits.open(get_pkg_data_filename(fits_full_path))[0]
-            print(wcs1)
-            print(hdu1)
+            hdu2.header.update(wcs2.to_header())
+            # print(wcs2)
+            # print(hdu2)
             # hdu = fits.open(fits_full_path)
             # data = hdu[0].data
             # hdu.close()
@@ -65,5 +65,5 @@ for file_index, file in enumerate(files):
             # data = img_as_float(data)
 
             array, footprint = reproject_interp(hdu2, hdu1.header)
-            rep_fits_full_path = os.path.join(file_root, f'rep_{fits_id}.fits')
-            fits.writeto(rep_fits_full_path, array, hdu1.header, overwrite=True)
+            rep_fits_full_path = os.path.join(file_out_root, f'{fits_id}.fits')
+            fits.writeto(rep_fits_full_path, array, hdu1.header)
