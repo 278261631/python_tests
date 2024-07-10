@@ -8,7 +8,7 @@ import sep
 from PIL import Image
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
-from astropy.visualization import ZScaleInterval, ImageNormalize
+from astropy.visualization import ZScaleInterval, ImageNormalize, AsinhStretch, PercentileInterval, LinearStretch
 from matplotlib.patches import Circle
 from skimage.util import img_as_float
 
@@ -43,12 +43,25 @@ for file_index, file in enumerate(files):
         # bkg_image = bkg.back()
         # data_no_bg = data - bkg_image
 
-        interval = ZScaleInterval()
+        hist, bin_edges = np.histogram(data, bins=256)
+        peak_index = np.argmax(hist)
+        peak_value = bin_edges[peak_index]
+
+        # 4. 使用 PercentileInterval 选择拉伸范围
+        interval = PercentileInterval(98)  # 这里选择 95% 的范围
         vmin, vmax = interval.get_limits(data)
-        image_data = (data - vmin) / (vmax - vmin) * 255
+        print(f'vmin: {vmin}   vmax:{vmax}')
+
+        # 5. 使用 LinearStretch 进行线性拉伸
+        stretch = LinearStretch()
+        norm = ImageNormalize(data, stretch=stretch, vmin=vmin, vmax=vmax)
+
+        image_data = norm(data) * 255
         image_data = np.clip(image_data, 0, 255)
         image_data = image_data.astype(int)
+        print(f'[{np.max(image_data)}]   [{np.min(image_data)}]')
 
+        image_data = image_data.astype(np.uint8)
         # 4. 使用 PIL 创建图像
         # image = Image.fromarray(image_data)
         image = Image.fromarray(data)
