@@ -108,9 +108,19 @@ for file_index, file in enumerate(files):
                 item_cord = wcs_info.wcs_pix2world(obj['x'], obj['y'], 0)
                 # wcs_info.wcs_pix2world([[obj['x'], obj['y']]])
                 # s_key = f'{item_cord[0]:.3f}_{item_cord[1]:.3f}'
-                key_area_mask = 0b11111110
-                key_cord_0 = math.floor(item_cord[0]*1000) & key_area_mask
-                key_cord_1 = math.floor(item_cord[1]*1000) & key_area_mask
+
+                key_cord_0 = math.floor(item_cord[0]*100)
+                key_cord_0_last = key_cord_0 % 10
+                key_cord_0_major = key_cord_0 // 10
+                key_cord_0 = (key_cord_0_major * 10) + (key_cord_0_last//1)
+                key_cord_1 = math.floor(item_cord[1]*1000)
+                key_cord_1_last = key_cord_1 % 10
+                key_cord_1_major = key_cord_1 // 10
+                key_cord_1 = (key_cord_1_major * 10) + (key_cord_1_last//8)
+
+                # key_area_mask = 0b11111110
+                # key_cord_0 = math.floor(item_cord[0]*1000) & key_area_mask
+                # key_cord_1 = math.floor(item_cord[1]*1000) & key_area_mask
                 s_key = f'{key_cord_0}_{key_cord_1}'
 
                 # print(f'ra_dec pixel_to_world      {item_cord} {item_cord[0]:}_{item_cord[1]}  {s_key} ')
