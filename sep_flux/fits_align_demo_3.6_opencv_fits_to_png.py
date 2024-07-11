@@ -48,7 +48,7 @@ for file_index, file in enumerate(files):
         peak_value = bin_edges[peak_index]
 
         # 4. 使用 PercentileInterval 选择拉伸范围
-        interval = PercentileInterval(98)  # 这里选择 95% 的范围
+        interval = PercentileInterval(99.5)  # 这里选择 95% 的范围
         vmin, vmax = interval.get_limits(data)
         print(f'vmin: {vmin}   vmax:{vmax}')
 
