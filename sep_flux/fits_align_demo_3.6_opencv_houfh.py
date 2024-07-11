@@ -1,4 +1,6 @@
 import os
+import random
+
 import cv2
 import matplotlib
 import numpy as np
@@ -52,10 +54,19 @@ def find_overlap_by_sep(img1_path, img2_path, output_path_img1="img1_keypoints.p
     gray1 = gray1 - bkg_1
     bkg_2 = sep.Background(gray2)
     gray2 = gray2 - bkg_2
-    objects1 = sep.extract(gray1, 13, err=bkg_1.globalrms)
-    objects2 = sep.extract(gray2, 15, err=bkg_2.globalrms)
-    print(f'sources: [{len(objects1)}]    [{len(objects2)}]')
+    objects1_all = sep.extract(gray1, thresh=1.5, err=bkg_1.globalrms)
+    objects2_all = sep.extract(gray2, thresh=1.5, err=bkg_2.globalrms)
+    print(f'sources: [{len(objects1_all)}]    [{len(objects2_all)}]')
+    objects1 = []
+    for obj in objects1_all:
+        if obj['flux'] > 5000 or obj['a'] > 100:
+            objects1.append(obj)
+    objects2 = []
+    for obj in objects2_all:
+        if obj['flux'] > 5000 or obj['a'] > 100:
+            objects2.append(obj)
 
+    print(f'sources: [{len(objects1)}]    [{len(objects2)}]')
     # 在两张图片上标记点状源
     img1_with_keypoints = img1.copy()
     img2_with_keypoints = img2.copy()
@@ -73,6 +84,55 @@ def find_overlap_by_sep(img1_path, img2_path, output_path_img1="img1_keypoints.p
     #         # 如果距离小于阈值，则认为是同一个点状源
     #         if distance < 5:
     #             cv2.circle(overlap_mask, (int(obj1['x']), int(obj1['y'])), int(obj1['a']), (255, 255, 255), -1)
+
+    # # 随机选择200个点
+    # random_indices_1 = random.sample(range(len(objects1)), 300)
+    # selected_objects_1 = [objects2[i] for i in random_indices_1]
+    # random_indices_2 = random.sample(range(len(objects2)), 300)
+    # selected_objects_2 = [objects2[i] for i in random_indices_2]
+
+    # 连接点的函数
+    # 连接点的函数
+
+    def connect_points(objects, img):
+        dot_line_counter_i = 0
+        for i, obj1 in enumerate(objects):
+            dot_line_counter_i = 0
+            dot_line_counter_j = 0
+            for j, obj2 in enumerate(objects):
+                dot_line_counter_j = 0
+                if i != j:  # 不连接到自身
+                    # 计算两点之间的距离
+                    distance = np.sqrt((obj1['x'] - obj2['x']) ** 2 + (obj1['y'] - obj2['y']) ** 2)
+                    if distance <= 200:  # 距离在100像素以内
+                        # 连接点
+                        cv2.line(img, (int(obj1['x']), int(obj1['y'])), (int(obj2['x']), int(obj2['y'])), (0, 0, 255), 1)
+                        dot_line_counter_j = dot_line_counter_i+1
+                        dot_line_counter_i = dot_line_counter_i+1
+                if dot_line_counter_j > 4:
+                    continue
+            if dot_line_counter_i > 4:
+                continue
+
+    # 标记点状源并连接
+    img1_with_lines = img1.copy()
+    for obj in objects1:
+        cv2.circle(img1_with_lines, (int(obj['x']), int(obj['y'])), int(obj['a']), (0, 255, 0), 2)
+    connect_points(objects1, img1_with_lines)
+
+    # 保存图像
+    cv2.imwrite('src_process/test_/lines-1.jpg', img1_with_lines)
+
+    # 标记点状源并连接
+    img2_with_lines = img2.copy()
+    for obj in objects2:
+        cv2.circle(img2_with_lines, (int(obj['x']), int(obj['y'])), int(obj['a']), (0, 255, 0), 2)
+    connect_points(objects2, img2_with_lines)
+
+    # 保存图像
+    cv2.imwrite('src_process/test_/lines-2.jpg', img2_with_lines)
+
+
 
     # 使用重叠区域掩码提取重叠部分
     overlap_region = img1 * np.expand_dims(overlap_mask, axis=-1)
