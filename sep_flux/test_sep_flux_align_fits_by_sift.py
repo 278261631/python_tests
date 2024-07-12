@@ -13,11 +13,11 @@ from astropy.visualization import PercentileInterval, LinearStretch, ImageNormal
 from matplotlib.patches import Circle
 from skimage.util import img_as_float
 
-from tools.align_tools import find_overlap_by_sep
+from tools.align_tools import find_overlap_by_sep, align_fits_by_light_stars
 from tools.ra_dec_tool import get_ra_dec_from_string
 from astropy import wcs
-matplotlib.use('TkAgg')
 
+matplotlib.use('TkAgg')
 
 src_string_hms_dms = '16:22:54.448 -16:11:0.93'
 src_string_ra_dec = ''
@@ -27,8 +27,12 @@ file_root = f'src_process/{ra:0>3.6f}_{dec:0>2.8f}/'
 item_coord = SkyCoord(ra=ra, dec=dec, unit='deg')
 files = os.listdir(file_root)
 
+align_to_fits_full_path = None
+dot_png_align_to_full_path = None
+fits_counter = 0
 for file_index, file in enumerate(files):
     if file.endswith('.txt'):
+        fits_counter = fits_counter + 1
         fits_id = file.replace('.txt', '')
         fits_file_name = f'{fits_id}.fits'
         png_file_name = f'{fits_id}.png'
@@ -110,6 +114,15 @@ for file_index, file in enumerate(files):
             cv2.circle(img1_with_dot, (int(obj['x']), int(obj['y'])), 50, (255, 255, 255), -1)
         cv2.imwrite(dot_png_full_path, img1_with_dot)
 
+        if fits_counter == 1:
+            align_to_fits_full_path = fits_full_path
+            dot_png_align_to_full_path = dot_png_full_path
+        else:
+            trans_fits_full_path = os.path.join(file_root, f'trans_{fits_id}.fits')
+            trans_png_full_path = os.path.join(file_root, f'trans_{fits_id}.png')
+            debug_png_full_path = os.path.join(file_root, f'debug_{fits_id}.png')
+            align_fits_by_light_stars(fits_full_path, align_to_fits_full_path
+                                      , dot_png_full_path, dot_png_align_to_full_path
+                                      , trans_fits_full_path, trans_png_full_path, debug_png_full_path)
+
         # break
-
-
