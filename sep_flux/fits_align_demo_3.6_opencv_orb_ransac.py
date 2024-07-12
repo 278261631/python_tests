@@ -41,7 +41,8 @@ def find_overlap(img1_path, img2_path, output_path_img1="img1_keypoints.png", ou
     gray2 = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
 
     # 使用ORB算法检测特征点
-    orb = cv2.ORB_create()
+    # orb = cv2.ORB_create()
+    orb = cv2.ORB_create(nfeatures=2000, scaleFactor=1.2, nlevels=8, edgeThreshold=15, firstLevel=0, WTA_K=2)
     kp1, des1 = orb.detectAndCompute(gray1, None)
     kp2, des2 = orb.detectAndCompute(gray2, None)
 
@@ -85,8 +86,8 @@ def find_overlap(img1_path, img2_path, output_path_img1="img1_keypoints.png", ou
 
 
 file_root = f'src_process/test_/'
-png_1_path = os.path.join(file_root, 's_209120220407205125.png')
-png_2_path = os.path.join(file_root, 's_109120220407205235.png')
+png_1_path = os.path.join(file_root, 'p-lines-1.jpg')
+png_2_path = os.path.join(file_root, 'p-lines-2.jpg')
 png_key_1_path = os.path.join(file_root, 'orb_key_1.png')
 png_key_2_path = os.path.join(file_root, 'orb_key_2.png')
 png_over_path = os.path.join(file_root, 'orb_over.png')

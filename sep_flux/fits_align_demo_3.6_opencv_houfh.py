@@ -106,7 +106,7 @@ def find_overlap_by_sep(img1_path, img2_path, output_path_img1="img1_keypoints.p
                     distance = np.sqrt((obj1['x'] - obj2['x']) ** 2 + (obj1['y'] - obj2['y']) ** 2)
                     if distance <= 200:  # 距离在100像素以内
                         # 连接点
-                        cv2.line(img, (int(obj1['x']), int(obj1['y'])), (int(obj2['x']), int(obj2['y'])), (0, 0, 255), 1)
+                        cv2.line(img, (int(obj1['x']), int(obj1['y'])), (int(obj2['x']), int(obj2['y'])), (255, 255, 255), 3)
                         dot_line_counter_j = dot_line_counter_i+1
                         dot_line_counter_i = dot_line_counter_i+1
                 if dot_line_counter_j > 4:
@@ -115,22 +115,26 @@ def find_overlap_by_sep(img1_path, img2_path, output_path_img1="img1_keypoints.p
                 continue
 
     # 标记点状源并连接
-    img1_with_lines = img1.copy()
+    # img1_with_lines = img1.copy()
+    img1_with_lines = np.zeros(img1.shape, dtype=np.uint8)
     for obj in objects1:
-        cv2.circle(img1_with_lines, (int(obj['x']), int(obj['y'])), int(obj['a']), (0, 255, 0), 2)
-    connect_points(objects1, img1_with_lines)
+        # cv2.circle(img1_with_lines, (int(obj['x']), int(obj['y'])), int(obj['a']), (0, 255, 0), 2)
+        cv2.circle(img1_with_lines, (int(obj['x']), int(obj['y'])), 50, (255, 255, 255), -1)
+    # connect_points(objects1, img1_with_lines)
 
     # 保存图像
-    cv2.imwrite('src_process/test_/lines-1.jpg', img1_with_lines)
+    cv2.imwrite('src_process/test_/p-lines-1.jpg', img1_with_lines)
 
     # 标记点状源并连接
-    img2_with_lines = img2.copy()
+    # img2_with_lines = img2.copy()
+    img2_with_lines = np.zeros(img2.shape, dtype=np.uint8)
     for obj in objects2:
-        cv2.circle(img2_with_lines, (int(obj['x']), int(obj['y'])), int(obj['a']), (0, 255, 0), 2)
-    connect_points(objects2, img2_with_lines)
+        # cv2.circle(img2_with_lines, (int(obj['x']), int(obj['y'])), int(obj['a']), (0, 255, 0), 2)
+        cv2.circle(img2_with_lines, (int(obj['x']), int(obj['y'])), 50, (255, 255, 255), -1)
+    # connect_points(objects2, img2_with_lines)
 
     # 保存图像
-    cv2.imwrite('src_process/test_/lines-2.jpg', img2_with_lines)
+    cv2.imwrite('src_process/test_/p-lines-2.jpg', img2_with_lines)
 
 
 
