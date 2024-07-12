@@ -12,6 +12,8 @@ from astropy.io import fits
 from astropy.visualization import PercentileInterval, LinearStretch, ImageNormalize
 from matplotlib.patches import Circle
 from skimage.util import img_as_float
+
+from tools.align_tools import find_overlap_by_sep
 from tools.ra_dec_tool import get_ra_dec_from_string
 from astropy import wcs
 matplotlib.use('TkAgg')
@@ -34,6 +36,8 @@ for file_index, file in enumerate(files):
         png_full_path = os.path.join(file_root, png_file_name)
         scal_png_full_path = os.path.join(file_root, f'stretch_{fits_id}.png')
         dot_png_full_path = os.path.join(file_root, f'dot_{fits_id}.png')
+        key_png_full_path = os.path.join(file_root, f'key_{fits_id}.png')
+        mark_png_full_path = os.path.join(file_root, f'mark_{fits_id}.png')
         txt_full_path = os.path.join(file_root, file)
         print(f'++ {fits_file_name}')
         with open(txt_full_path, 'r', encoding='utf-8') as txt_file:
@@ -42,7 +46,7 @@ for file_index, file in enumerate(files):
         # print(f'{line}')
         # print(f'{item_coord}')
         pix_xy = wcs_info.world_to_pixel(item_coord)
-        print(f'pix:   {pix_xy}')
+        # print(f'pix:   {pix_xy}')
 
         # 打开FITS文件
         hdu = fits.open(fits_full_path)
@@ -59,7 +63,7 @@ for file_index, file in enumerate(files):
         peak_value = bin_edges[peak_index]
         interval = PercentileInterval(99.5)  # 这里选择 95% 的范围
         vmin, vmax = interval.get_limits(data)
-        print(f'vmin: {vmin}   vmax:{vmax}')
+        # print(f'vmin: {vmin}   vmax:{vmax}')
         stretch = LinearStretch()
         norm = ImageNormalize(data, stretch=stretch, vmin=vmin, vmax=vmax)
 
@@ -76,25 +80,36 @@ for file_index, file in enumerate(files):
         # image.save(png_full_path)
         image_scal.save(scal_png_full_path)
 
+        # data_scal = np.array(image_scal)
+        # image_data_np = np.array(image_scal)
+        image_data_float = image_data.astype(np.float64)
         # 使用SEP进行源检测
-        bkg = sep.Background(data)
+        bkg = sep.Background(image_data_float)
         bkg_image = bkg.back()
-        data_no_bg = data - bkg_image
+        data_no_bg = image_data_float - bkg_image
         objects = sep.extract(data_no_bg, 1.5, err=bkg.globalrms)
-        print(f'objs = {len(objects)}')
+
         objects1 = []
         for obj in objects:
             if obj['flux'] > 5000 or obj['a'] > 100:
                 objects1.append(obj)
+        print(f'objs = {len(objects1)}/{len(objects)}')
 
-        # img1_with_keypoints = image_scal.copy()
+        find_overlap_by_sep(scal_png_full_path, mark_png_full_path, mark_png_full_path)
+
+        # img1_with_keypoints = data_no_bg.copy()
+        # img1_with_keypoints = img1_with_keypoints.astype(np.uint8)
         # for obj1 in objects1:
         #     cv2.circle(img1_with_keypoints, (int(obj1['x']), int(obj1['y'])), int(obj1['a']), (0, 255, 0), 2)
+        # # 将图像从BGR转换为RGB
+        # img1_with_keypoints = cv2.cvtColor(img1_with_keypoints, cv2.COLOR_BGR2RGB)
+        # cv2.imwrite(key_png_full_path, img1_with_keypoints)
 
         img1_with_dot = np.zeros(data.shape, dtype=np.uint8)
         for obj in objects1:
             cv2.circle(img1_with_dot, (int(obj['x']), int(obj['y'])), 50, (255, 255, 255), -1)
         cv2.imwrite(dot_png_full_path, img1_with_dot)
 
+        # break
 
 
