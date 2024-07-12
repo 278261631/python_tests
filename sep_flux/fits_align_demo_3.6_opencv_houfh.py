@@ -123,7 +123,7 @@ def find_overlap_by_sep(img1_path, img2_path, output_path_img1="img1_keypoints.p
     # connect_points(objects1, img1_with_lines)
 
     # 保存图像
-    cv2.imwrite('src_process/test_/p-lines-1.jpg', img1_with_lines)
+    cv2.imwrite('src_process/test_/p-lines-1.png', img1_with_lines)
 
     # 标记点状源并连接
     # img2_with_lines = img2.copy()
@@ -134,7 +134,7 @@ def find_overlap_by_sep(img1_path, img2_path, output_path_img1="img1_keypoints.p
     # connect_points(objects2, img2_with_lines)
 
     # 保存图像
-    cv2.imwrite('src_process/test_/p-lines-2.jpg', img2_with_lines)
+    cv2.imwrite('src_process/test_/p-lines-2.png', img2_with_lines)
 
 
 

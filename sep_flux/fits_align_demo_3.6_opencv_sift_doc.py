@@ -8,10 +8,10 @@ matplotlib.use('TkAgg')
 
 
 file_root = f'src_process/test_/'
-# png_1_path = os.path.join(file_root, 'p-lines-1.jpg')
-# png_2_path = os.path.join(file_root, 'p-lines-2.jpg')
-png_1_path = os.path.join(file_root, 's_109120220407205235.png')
-png_2_path = os.path.join(file_root, 's_209120220407205125.png')
+png_1_path = os.path.join(file_root, 'p-lines-1.png')
+png_2_path = os.path.join(file_root, 'p-lines-2.png')
+# png_1_path = os.path.join(file_root, 's_109120220407205235.png')
+# png_2_path = os.path.join(file_root, 's_209120220407205125.png')
 png_over_path = os.path.join(file_root, 'doc_sift_over.png')
 
 img1 = cv.imread(png_1_path, cv.IMREAD_GRAYSCALE)
