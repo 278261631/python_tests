@@ -8,10 +8,10 @@ matplotlib.use('TkAgg')
 
 
 file_root = f'src_process/test_/'
-png_1_path = os.path.join(file_root, 'p-lines-1.jpg')
-png_2_path = os.path.join(file_root, 'p-lines-2.jpg')
-png_key_1_path = os.path.join(file_root, 'doc_sift_key_1.png')
-png_key_2_path = os.path.join(file_root, 'doc_sift_key_2.png')
+# png_1_path = os.path.join(file_root, 'p-lines-1.jpg')
+# png_2_path = os.path.join(file_root, 'p-lines-2.jpg')
+png_1_path = os.path.join(file_root, 's_109120220407205235.png')
+png_2_path = os.path.join(file_root, 's_209120220407205125.png')
 png_over_path = os.path.join(file_root, 'doc_sift_over.png')
 
 img1 = cv.imread(png_1_path, cv.IMREAD_GRAYSCALE)
@@ -37,7 +37,7 @@ matches = flann.knnMatch(des1, des2, k=2)
 # store all the good matches as per Lowe's ratio test.
 good = []
 for m, n in matches:
-    if m.distance < 0.7 * n.distance:
+    if m.distance < 0.6 * n.distance:
         good.append(m)
 
 if len(good) > MIN_MATCH_COUNT:
@@ -52,6 +52,21 @@ if len(good) > MIN_MATCH_COUNT:
     dst = cv.perspectiveTransform(pts, M)
 
     img2 = cv.polylines(img2, [np.int32(dst)], True, 255, 3, cv.LINE_AA)
+
+    # 获取img2的尺寸
+    h, w = img2.shape
+
+    # 创建一个与img2相同尺寸的点集，用于应用单应性变换
+    points2D = np.float32([[x, y] for y in range(h) for x in range(w)]).reshape(-1, 1, 2)
+
+    # 步骤1: 使用单应性矩阵变换img2中的所有点
+    transformed_pts = cv.perspectiveTransform(points2D, M)
+
+    # 创建一个新的图像，尺寸与img1相同
+    transformed_img2 = cv.warpPerspective(img1, M, (w, h))
+
+    # 步骤2: 保存变换后的图像
+    cv.imwrite(os.path.join(file_root, 'doc_transformed_img3.png'), transformed_img2)
 
 else:
     print("Not enough matches are found - {}/{}".format(len(good), MIN_MATCH_COUNT))
