@@ -45,7 +45,7 @@ def find_overlap_by_sep(img1_path, output_path_img_key, output_path_img_mark):
 
 
 def align_fits_by_light_stars(fits_1_path, fits_2_path, png_1_path, png_2_path, fits_transformed_path, png_over_path,
-                              png_trans_debug):
+                              png_trans_debug, wcs_info_aligned):
     with fits.open(fits_1_path) as hdul1:
         img1_data = hdul1[0].data
 
@@ -108,6 +108,7 @@ def align_fits_by_light_stars(fits_1_path, fits_2_path, png_1_path, png_2_path, 
         cv.imwrite(png_trans_debug, transformed_img2)
 
         hdu = fits.PrimaryHDU(transformed_img2_fits)
+        hdu.header.update(wcs_info_aligned.to_header())
         hdul = fits.HDUList([hdu])
         hdul.writeto(fits_transformed_path, overwrite=True)
 

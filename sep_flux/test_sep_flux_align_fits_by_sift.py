@@ -31,6 +31,7 @@ os.makedirs(aligned_fits_path, exist_ok=True)
 
 align_to_fits_full_path = None
 dot_png_align_to_full_path = None
+wcs_info_aligned = None
 fits_counter = 0
 for file_index, file in enumerate(files):
     if file.endswith('.txt'):
@@ -123,6 +124,8 @@ for file_index, file in enumerate(files):
         if fits_counter == 1:
             align_to_fits_full_path = fits_full_path
             dot_png_align_to_full_path = dot_png_full_path
+            wcs_info_aligned = wcs_info
+            #     todo copy fits 1
         else:
             # trans_fits_full_path = os.path.join(file_root, f'trans_{fits_id}.fits')
             trans_fits_full_path = os.path.join(aligned_fits_path, f'{fits_id}.fits')
@@ -130,6 +133,6 @@ for file_index, file in enumerate(files):
             debug_png_full_path = os.path.join(file_root, f'debug_{fits_id}.png')
             align_fits_by_light_stars(fits_full_path, align_to_fits_full_path
                                       , dot_png_full_path, dot_png_align_to_full_path
-                                      , trans_fits_full_path, trans_png_full_path, debug_png_full_path)
+                                      , trans_fits_full_path, trans_png_full_path, debug_png_full_path, wcs_info_aligned)
 
         # break
