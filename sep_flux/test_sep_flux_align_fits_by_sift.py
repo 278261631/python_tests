@@ -26,6 +26,8 @@ ra, dec = get_ra_dec_from_string(src_string_hms_dms, src_string_ra_dec)
 file_root = f'src_process/{ra:0>3.6f}_{dec:0>2.8f}/'
 item_coord = SkyCoord(ra=ra, dec=dec, unit='deg')
 files = os.listdir(file_root)
+aligned_fits_path = f'src_process/{ra:0>3.6f}_{dec:0>2.8f}/aligned/'
+os.makedirs(aligned_fits_path, exist_ok=True)
 
 align_to_fits_full_path = None
 dot_png_align_to_full_path = None
@@ -92,14 +94,18 @@ for file_index, file in enumerate(files):
         bkg_image = bkg.back()
         data_no_bg = image_data_float - bkg_image
         objects = sep.extract(data_no_bg, 1.5, err=bkg.globalrms)
-
+        objects = sorted(objects, key=lambda s_obj: s_obj['flux'], reverse=True)
         objects1 = []
-        for obj in objects:
-            if obj['flux'] > 5000 or obj['a'] > 100:
+
+        for obj_idx, obj in enumerate(objects):
+            if obj_idx < 500:
                 objects1.append(obj)
+        # for obj in objects:
+        #     if obj['flux'] > 5000 or obj['a'] > 100:
+        #         objects1.append(obj)
         print(f'objs = {len(objects1)}/{len(objects)}')
 
-        find_overlap_by_sep(scal_png_full_path, mark_png_full_path, mark_png_full_path)
+        find_overlap_by_sep(scal_png_full_path, key_png_full_path, mark_png_full_path)
 
         # img1_with_keypoints = data_no_bg.copy()
         # img1_with_keypoints = img1_with_keypoints.astype(np.uint8)
@@ -118,7 +124,8 @@ for file_index, file in enumerate(files):
             align_to_fits_full_path = fits_full_path
             dot_png_align_to_full_path = dot_png_full_path
         else:
-            trans_fits_full_path = os.path.join(file_root, f'trans_{fits_id}.fits')
+            # trans_fits_full_path = os.path.join(file_root, f'trans_{fits_id}.fits')
+            trans_fits_full_path = os.path.join(aligned_fits_path, f'{fits_id}.fits')
             trans_png_full_path = os.path.join(file_root, f'trans_{fits_id}.png')
             debug_png_full_path = os.path.join(file_root, f'debug_{fits_id}.png')
             align_fits_by_light_stars(fits_full_path, align_to_fits_full_path

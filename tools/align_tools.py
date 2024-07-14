@@ -8,7 +8,6 @@ from astropy.io import fits
 
 
 def find_overlap_by_sep(img1_path, output_path_img_key, output_path_img_mark):
-
     # 加载图片
     img1 = cv2.imread(img1_path)
     # 转换为灰度图
@@ -18,11 +17,17 @@ def find_overlap_by_sep(img1_path, output_path_img_key, output_path_img_mark):
     bkg_1 = sep.Background(gray1)
     gray1 = gray1 - bkg_1
     objects1_all = sep.extract(gray1, thresh=1.5, err=bkg_1.globalrms)
-    print(f'sources: [{len(objects1_all)}]')
+    objects1_all = sorted(objects1_all, key=lambda s_obj: s_obj['flux'], reverse=True)
+
+    print(f'sources: [{len(objects1_all)}]   [{objects1_all[0]["flux"]}]  [{objects1_all[0]["a"]}]')
     objects1 = []
-    for obj in objects1_all:
-        if obj['flux'] > 5000 or obj['a'] > 100:
+
+    for obj_idx, obj in enumerate(objects1_all):
+        if obj_idx < 500:
             objects1.append(obj)
+    # for obj in objects1_all:
+    #     if obj['flux'] > 5000 or obj['a'] > 100:
+    #         objects1.append(obj)
 
     img1_with_keypoints = img1.copy()
     for obj1 in objects1:
@@ -39,7 +44,8 @@ def find_overlap_by_sep(img1_path, output_path_img_key, output_path_img_mark):
     cv2.imwrite(output_path_img_key, img1_with_keypoints)
 
 
-def align_fits_by_light_stars(fits_1_path, fits_2_path, png_1_path, png_2_path, fits_transformed_path, png_over_path, png_trans_debug):
+def align_fits_by_light_stars(fits_1_path, fits_2_path, png_1_path, png_2_path, fits_transformed_path, png_over_path,
+                              png_trans_debug):
     with fits.open(fits_1_path) as hdul1:
         img1_data = hdul1[0].data
 
@@ -117,4 +123,3 @@ def align_fits_by_light_stars(fits_1_path, fits_2_path, png_1_path, png_2_path, 
     img3 = cv.drawMatches(img1, kp1, img2, kp2, good, None, **draw_params)
 
     cv.imwrite(png_over_path, img3)
-
