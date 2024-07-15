@@ -17,11 +17,12 @@ args = parser.parse_args()
 print(f"ra dec: {args.radec}")
 print(f"Hms : {args.Hms}")
 
-src_string_hms_dms = '16:22:54.448 -16:11:0.93'
+# src_string_hms_dms = '16:22:54.448 -16:11:0.93'
+src_string_hms_dms = '19:28:54.197 +38:59:40.80'
 src_string_ra_dec = ''
 ra, dec = get_ra_dec_from_string(src_string_hms_dms, src_string_ra_dec)
 
-temp_download_path = f'src_process/{ra:0>3.6f}_{dec:0>2.8f}_recent/'
+temp_download_path = f'src_process/{ra:0>3.6f}_{dec:0>2.8f}/'
 # temp_download_path = f'src_process/{ra:0>3.6f}_{dec:0>2.8f}/'
 os.makedirs(temp_download_path, exist_ok=True)
 item_coord = SkyCoord(ra=ra, dec=dec, unit='deg')
@@ -34,7 +35,7 @@ search_sql = f'select id,file_path,wcs_info,center_a_theta, ' \
              f'abs(90-(degrees(acos((({item_cart.x}*t.b_n_x) +({item_cart.y}*t.b_n_y)+({item_cart.z}*t.b_n_z) ))))) as tb, ' \
              f'degrees(acos((({item_cart.x}*t.center_v_x) +({item_cart.y}*t.center_v_y)+({item_cart.z}*t.center_v_z) ))) as tc ' \
              f'from  image_info as t ' \
-             f'where t.status=100 and t.center_a_theta>ta and t.center_b_theta>tb and tc<90 limit 30'
+             f'where t.status=100 and t.center_a_theta>ta and t.center_b_theta>tb and tc<90'
 print(f'{search_sql}')
 cursor_search.execute(search_sql)
 db_search_result = cursor_search.fetchall()
