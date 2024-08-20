@@ -8,15 +8,40 @@ import concurrent.futures
 from threading import Lock
 
 # 连接到SQLite数据库
-db_path = 'fits_wcs_2024_123.db'
-recent_data = False
+db_path = 'fits_wcs_recent.db'
+recent_data = True
 start_day = '20240101'
-day_count = 99
+day_count = 1
 
 lock = Lock()
 progress_info = {}
 # 最大线程数
-max_thread = 6
+max_thread = 1
+
+
+def validate_date(date_str):
+    try:
+        datetime.datetime.strptime(date_str, '%Y%m%d')
+        return True
+    except ValueError:
+        return False
+
+
+conn_search_date = sqlite3.connect(db_path)
+cursor_search_date = conn_search_date.cursor()
+# sql_search = f'select id,file_path from  image_info where wcs_info is null and chk_result=1 and blob_dog_num>500 and status=111'
+sql_search_date = f'select substr(id, 5, 8) AS id_substring from  image_info order by id_substring desc limit 1'
+cursor_search_date.execute(sql_search_date)
+db_search_result_date = cursor_search_date.fetchall()
+cursor_search_date.close()
+conn_search_date.close()
+max_date_str = db_search_result_date[0][0]
+if not validate_date(max_date_str):
+    print(f'日期无效 {max_date_str}')
+    exit(1)
+start_day = (datetime.datetime.strptime(max_date_str, '%Y%m%d') + datetime.timedelta(days=1)).strftime('%Y%m%d')
+print(f'start from [{start_day}]')
+max_thread = 1
 
 
 def calc_days_list(yyyymmdd_str, day_count_param):
