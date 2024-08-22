@@ -5,7 +5,7 @@ from test_schedule.p_02_download_or_copy import run_02_download
 from test_schedule.p_03_1_download_check_to_txt import run_03_check_to_txt
 from test_schedule.p_03_2_check_from_txt import run_03_2_check_from_txt
 from test_schedule.p_04_1_solve_astap_to_txt import run_p_04_1_solve_astap_to_txt
-from test_schedule.p_04_2_solve_from_txt import run_p_04_2_solve_from_txt
+from test_schedule.p_04_2_solve_from_txt import run_p_04_2_solve_from_txt, run_p_09_clean_dir
 from test_schedule.t_01_scan import run_01_scan
 
 
@@ -22,6 +22,8 @@ def job_01():
     print(f'-----------  job_05  --------------')
     run_p_04_2_solve_from_txt()
     print(f'-----------  job_06  --------------')
+    run_p_09_clean_dir()
+    print(f'-----------  job_09  --------------')
 
 
 job_01()
