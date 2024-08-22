@@ -1,4 +1,5 @@
 import os
+import shutil
 
 import cv2
 import matplotlib
@@ -17,17 +18,27 @@ from skimage import io, filters, measure, color, morphology, exposure, feature
 
 sigma = 10
 if __name__ == '__main__':
-    temp_txt_path = 'e:/fix_data/check'
+    temp_txt_path = 'e:/fix_data/2023/'
+    copy_err_path = 'e:/fix_data/copy_err/'
+    copy_ok_path = 'e:/fix_data/copy_ok/'
     files = os.listdir(temp_txt_path)
     for file_index, file in enumerate(files):
         fits_id = os.path.basename(file).replace('.fits', '')
         if file.endswith('.fits'):
             fits_full_path = os.path.join(temp_txt_path, file)
-            png_full_path = os.path.join(temp_txt_path, f'{fits_id}.png')
-            print(f'{file_index}    {file}')
-            with fits.open(fits_full_path) as hdul:
-                image_data = hdul[0].data
-
+            png_err_full_path = os.path.join(copy_err_path, f'{fits_id}.png')
+            png_ok_full_path = os.path.join(copy_ok_path, f'{fits_id}.png')
+            copy_err_full_path = os.path.join(copy_err_path, f'{fits_id}.fits')
+            copy_ok_full_path = os.path.join(copy_ok_path, f'{fits_id}.fits')
+            print(f'{file_index}    {file} / {len(files)}')
+            if os.path.exists(png_ok_full_path) or os.path.exists(png_err_full_path):
+                print(f'skip  {file}')
+                continue
+            try:
+                with fits.open(fits_full_path) as hdul:
+                    image_data = hdul[0].data
+            except Exception as e:
+                continue
 
             # min_val = np.min(image_data)
             # max_val = np.max(image_data)
@@ -100,6 +111,7 @@ if __name__ == '__main__':
             aspect_ratios = []
             line_count = 0
             big_area_count = 0
+            line_in_contour_ratio = 0
             for contour in contours:
                 # 计算轮廓的边界框
                 x, y, w, h = cv2.boundingRect(contour)
@@ -119,7 +131,8 @@ if __name__ == '__main__':
             if aspect_ratios:
                 median_aspect_ratio = np.median(aspect_ratios)
                 print(f"宽高比的中位数: {median_aspect_ratio:.2f}")
-                print(f'--  len:{len(contours)}  mean:{aspect_ratio_sum/contour_count}  {line_count}   {line_count/contour_count}')
+                line_in_contour_ratio = line_count/contour_count
+                print(f'--  len:{len(contours)}  mean:{aspect_ratio_sum/contour_count}  {line_count}   {line_in_contour_ratio}')
             else:
                 print("没有有效的宽高比数据。")
 
@@ -166,7 +179,15 @@ if __name__ == '__main__':
             # 显示图像
             # plt.show()
 
-            plt.savefig(png_full_path, dpi=100, format='png', bbox_inches='tight')
-            plt.close(fig)
+            if line_in_contour_ratio < 0.5:
+                shutil.copy(fits_full_path, copy_ok_full_path)
+                plt.savefig(png_ok_full_path, dpi=100, format='png', bbox_inches='tight')
+                plt.close(fig)
+            else:
+                shutil.copy(fits_full_path, copy_err_full_path)
+                plt.savefig(png_err_full_path, dpi=100, format='png', bbox_inches='tight')
+                plt.close(fig)
+
+
 
 

@@ -8,12 +8,12 @@ import concurrent.futures
 from threading import Lock
 
 # 连接到SQLite数据库
-db_path = config_manager.ini_config.get('database', 'path')
-temp_download_path = config_manager.ini_config.get('download', 'temp_download_path')
-recent_data = config_manager.ini_config.get('download', 'recent_data') == 'True'
-
-start_day = '20211229'
-day_count = 3
+db_path = 'fits_wcs_recent.db'
+temp_download_path = 'e:/2024_4567/'
+# recent_data = config_manager.ini_config.get('download', 'recent_data') == 'True'
+recent_data = True
+start_day = '20240425'
+day_count = 80
 
 lock = Lock()
 progress_info = {}
