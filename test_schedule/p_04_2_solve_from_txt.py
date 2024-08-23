@@ -2,11 +2,11 @@ import os
 import sqlite3
 
 
-def run_p_04_2_solve_from_txt():
+def run_p_04_2_solve_from_txt(folder_name):
 
     # 连接到SQLite数据库
     db_path = '../sources/fits_wcs_recent.db'
-    temp_txt_path = 'e:/fix_data/2024/'
+    temp_txt_path = f'e:/fix_data/{folder_name}/'
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
@@ -39,7 +39,7 @@ def run_p_04_2_solve_from_txt():
                       f'a_n_x={parts[17]}, a_n_y={parts[18]},a_n_z={parts[19]},' \
                       f'b_n_x={parts[20]}, b_n_y={parts[21]},b_n_z={parts[22]}' \
                       f'  WHERE id = {parts[23]} and status != 100'
-            # print(sql_str)
+            print(sql_str)
             if file_index % 2 == 0:
                 conn.commit()
                 print(f'{file_index} / {len(files)}')
@@ -51,16 +51,13 @@ def run_p_04_2_solve_from_txt():
     conn.close()
 
 
-def run_p_09_clean_dir():
+def run_p_09_clean_dir(folder_name):
 
     # 连接到SQLite数据库
     db_path = '../sources/fits_wcs_recent.db'
-    temp_txt_path = 'e:/fix_data/2024/'
+    temp_txt_path = f'e:/fix_data/{folder_name}/'
     conn_search = sqlite3.connect(db_path)
     cursor_search = conn_search.cursor()
-
-
-
 
     files = os.listdir(temp_txt_path)
     for file_index, file in enumerate(files):
@@ -80,7 +77,7 @@ def run_p_09_clean_dir():
                 continue
             assert len_parts == 24
 
-            sql_search = f'select id,file_path from  image_info where status = {parts[23]} and image_info.wcs_info is not null limit 1'
+            sql_search = f'select id,file_path from  image_info where id = {parts[23]} and status=100 and image_info.wcs_info is not null limit 1'
             print(sql_search)
             cursor_search.execute(sql_search)
             db_search_result = cursor_search.fetchall()
@@ -89,6 +86,9 @@ def run_p_09_clean_dir():
                 file_name_txt_ok = os.path.join(temp_txt_path, f'{parts[23]}_ok.txt')
                 file_name_txt_chk = os.path.join(temp_txt_path, f'{parts[23]}_chk.txt')
                 print(f'del : {file_name_fits}    {file_name_txt_ok}    {file_name_txt_chk}')
+                os.remove(file_name_fits)
+                os.remove(file_name_txt_ok)
+                os.remove(file_name_txt_chk)
                 # todo
     cursor_search.close()
     conn_search.close()

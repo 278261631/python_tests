@@ -6,7 +6,6 @@ from astropy.io import fits
 from skimage.exposure import histogram
 
 
-temp_download_path = 'e:/fix_data/2024/'
 #  拥挤在过曝区域 %5
 threshold_percentage_95 = 95
 # 拥挤在低曝光 3% 的范围
@@ -16,9 +15,10 @@ threshold_percentage_10 = 2
 fits_list_chk = []
 
 
-def worker_check_fits(d_queue):
+def worker_check_fits(d_queue, folder_name):
+    temp_download_path = f'e:/fix_data/{folder_name}'
     d_queue_size = d_queue.qsize()
-    index=0
+    index = 0
     while not d_queue.empty():
         d_item = d_queue.get_nowait()  # 从队列中获取数据
         file_name = "{}.fits".format(d_item[0])
@@ -68,7 +68,8 @@ def worker_check_fits(d_queue):
         print(f'{"++" if all_check_pass else "--"}')
 
 
-def run_03_check_to_txt():
+def run_03_check_to_txt(folder_name):
+    temp_download_path = f'e:/fix_data/{folder_name}'
     files = os.listdir(temp_download_path)
     for file_index, fits_file in enumerate(files):
         if fits_file.endswith('.fits'):
@@ -99,5 +100,5 @@ def run_03_check_to_txt():
             else:
                 print(f'--')
 
-    worker_check_fits(data_queue)
+    worker_check_fits(data_queue, folder_name)
 

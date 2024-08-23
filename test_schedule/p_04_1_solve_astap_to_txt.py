@@ -8,7 +8,6 @@ import subprocess
 from astropy import wcs
 from solve.test_name_to_ra_dec import get_ra_dec_from_path
 
-temp_download_path = 'e:/fix_data/2024/'
 fits_list = []
 
 
@@ -48,7 +47,8 @@ def plane_normal_vector(p1, p2, p3):
     return normalize_vector(n)
 
 
-def worker_check_fits(d_queue, r_queue, s_queue, p_name):
+def worker_check_fits(d_queue, r_queue, s_queue, p_name, folder_name):
+    temp_download_path = f'e:/fix_data/{folder_name}/'
     d_queue_size = d_queue.qsize()
     while not d_queue.empty():
         try:
@@ -220,7 +220,8 @@ def worker_check_fits(d_queue, r_queue, s_queue, p_name):
               f'{d_item[0]}.fits    {d_item[0]}   [{p_name}]')
 
 
-def run_p_04_1_solve_astap_to_txt():
+def run_p_04_1_solve_astap_to_txt(folder_name):
+    temp_download_path = f'e:/fix_data/{folder_name}/'
     files = os.listdir(temp_download_path)
     for file_index, fits_file in enumerate(files):
         if fits_file.endswith('.fits'):
@@ -279,6 +280,6 @@ def run_p_04_1_solve_astap_to_txt():
             # else:
             #     print(f'xx')
 
-    worker_check_fits(data_queue, results_queue, success_queue, "01")
+    worker_check_fits(data_queue, results_queue, success_queue, "01", folder_name)
 
 
