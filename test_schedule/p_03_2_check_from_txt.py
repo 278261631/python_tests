@@ -5,7 +5,7 @@ import sqlite3
 def run_03_2_check_from_txt(folder_name):
 
     # 连接到SQLite数据库
-    db_path = '../thread_test/fits_wcs_recent.db'
+    db_path = '../sources/fits_wcs_recent.db'
     temp_txt_path = f'e:/fix_data/{folder_name}/'
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
@@ -23,15 +23,12 @@ def run_03_2_check_from_txt(folder_name):
             if len_parts != 6:
                 for i, item in enumerate(parts):
                     print(f'{i}:  {item}')
-            # if parts[2] != '100':
-            #     print(f'ss: {file_index}')
-            #     continue
             assert len_parts == 6
 
             sql_str = f'UPDATE image_info SET  chk_exp_hist ="{parts[2]}", blob_dog_num={parts[3]},' \
-                      f' chk_result={parts[4]} ' \
-                      f'  WHERE id = {parts[5]} and status=1 and chk_result is null'
-            # print(sql_str)
+                      f' chk_result={parts[4]}, status=1' \
+                      f'  WHERE id = {parts[5]} and status=0 and chk_result is null'
+            print(f'{sql_str}')
             if file_index % 100 == 0:
                 conn.commit()
                 print(f'{file_index} / {len(files)}')
