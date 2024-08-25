@@ -56,6 +56,7 @@ def wget_scan(item_yyyy, item_ymd):
     date_time_pattern = re.compile(r"UTC(\d{8})_(\d{6})_")
     gy_pattern = re.compile(r"GY(\d)")
     k_pattern = re.compile(r"K(\d+)")
+    insert_counter = 0
     for idx, item in enumerate(file_url_list_all_days):
         cursor.execute('''
             SELECT 1 FROM image_info WHERE file_path = ?
@@ -88,6 +89,7 @@ def wget_scan(item_yyyy, item_ymd):
             sql_str = f'INSERT INTO image_info (id, file_path, status) VALUES ({gy_sys_id}{k_id}' \
                       f'{year_month_day}{hour_minute_second},"{item}",{0})'
             print(f' [  {item_ymd}  ]:{idx}/ {len(file_url_list_all_days)}  {sql_str}')
+            insert_counter = insert_counter+1
             cursor.execute(sql_str)
             # if idx % 10 == 0:
             #     print(f'{idx}/ {len(file_url_list_all_days)} {item}')
@@ -97,9 +99,11 @@ def wget_scan(item_yyyy, item_ymd):
         conn.commit()
     cursor.close()
     conn.close()
+    return insert_counter
 
 
 def run_01_scan():
+    global insert_counter
     conn_search_date = sqlite3.connect(db_path)
     cursor_search_date = conn_search_date.cursor()
     sql_search_date = f'select substr(id, 5, 8) AS id_substring from  image_info order by id_substring desc limit 1'
@@ -117,9 +121,16 @@ def run_01_scan():
 
     days_list = calc_days_list(start_day, day_count)
     for i, r_item in enumerate(days_list):
-        wget_scan(r_item[0], r_item[1])
-
-
+        insert_counter = wget_scan(r_item[0], r_item[1])
+    if insert_counter == 0:
+        for j in (1, 10):
+            start_day = (datetime.datetime.strptime(max_date_str, '%Y%m%d') + datetime.timedelta(days=1+j)).strftime('%Y%m%d')
+            print(f'start from [{start_day}]')
+            days_list = calc_days_list(start_day, day_count)
+            for i, r_item in enumerate(days_list):
+                insert_counter = wget_scan(r_item[0], r_item[1])
+            if insert_counter != 0:
+                break
 
 
 
