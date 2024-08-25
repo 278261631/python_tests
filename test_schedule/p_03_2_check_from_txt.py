@@ -5,7 +5,7 @@ import sqlite3
 def run_03_2_check_from_txt(folder_name):
 
     # 连接到SQLite数据库
-    db_path = '../sources/fits_wcs_recent.db'
+    db_path = '../thread_test/fits_wcs_recent.db'
     temp_txt_path = f'e:/fix_data/{folder_name}/'
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()

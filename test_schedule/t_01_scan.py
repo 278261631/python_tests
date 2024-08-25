@@ -6,7 +6,7 @@ import concurrent.futures
 
 
 # 连接到SQLite数据库
-db_path = '../sources/fits_wcs_recent.db'
+db_path = '../thread_test/fits_wcs_recent.db'
 recent_data = True
 day_count = 1
 
@@ -112,7 +112,7 @@ def run_01_scan():
         print(f'日期无效 {max_date_str}')
         exit(1)
     start_day = (datetime.datetime.strptime(max_date_str, '%Y%m%d') + datetime.timedelta(days=1)).strftime('%Y%m%d')
-    start_day = '21290101'
+    # start_day = '21290101'
     print(f'start from [{start_day}]')
 
     days_list = calc_days_list(start_day, day_count)

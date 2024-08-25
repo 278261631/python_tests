@@ -30,10 +30,10 @@ def worker_download_fits(db_search_result, folder_name):
 
 
 def run_02_download(folder_name):
-    db_path = '../sources/fits_wcs_recent.db'
+    db_path = '../thread_test/fits_wcs_recent.db'
     conn_search = sqlite3.connect(db_path)
     cursor_search = conn_search.cursor()
-    sql_search = f'select id,file_path from  image_info where status = 0 and image_info.wcs_info is null limit 6'
+    sql_search = f'select id,file_path from  image_info where status = 0 and image_info.wcs_info is null limit 1000'
     cursor_search.execute(sql_search)
     db_search_result = cursor_search.fetchall()
     cursor_search.close()

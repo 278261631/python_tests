@@ -32,7 +32,7 @@ def job_01():
 
 
 job_01()
-schedule.every(60*5).seconds.do(job_01)
+schedule.every(10).seconds.do(job_01)
 
 
 while True:
