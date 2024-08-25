@@ -9,7 +9,8 @@ def run_03_2_check_from_txt(folder_name):
     temp_txt_path = f'e:/fix_data/{folder_name}/'
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-
+    if not os.path.exists(temp_txt_path):
+        return
     files = os.listdir(temp_txt_path)
     for file_index, file in enumerate(files):
         if file.endswith('_chk.txt'):

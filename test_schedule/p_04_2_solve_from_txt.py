@@ -9,7 +9,8 @@ def run_p_04_2_solve_from_txt(folder_name):
     temp_txt_path = f'e:/fix_data/{folder_name}/'
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-
+    if not os.path.exists(temp_txt_path):
+        return
     files = os.listdir(temp_txt_path)
     for file_index, file in enumerate(files):
         if file.endswith('_solve.txt'):
@@ -58,7 +59,8 @@ def run_p_09_clean_dir(folder_name):
     temp_txt_path = f'e:/fix_data/{folder_name}/'
     conn_search = sqlite3.connect(db_path)
     cursor_search = conn_search.cursor()
-
+    if not os.path.exists(temp_txt_path):
+        return
     files = os.listdir(temp_txt_path)
     for file_index, file in enumerate(files):
         if file.endswith('_solve.txt'):

@@ -70,6 +70,8 @@ def worker_check_fits(d_queue, folder_name):
 
 def run_03_check_to_txt(folder_name):
     temp_download_path = f'e:/fix_data/{folder_name}'
+    if not os.path.exists(temp_download_path):
+        return
     files = os.listdir(temp_download_path)
     for file_index, fits_file in enumerate(files):
         if fits_file.endswith('.fits'):
