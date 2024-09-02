@@ -82,7 +82,7 @@ def run_03_check_to_txt(folder_name):
 
     data_queue = multiprocessing.Queue()
     print(f'len: {len(fits_list_chk)}')
-    for search_item in fits_list_chk:
+    for idx, search_item in enumerate(fits_list_chk):
         file_name_txt_chk = "{}_chk.txt".format(search_item[0])
         file_name_txt_ok = "{}_ok.txt".format(search_item[0])
         file_name_download = "{}.fits".format(search_item[0])
@@ -91,16 +91,16 @@ def run_03_check_to_txt(folder_name):
         save_file_path_download = os.path.join(temp_download_path, file_name_download)
 
         if not os.path.exists(save_file_path_txt_ok):
-            print(f'ss  {save_file_path_txt_ok}')
+            print(f'ss {idx}  {save_file_path_txt_ok}')
             continue
         if os.path.exists(save_file_path_txt_chk):
-            print(f'ss  {save_file_path_txt_chk}')
+            print(f'ss {idx}  {save_file_path_txt_chk}')
         else:
             if os.path.exists(save_file_path_download):
-                print(f'++')
+                print(f'++ {idx}')
                 data_queue.put(search_item)
             else:
-                print(f'--')
+                print(f'-- {idx}')
 
     worker_check_fits(data_queue, folder_name)
 

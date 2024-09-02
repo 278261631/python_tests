@@ -103,7 +103,6 @@ def wget_scan(item_yyyy, item_ymd):
 
 
 def run_01_scan():
-    global insert_counter
     conn_search_date = sqlite3.connect(db_path)
     cursor_search_date = conn_search_date.cursor()
     sql_search_date = f'select substr(id, 5, 8) AS id_substring from  image_info order by id_substring desc limit 1'
@@ -116,20 +115,38 @@ def run_01_scan():
         print(f'日期无效 {max_date_str}')
         exit(1)
     start_day = (datetime.datetime.strptime(max_date_str, '%Y%m%d') + datetime.timedelta(days=1)).strftime('%Y%m%d')
-    # start_day = '21290101'
+    start_day = '20240828'
     print(f'start from [{start_day}]')
+    current_date = datetime.datetime.now().strftime('%Y%m%d')
+    current_date_dt = datetime.datetime.strptime(current_date, '%Y%m%d')
+
+    start_day_dt = datetime.datetime.strptime(start_day, '%Y%m%d')
+    if start_day_dt > current_date_dt:
+        return
 
     days_list = calc_days_list(start_day, day_count)
+    insert_counter = 0
     for i, r_item in enumerate(days_list):
         insert_counter = wget_scan(r_item[0], r_item[1])
-    if insert_counter == 0:
-        for j in (1, 10):
-            start_day = (datetime.datetime.strptime(max_date_str, '%Y%m%d') + datetime.timedelta(days=1+j)).strftime('%Y%m%d')
+    if 0 == insert_counter:
+        for j in range(1, 10):
+            start_day = (datetime.datetime.strptime(start_day, '%Y%m%d') + datetime.timedelta(days=1)).strftime('%Y%m%d')
             print(f'start from [{start_day}]')
+            start_day_dt = datetime.datetime.strptime(start_day, '%Y%m%d')
+            if start_day_dt > current_date_dt:
+                return
+            days_list.clear()
             days_list = calc_days_list(start_day, day_count)
             for i, r_item in enumerate(days_list):
                 insert_counter = wget_scan(r_item[0], r_item[1])
             if insert_counter != 0:
+                break
+
+            current_date = datetime.datetime.now().strftime('%Y%m%d')
+            start_day_dt = datetime.datetime.strptime(start_day, '%Y%m%d')
+            current_date_dt = datetime.datetime.strptime(current_date, '%Y%m%d')
+
+            if start_day_dt > current_date_dt:
                 break
 
 
