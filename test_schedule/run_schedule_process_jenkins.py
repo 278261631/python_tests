@@ -1,3 +1,4 @@
+import argparse
 import datetime
 
 import schedule
@@ -11,9 +12,13 @@ from test_schedule.p_04_2_solve_from_txt import run_p_04_2_solve_from_txt, run_p
 from test_schedule.t_01_scan import run_01_scan
 
 
-def job_01():
-    current_time = datetime.datetime.now()
-    folder_name = current_time.strftime('%Y%m%d_%H%M%S')
+def job_01(current_time):
+    if current_time is None:
+        current_time = datetime.datetime.now()
+    folder_name = current_time.strftime('%Y%m%d')
+
+    # current_time = datetime.datetime.now()
+    # folder_name = current_time.strftime('%Y%m%d_%H%M%S')
     # folder_name = '20241009_180201'
     # folder_name = '20241010_test'
     print(f'run at [{folder_name}]')
@@ -32,6 +37,34 @@ def job_01():
     run_p_09_clean_dir(folder_name)
     print(f'-----------  job_09  --------------')
 
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Schedule job with optional time parameter.")
+    parser.add_argument('--time', type=str, help='Specify the time in YYYYMMDD_HHMMSS format')
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
+    if args.time:
+        try:
+            current_time = datetime.datetime.strptime(args.time, '%Y%m%d_%H%M%S')
+            job_01(current_time)
+        except ValueError:
+            print("Invalid time format. Please use YYYYMMDD_HHMMSS.")
+    else:
+        job_01()
+
+    # Schedule the job to run every 10 seconds if needed
+    schedule.every(10).seconds.do(job_01)
+
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
+
+
+if __name__ == "__main__":
+    main()
 
 job_01()
 schedule.every(10).seconds.do(job_01)

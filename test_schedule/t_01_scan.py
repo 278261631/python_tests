@@ -115,7 +115,7 @@ def run_01_scan():
         print(f'日期无效 {max_date_str}')
         exit(1)
     start_day = (datetime.datetime.strptime(max_date_str, '%Y%m%d') + datetime.timedelta(days=1)).strftime('%Y%m%d')
-    start_day = '20240828'
+    start_day = '20241025'
     print(f'start from [{start_day}]')
     current_date = datetime.datetime.now().strftime('%Y%m%d')
     current_date_dt = datetime.datetime.strptime(current_date, '%Y%m%d')

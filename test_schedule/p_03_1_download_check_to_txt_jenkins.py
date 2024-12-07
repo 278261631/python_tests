@@ -9,6 +9,7 @@ import sep
 from astropy.io import fits
 from skimage.exposure import histogram
 
+from tools.send_message import ProcessStatus, send_amq
 
 #  拥挤在过曝区域 %5
 threshold_percentage_95 = 95
@@ -28,11 +29,18 @@ def worker_check_fits(d_queue, folder_name, max_workers=3):
 
         file_name = "{}.fits".format(d_item[0])
         file_name_txt = "{}_chk.txt".format(d_item[0])
+        file_name_solve = "{}_solve.txt".format(d_item[0])
         save_file_path = os.path.join(temp_download_path, file_name)
         save_file_path_txt = os.path.join(temp_download_path, file_name_txt)
+        save_file_path_solve = os.path.join(temp_download_path, file_name_solve)
         print(f'[{d_item[0]}]:{file_name}        {index + 1} / {d_queue_size}')
+        send_amq(f'{d_item[0]}.fits', 2, ProcessStatus.DEFAULT)
+        if os.path.exists(save_file_path_solve):
+            send_amq(f'{d_item[0]}.fits', 3, ProcessStatus.SKIP)
+            return
         if os.path.exists(save_file_path_txt):
             print(f'SS')
+            send_amq(f'{d_item[0]}.fits', 3, ProcessStatus.SKIP)
             return
         try:
             with fits.open(save_file_path) as hdul:
@@ -76,12 +84,13 @@ def worker_check_fits(d_queue, folder_name, max_workers=3):
     futures = []
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         for i, data_item in enumerate(d_queue):
-            executor.submit(process_item, data_item)
+            future = executor.submit(process_item, data_item)
+            futures.append(future)
             # 设置超时时间为10秒
         timeout = 60
-        for future in as_completed(futures, timeout=timeout):
+        for future_item in as_completed(futures, timeout=timeout):
             try:
-                result = future.result()
+                result = future_item.result()
                 print(result)
             except concurrent.futures.TimeoutError:
                 print("任务执行超时")

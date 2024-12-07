@@ -1,7 +1,7 @@
+import argparse
+import datetime
 import os
 import sqlite3
-
-from tools.send_message import send_amq, ProcessStatus
 
 
 def run_03_2_check_from_txt(folder_name):
@@ -36,13 +36,34 @@ def run_03_2_check_from_txt(folder_name):
                 conn.commit()
                 print(f'{file_index} / {len(files)}')
             cursor.execute(sql_str)
-            send_amq(f'{parts[5]}.fits', 3, ProcessStatus.SUCCESS)
             # if file_index > 100:
             #     break
     conn.commit()
     cursor.close()
     conn.close()
 
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Schedule job with optional time parameter.")
+    parser.add_argument('--time', type=str, help='time in YYYYMMDD format')
+    return parser.parse_args()
+
+
+def main():
+    current_time = datetime.datetime.now()
+    args = parse_args()
+    if args.time:
+        try:
+            current_time = datetime.datetime.strptime(args.time, '%Y%m%d')
+        except ValueError:
+            print("Invalid time format. Please use YYYYMMDD.")
+
+    folder_name = current_time.strftime('%Y%m%d')
+    run_03_2_check_from_txt(folder_name)
+
+
+if __name__ == "__main__":
+    main()
 
 
 

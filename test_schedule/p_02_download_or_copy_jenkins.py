@@ -5,6 +5,13 @@ import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 
 from tools.fits_check import copy_or_download
+import ctypes
+
+from tools.send_message import send_amq, ProcessStatus
+
+
+def output_debug_string(message):
+    ctypes.windll.kernel32.OutputDebugStringW(message)
 
 
 def worker_download_fits(db_search_result, folder_name):
@@ -18,18 +25,29 @@ def worker_download_fits(db_search_result, folder_name):
     def download_task(d_item):
         file_name = "{}.fits".format(d_item[0])
         file_name_txt_ok = "{}_ok.txt".format(d_item[0])
+        file_name_txt_solve = "{}_solve.txt".format(d_item[0])
 
         save_file_path = os.path.join(temp_download_path, file_name)
         save_file_path_ok = os.path.join(temp_download_path, file_name_txt_ok)
+        save_file_path_solve = os.path.join(temp_download_path, file_name_txt_solve)
 
         file_in_disk_path = os.path.join(file_in_disk_path_root, file_name)
 
         print(f'[{d_item[0]}]:{file_name}')
         download_code = 0
+        output_debug_string(f"download: {d_item[0]}.fits， {file_name}")
+        send_amq(f'{d_item[0]}.fits', 2, ProcessStatus.DEFAULT)
+        if os.path.exists(save_file_path_solve):
+            send_amq(f'{d_item[0]}.fits', 2, ProcessStatus.SKIP)
+            return
+        if os.path.exists(save_file_path_ok):
+            send_amq(f'{d_item[0]}.fits', 2, ProcessStatus.SKIP)
+            return
         success = copy_or_download(save_file_path, d_item[1], file_in_disk_path)
         if success:
             with open(save_file_path_ok, 'w', encoding='utf-8') as file:
                 file.write(f'{d_item[0]},ok')
+            send_amq(f'{d_item[0]}.fits', 2, ProcessStatus.SUCCESS)
 
     with ThreadPoolExecutor(max_workers=2) as executor:
         for i, d_item in enumerate(db_search_result):
@@ -67,6 +85,7 @@ def main():
             print("Invalid time format. Please use YYYYMMDD.")
 
     folder_name = current_time.strftime('%Y%m%d')
+    output_debug_string(f"download: {folder_name}")
     run_02_download(folder_name)
 
 

@@ -1,0 +1,255 @@
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Chat Example Using STOMP Over WebSockets</title>
+    <!--[if lt IE 9]>
+    <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/bootstrap.min.responsive.css" rel="stylesheet">
+    <style type="text/css">
+        body {
+            padding-top: 40px;
+        }
+        .message-group {
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .stages-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .stage-result {
+            margin: 2px 0;
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+        .result-default {
+            background-color: #f8f9fa;
+            color: #6c757d;
+        }
+        .result-success {
+            background-color: #dff0d8;
+            color: #3c763d;
+        }
+        .result-failed {
+            background-color: #f2dede;
+            color: #a94442;
+        }
+        .result-skipped {
+            background-color: #d9edf7;
+            color: #31708f;
+        }
+        .result-gray {
+            background-color: #e9ecef;
+            color: #495057;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="navbar navbar-fixed-top">
+    <div class="navbar-inner">
+        <div class="container">
+            <a class="brand" href="#">ActiveMQ STOMP WebSocket Chat Example</a>
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid">
+    <div class="row-fluid">
+        <div class="span6">
+            <div id="connect">
+                <div class="page-header">
+                    <h2>Server Login</h2>
+                </div>
+                <form class="form-horizontal" id='connect_form'>
+                    <fieldset>
+                        <div class="control-group">
+                            <label>WebSocket URL</label>
+                            <div class="controls">
+                                <input name=url id='connect_url' value='ws://localhost:61614' type="text">
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <label>User</label>
+                            <div class="controls">
+                                <input id='connect_login' placeholder="User Login" value="admin" type="text">
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <label>Password</label>
+                            <div class="controls">
+                                <input id='connect_passcode' placeholder="User Password" value="password"
+                                       type="password">
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <label>Destination</label>
+                            <div class="controls">
+                                <input id='destination' placeholder="Destination" value="/topic/chat.general"
+                                       type="text">
+                            </div>
+                        </div>
+                        <div class="form-actions">
+                            <button id='connect_submit' type="submit" class="btn btn-large btn-primary">Connect</button>
+                        </div>
+                    </fieldset>
+                </form>
+            </div>
+            <div id="connected" style="display:none">
+                <div class="page-header">
+                    <h2>Chat Room</h2>
+                </div>
+                <div id="messages">
+                </div>
+                <form class="well form-search" id='send_form'>
+                    <button class="btn" type="button" id='disconnect' style="float:right">Disconnect</button>
+                    <input class="input-medium" id='send_form_input' placeholder="Type your message here"
+                           class="span6"/>
+                    <button class="btn" type="submit">Send-</button>
+                </form>
+            </div>
+        </div>
+        <div class="span4">
+            <div class="page-header">
+                <h2>Debug Log</h2>
+            </div>
+            <pre id="debug"></pre>
+        </div>
+    </div>
+</div>
+
+
+<script src='js/jquery-3.4.1.min.js'></script>
+<script src="js/stomp.js"></script>
+<script>//<![CDATA[
+$(document).ready(function () {
+    if (window.WebSocket) {
+        var client, destination;
+        var messageGroups = {};  // 用于存储按fits分组的消息
+
+        $('#connect_form').submit(function () {
+            var url = $("#connect_url").val();
+            var login = $("#connect_login").val();
+            var passcode = $("#connect_passcode").val();
+            destination = $("#destination").val();
+
+            client = Stomp.client(url);
+
+            // this allows to display debug logs directly on the web page
+            client.debug = function (str) {
+                //$("#debug").append(document.createTextNode(str + "\n"));
+            };
+
+            // the client is notified when it is connected to the server.
+            client.connect(login, passcode, function (frame) {
+                client.debug("connected to Stomp");
+                $('#connect').fadeOut({duration: 'fast'});
+                $('#connected').fadeIn();
+                client.subscribe(destination, function (message) {
+                    try {
+                        var data = JSON.parse(message.body);
+                        console.log("收到消息: " + message.body);
+                        // 如果这个fits文件还没有对应的div，创建一个
+                        if (!messageGroups[data.fits]) {
+                            messageGroups[data.fits] = $('<div>')
+                                .addClass('message-group')
+                                .append($('<h4>').text(data.fits))
+                                .append($('<div>').addClass('stages-container'));
+                            client.debug("创建新的消息组: " + data.fits);
+                            $("#messages").append(messageGroups[data.fits]);
+                        }
+
+                        // 创建新的状态显示
+                        var resultClass;
+                        switch(data.result) {
+                            case 'success':
+                                resultClass = 'result-success';
+                                break;
+                            case 'fail':
+                                resultClass = 'result-failed';
+                                break;
+                            case 'skip':
+                                resultClass = 'result-skipped';
+                                break;
+                            case 'default':
+                                resultClass = 'result-gray';
+                                break;
+                            default:
+                                resultClass = 'result-default';
+                        }
+                        
+                        // 查找是否存在相同stage的div
+                        var existingStageDiv = messageGroups[data.fits]
+                            .find('.stages-container')
+                            .find('.stage-result')
+                            .filter(function() {
+                                return $(this).text() === 'Stage ' + data.stage;
+                            });
+
+                        if (existingStageDiv.length > 0) {
+                            console.log("更新class: " + resultClass);
+                            // 如果存在，更新class
+                            existingStageDiv
+                                .attr('class', 'stage-result')
+                                .addClass(resultClass);
+                        } else {
+                            console.log("创建新的: " + resultClass);
+                            // 如果不存在，创建新的
+                            var stageDiv = $('<div>')
+                                .addClass('stage-result')
+                                .addClass(resultClass)
+                                .text('Stage ' + data.stage);
+                            messageGroups[data.fits].find('.stages-container').append(stageDiv);
+                        }
+                    } catch (e) {
+                        client.debug("错误: " + e);
+                        // 如果不是JSON格式，按原样显示
+                        var p = document.createElement("p");
+                        p.appendChild(document.createTextNode(message.body));
+                        $("#messages").append(p);
+                    }
+                });
+            });
+            return false;
+        });
+
+        $('#disconnect').click(function () {
+            client.disconnect(function () {
+                $('#connected').fadeOut({duration: 'fast'});
+                $('#connect').fadeIn();
+                $("#messages").html("")
+            });
+            return false;
+        });
+
+        $('#send_form').submit(function () {
+            var text = $('#send_form_input').val();
+            if (text) {
+                client.send(destination, {}, text);
+                $('#send_form_input').val("");
+            }
+            return false;
+        });
+        //  增加自动点击登录
+        $('#connect_submit').click();
+
+    } else {
+        $("#connect").html("\
+            <h1>Get a new Web Browser!</h1>\
+            <p>\
+            Your browser does not support WebSockets. This example will not work properly.<br>\
+            Please use a Web Browser with WebSockets support (WebKit or Google Chrome).\
+            </p>\
+        ");
+    }
+});
+//]]></script>
+
+</body>
+</html>
