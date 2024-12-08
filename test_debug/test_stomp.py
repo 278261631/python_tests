@@ -20,7 +20,7 @@ conn = stomp.Connection([(activemq_host, activemq_port)])
 conn.connect(wait=True)
 
 # 生成3个随机FITS文件名
-fits_files = [generate_fits_filename() for _ in range(2)]
+fits_files = [generate_fits_filename() for _ in range(16)]
 
 # 为每个文件发送3个不同阶段的消息
 for fits_file in fits_files:
@@ -29,11 +29,11 @@ for fits_file in fits_files:
         message = json.dumps({
             "fits": fits_file,
             "stage": stage,
-            "result": random.choice(['success', 'failed'])
+            "result": random.choice(['success', 'fail'])
         })
         conn.send(body=message, destination=queue_name)
         print(f"已发送消息: {message}")
-        time.sleep(1)  # 修改延时为3秒，控制消息发送频率
+        time.sleep(0.2)  # 修改延时为3秒，控制消息发送频率
         
 for fits_file in fits_files:
     for stage in [1, 2, 3]:
@@ -41,10 +41,10 @@ for fits_file in fits_files:
         message = json.dumps({
             "fits": fits_file,
             "stage": stage,
-            "result": random.choice(['success', 'failed'])
+            "result": random.choice(['success', 'fail'])
         })
         conn.send(body=message, destination=queue_name)
         print(f"已发送消息: {message}")
-        time.sleep(1)  # 修改延时为3秒，控制消息发送频率
+        time.sleep(0.5)  # 修改延时为3秒，控制消息发送频率
 
 conn.disconnect()

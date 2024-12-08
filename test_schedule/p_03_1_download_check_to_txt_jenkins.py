@@ -20,7 +20,7 @@ threshold_percentage_10 = 2
 fits_list_chk = []
 
 
-def worker_check_fits(d_queue, folder_name, max_workers=3):
+def worker_check_fits(d_queue, folder_name, max_workers=8):
     temp_download_path = f'e:/fix_data/{folder_name}'
     d_queue_size = len(d_queue)
 
@@ -34,7 +34,7 @@ def worker_check_fits(d_queue, folder_name, max_workers=3):
         save_file_path_txt = os.path.join(temp_download_path, file_name_txt)
         save_file_path_solve = os.path.join(temp_download_path, file_name_solve)
         print(f'[{d_item[0]}]:{file_name}        {index + 1} / {d_queue_size}')
-        send_amq(f'{d_item[0]}.fits', 2, ProcessStatus.DEFAULT)
+        send_amq(f'{d_item[0]}.fits', 3, ProcessStatus.DEFAULT)
         if os.path.exists(save_file_path_solve):
             send_amq(f'{d_item[0]}.fits', 3, ProcessStatus.SKIP)
             return
@@ -88,14 +88,15 @@ def worker_check_fits(d_queue, folder_name, max_workers=3):
             futures.append(future)
             # 设置超时时间为10秒
         timeout = 60
-        for future_item in as_completed(futures, timeout=timeout):
-            try:
+        try:
+            for future_item in as_completed(futures, timeout=timeout):
+
                 result = future_item.result()
                 print(result)
-            except concurrent.futures.TimeoutError:
-                print("任务执行超时")
-            except Exception as e:
-                print(f"任务出现异常: {e}")
+        except concurrent.futures.TimeoutError:
+            print("任务执行超时")
+        except Exception as e:
+            print(f"任务出现异常: {e}")
 
 
 def run_03_check_to_txt(folder_name):

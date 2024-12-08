@@ -49,7 +49,7 @@ def worker_download_fits(db_search_result, folder_name):
                 file.write(f'{d_item[0]},ok')
             send_amq(f'{d_item[0]}.fits', 2, ProcessStatus.SUCCESS)
 
-    with ThreadPoolExecutor(max_workers=2) as executor:
+    with ThreadPoolExecutor(max_workers=3) as executor:
         for i, d_item in enumerate(db_search_result):
             executor.submit(download_task, d_item)
             print(f'[{i} / {len(db_search_result)}]')

@@ -12,20 +12,30 @@
             padding-top: 40px;
         }
         .message-group {
-            margin: 10px 0;
-            padding: 10px;
+            margin: 1px 0;
+            padding: 1px;
             border: 1px solid #ddd;
-            border-radius: 4px;
+            border-radius: 1px;
+            display: inline-block;
+            margin-right: 1px;
+            vertical-align: top;
+            font-size: 8px;
+            width: 100px;
+        }
+        .message-group h4 {
+            font-size: 8px;
+            margin: 0px;
         }
         .stages-container {
             display: flex;
             flex-wrap: wrap;
-            gap: 10px;
+            gap: 1px;
         }
         .stage-result {
-            margin: 2px 0;
-            padding: 2px 5px;
-            border-radius: 3px;
+            margin: 0;
+            padding: 1px 2px;
+            border-radius: 1px;
+            font-size: 8px;
         }
         .result-default {
             background-color: #f8f9fa;
@@ -47,6 +57,12 @@
             background-color: #e9ecef;
             color: #495057;
         }
+        #messages {
+            display: grid;
+            grid-template-columns: repeat(10, 100px);
+            gap: 1px;
+            justify-content: start;
+        }
     </style>
 </head>
 
@@ -62,7 +78,7 @@
 
 <div class="container-fluid">
     <div class="row-fluid">
-        <div class="span6">
+        <div class="span12">
             <div id="connect">
                 <div class="page-header">
                     <h2>Server Login</h2>
@@ -114,8 +130,7 @@
                     <button class="btn" type="submit">Send-</button>
                 </form>
             </div>
-        </div>
-        <div class="span4">
+            
             <div class="page-header">
                 <h2>Debug Log</h2>
             </div>
@@ -155,7 +170,6 @@ $(document).ready(function () {
                     try {
                         var data = JSON.parse(message.body);
                         console.log("收到消息: " + message.body);
-                        // 如果这个fits文件还没有对应的div，创建一个
                         if (!messageGroups[data.fits]) {
                             messageGroups[data.fits] = $('<div>')
                                 .addClass('message-group')
@@ -163,6 +177,7 @@ $(document).ready(function () {
                                 .append($('<div>').addClass('stages-container'));
                             client.debug("创建新的消息组: " + data.fits);
                             $("#messages").append(messageGroups[data.fits]);
+                            messageGroups[data.fits][0].scrollIntoView({ behavior: 'smooth' });
                         }
 
                         // 创建新的状态显示
@@ -189,23 +204,23 @@ $(document).ready(function () {
                             .find('.stages-container')
                             .find('.stage-result')
                             .filter(function() {
-                                return $(this).text() === 'Stage ' + data.stage;
+                                return $(this).text() === 'S' + data.stage;
                             });
 
                         if (existingStageDiv.length > 0) {
                             console.log("更新class: " + resultClass);
-                            // 如果存在，更新class
                             existingStageDiv
                                 .attr('class', 'stage-result')
                                 .addClass(resultClass);
+                            existingStageDiv[0].scrollIntoView({ behavior: 'smooth' });
                         } else {
                             console.log("创建新的: " + resultClass);
-                            // 如果不存在，创建新的
                             var stageDiv = $('<div>')
                                 .addClass('stage-result')
                                 .addClass(resultClass)
-                                .text('Stage ' + data.stage);
+                                .text('S' + data.stage);
                             messageGroups[data.fits].find('.stages-container').append(stageDiv);
+                            stageDiv[0].scrollIntoView({ behavior: 'smooth' });
                         }
                     } catch (e) {
                         client.debug("错误: " + e);

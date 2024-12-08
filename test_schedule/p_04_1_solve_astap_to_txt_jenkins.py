@@ -221,12 +221,12 @@ def worker_check_fits(d_item, folder_name):
     os.remove(solve_file_path)
     os.remove(wcs_file_path)
     os.remove(ini_file_path)
-    send_amq(f'{file_name_txt}', 4, ProcessStatus.SUCCESS)
+    send_amq(f'{d_item[0]}.fits', 4, ProcessStatus.SUCCESS)
     print(f'process:  / / {len(fits_list)}    '
           f'{d_item[0]}.fits    {d_item[0]}  ')
 
 
-def run_p_04_1_solve_astap_to_txt(folder_name, max_workers=3):
+def run_p_04_1_solve_astap_to_txt(folder_name, max_workers=8):
     temp_download_path = f'e:/fix_data/{folder_name}/'
     if not os.path.exists(temp_download_path):
         return
@@ -258,14 +258,15 @@ def run_p_04_1_solve_astap_to_txt(folder_name, max_workers=3):
                 else:
                     print(f'--')
         timeout = 60
-        for future_item in as_completed(futures, timeout=timeout):
-            try:
+        try:
+            for future_item in as_completed(futures, timeout=timeout):
+
                 result = future_item.result()
                 print(result)
-            except concurrent.futures.TimeoutError:
-                print("任务执行超时")
-            except Exception as e:
-                print(f"任务出现异常: {e}")
+        except concurrent.futures.TimeoutError:
+            print("任务执行超时")
+        except Exception as e:
+            print(f"任务出现异常: {e}")
 
 
 def parse_args():

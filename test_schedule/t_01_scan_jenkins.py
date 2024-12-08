@@ -6,6 +6,7 @@ from solve.scan_by_days import scan_by_day_path
 import sqlite3
 import concurrent.futures
 
+from tools.send_message import send_amq, ProcessStatus
 
 # 连接到SQLite数据库
 db_path = '../thread_test/fits_wcs_recent.db'
@@ -76,16 +77,22 @@ def calc_days_list(yyyymmdd_str, day_count_param):
 
 def wget_scan(item_yyyy, item_ymd):
     file_url_list_all_days = []
+    send_amq(f'gy1.fits', 1, ProcessStatus.DEFAULT)
     url_list_by_day = scan_by_day_path(item_yyyy, item_ymd, recent_data, sys_name_root='GY1-DATA')
     file_url_list_all_days.extend(url_list_by_day)
+    send_amq(f'gy2.fits', 1, ProcessStatus.DEFAULT)
     url_list_by_day = scan_by_day_path(item_yyyy, item_ymd, recent_data, sys_name_root='GY2-DATA')
     file_url_list_all_days.extend(url_list_by_day)
+    send_amq(f'gy3.fits', 1, ProcessStatus.DEFAULT)
     url_list_by_day = scan_by_day_path(item_yyyy, item_ymd, recent_data, sys_name_root='GY3-DATA')
     file_url_list_all_days.extend(url_list_by_day)
+    send_amq(f'gy4.fits', 1, ProcessStatus.DEFAULT)
     url_list_by_day = scan_by_day_path(item_yyyy, item_ymd, recent_data, sys_name_root='GY4-DATA')
     file_url_list_all_days.extend(url_list_by_day)
+    send_amq(f'gy5.fits', 1, ProcessStatus.DEFAULT)
     url_list_by_day = scan_by_day_path(item_yyyy, item_ymd, recent_data, sys_name_root='GY5-DATA')
     file_url_list_all_days.extend(url_list_by_day)
+    send_amq(f'gy6.fits', 1, ProcessStatus.DEFAULT)
     url_list_by_day = scan_by_day_path(item_yyyy, item_ymd, recent_data, sys_name_root='GY6-DATA')
     file_url_list_all_days.extend(url_list_by_day)
 
