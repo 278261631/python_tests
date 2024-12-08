@@ -1,0 +1,100 @@
+pipeline {
+    agent any
+    
+    parameters {
+        string(
+            defaultValue: '20241203', 
+            description: '输入日期',
+            name: 'INPUT_DATE'
+        )
+    }
+    environment {
+        PYTHONPATH = 'C:/gitroot/python_tests/'
+        current_path='C:/gitroot/python_tests/test_schedule/'
+    }
+    
+
+
+
+    stages {
+        
+        stage("查看今日列表") {
+            steps {
+                script {
+                    
+                    def defaultDate = new Date().format('yyyyMMdd', TimeZone.getTimeZone('UTC'))
+                    
+                    def inputDate = params.INPUT_DATE ?: defaultDate
+                    echo "输入的日期是：${inputDate}"
+                    env.paramDate=inputDate
+                    
+                    
+                    def pythonScript = "C:/gitroot/python_tests/test_schedule/t_01_scan_jenkins.py" 
+                    bat "cd ${env.current_path} && python ${pythonScript} --time ${env.paramDate}"
+                }
+            }
+        }
+        stage("下载") {
+            steps {
+                script {
+                    
+                    echo "下载: ${env.paramDate}"
+                    
+                    
+                    def pythonScript = "C:/gitroot/python_tests/test_schedule/p_02_download_or_copy_jenkins.py" 
+                    bat "cd ${env.current_path} && python ${pythonScript} --time ${env.paramDate}"
+                }
+            }
+        }
+        stage("校验") {
+            steps {
+                script {
+                    
+                    echo "校验: ${env.paramDate}"
+                    def pythonScript = "C:/gitroot/python_tests/test_schedule/p_03_1_download_check_to_txt_jenkins.py" 
+                    bat "cd ${env.current_path} && python ${pythonScript} --time ${env.paramDate}"
+                }
+            }
+        }
+        stage("astap") {
+            steps {
+                script {
+                    
+                    echo "solve: ${env.paramDate}"
+                    def pythonScript = "C:/gitroot/python_tests/test_schedule/p_04_1_solve_astap_to_txt_jenkins.py" 
+                    bat "cd ${env.current_path} && python ${pythonScript} --time ${env.paramDate}"
+                }
+            }
+        }
+        stage("astap 写入") {
+            steps {
+                script {
+                    
+                    echo "solve 写入: ${env.paramDate}"
+                    def pythonScript = "C:/gitroot/python_tests/test_schedule/p_04_2_solve_from_txt_jenkins.py" 
+                    bat "cd ${env.current_path} && python ${pythonScript} --time ${env.paramDate}"
+                }
+            }
+        }
+        stage("清理") {
+            steps {
+                script {
+                    
+                    echo "清理: ${env.paramDate}"
+                    def pythonScript = "C:/gitroot/python_tests/test_schedule/p_04_3_solve_from_txt_jenkins.py" 
+                    bat "cd ${env.current_path} && python ${pythonScript} --time ${env.paramDate}"
+                }
+            }
+        }
+    }
+    
+    
+    post {
+        success {
+            echo '通过'
+        }
+        failure {
+            echo '失败'
+        }
+    }
+}
