@@ -93,8 +93,21 @@ def worker_check_fits(d_item, folder_name):
                                 solve_file_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     # print("the commandline is {}".format(process.args))
     print(" ".join(process.args))
-    process.communicate()
-    process.wait()
+    print("子进程PID:", process.pid)
+
+    try:
+        process.communicate(timeout=60)
+        # process.wait(6)
+        process.wait(timeout=60)
+    except subprocess.TimeoutExpired:
+        print("子进程超时，将被终止")
+        try:
+            os.kill(process.pid, 9)  # 发送SIGKILL信号（9）来强制终止进程
+        except ProcessLookupError:
+            print("子进程已经退出")
+        except Exception as e:
+            print(f"子进程已经退出 pid:{process.pid}  path {d_item[0]}.fits {e}")
+            os.kill(process.pid, 9)  # 发送SIGKILL信号（9）来强制终止进程
     if process.returncode == 0:
         # print("tycho was successful.")
         if not os.path.exists(wcs_file_path):
@@ -265,6 +278,7 @@ def run_p_04_1_solve_astap_to_txt(folder_name, max_workers=8):
                 print(result)
         except concurrent.futures.TimeoutError:
             print("任务执行超时")
+            future_item.cancel()
         except Exception as e:
             print(f"任务出现异常: {e}")
 

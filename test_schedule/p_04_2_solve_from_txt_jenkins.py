@@ -30,6 +30,7 @@ def run_p_04_2_solve_from_txt(folder_name):
                     print(f'{i}:  {item}')
             if parts[2] != '100':
                 print(f'ss: {file_index}')
+                send_amq(f'{parts[1]}.fits', 42, ProcessStatus.FAILED)
                 continue
             assert len_parts == 24
             wcs_txt = f'{parts[3]},{parts[4]},{parts[5]}'

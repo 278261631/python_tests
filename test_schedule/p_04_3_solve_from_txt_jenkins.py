@@ -36,6 +36,7 @@ def run_p_09_clean_dir(folder_name):
                     print(f'{i}:  {item}')
             if parts[2] != '100':
                 print(f'ss: {file_index}')
+                send_amq(f'{parts[1]}.fits', 42, ProcessStatus.FAILED)
                 continue
             assert len_parts == 24
             send_amq(f'{parts[23]}.fits', 43, ProcessStatus.DEFAULT)
