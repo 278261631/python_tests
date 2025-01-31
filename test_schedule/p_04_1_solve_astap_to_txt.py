@@ -237,13 +237,13 @@ def run_p_04_1_solve_astap_to_txt(folder_name):
     success_queue = multiprocessing.Queue()
     print(f'len: {len(fits_list)}')
     for search_item in fits_list:
-        file_name_txt_chk = "{}_chk.txt".format(search_item[0])
+        # file_name_txt_chk = "{}_chk.txt".format(search_item[0])
         file_name_txt_solve = "{}_solve.txt".format(search_item[0])
         file_name_txt_ok = "{}_ok.txt".format(search_item[0])
         file_name_download = "{}.fits".format(search_item[0])
-        save_file_path_txt_chk = os.path.join(temp_download_path, file_name_txt_chk)
+        # save_file_path_txt_chk = os.path.join(temp_download_path, file_name_txt_chk)
         save_file_path_txt_solve = os.path.join(temp_download_path, file_name_txt_solve)
-        save_file_path_txt_ok = os.path.join(temp_download_path, file_name_txt_ok)
+        # save_file_path_txt_ok = os.path.join(temp_download_path, file_name_txt_ok)
         save_file_path_download = os.path.join(temp_download_path, file_name_download)
         # if os.path.exists(save_file_path_txt_chk):
         #     if os.path.exists(save_file_path_txt_solve):

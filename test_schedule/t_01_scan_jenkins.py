@@ -159,15 +159,18 @@ def run_01_scan(start_day, folder_name):
     print(f'scan  {start_day}')
     conn_search_date = sqlite3.connect(db_path)
     cursor_search_date = conn_search_date.cursor()
-    sql_search_date = f'select substr(id, 5, 8) AS id_substring from  image_info order by id_substring desc limit 1'
+    sql_search_date = f'select substr(id, 5, 8) AS id_substring from  image_info order by id desc limit 1'
     cursor_search_date.execute(sql_search_date)
     db_search_result_date = cursor_search_date.fetchall()
     cursor_search_date.close()
     conn_search_date.close()
-    max_date_str = db_search_result_date[0][0]
-    if not validate_date(max_date_str):
-        print(f'日期无效 {max_date_str}')
-        exit(1)
+    if not db_search_result_date:
+        print(f'no data')
+    else:
+        max_date_str = db_search_result_date[0][0]
+        if not validate_date(max_date_str):
+            print(f'日期无效 {max_date_str}')
+            exit(1)
 
     print(f'start from [{start_day}]')
 
