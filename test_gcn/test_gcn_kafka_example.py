@@ -1,8 +1,24 @@
 import time
 from datetime import timedelta
+from logging.handlers import TimedRotatingFileHandler
 
 from gcn_kafka import Consumer
 import json
+import logging
+
+# 创建每天轮转的处理器
+time_handler = TimedRotatingFileHandler(
+    filename='gcn_kafka.log',
+    when='midnight',
+    backupCount=365,
+    encoding='utf-8'
+)
+# 配置日志
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[time_handler]
+)
 
 # 读取配置文件
 with open('config.json') as f:
@@ -37,7 +53,8 @@ while True:
             # 12 hour
             if heart_beat_count % 43200 == 0:
                 print('\r 12 H pass')
-            print(f'\rHeartbeat {heart_beat_count}    {formatted_time}', end='', flush=True)
+            current_time = time.strftime("%Y-%m-%d %H:%M:%S")
+            print(f'\rHeartbeat {heart_beat_count}    {formatted_time}    {current_time}', end='', flush=True)
 
 
             continue
@@ -47,7 +64,8 @@ while True:
             value = message.value()
             print(f'\r-------------')
             print(value)
+            logging.info(value)
             print(f'-------------')
         else:
             print(f'topic={message.topic()}, offset={message.offset()}, elapsed_time={elapsed_time}')
-
+            logging.info(f'topic={message.topic()}, offset={message.offset()}, elapsed_time={elapsed_time}')
