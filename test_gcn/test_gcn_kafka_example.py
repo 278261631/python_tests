@@ -1,3 +1,4 @@
+import os
 import time
 from datetime import timedelta
 from datetime import datetime
@@ -61,8 +62,9 @@ def send_message(topic, stomp_message):
     conn.disconnect()
 
 # 创建每天轮转的处理器
+os.makedirs('log', exist_ok=True)
 time_handler = TimedRotatingFileHandler(
-    filename='gcn_kafka.log',
+    filename='log/gcn_kafka.log',
     when='midnight',
     backupCount=365,
     encoding='utf-8'
