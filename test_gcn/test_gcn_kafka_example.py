@@ -2,6 +2,7 @@ import time
 from datetime import timedelta
 from datetime import datetime
 from logging.handlers import TimedRotatingFileHandler
+import traceback
 
 import stomp
 from gcn_kafka import Consumer
@@ -39,7 +40,7 @@ def load_msg_format():
         "target_eqp":"TEST",
         "task_targets":[],
         "task_end_time":"",
-        "taskName":"GRB_2020-02-01_06-41-39-901"+testTaskName+"",
+        "taskName":"GRB_2020-02-01_06-41-39-901",
         "task_type":"",
         "task_level":"1000"
         }}"""
@@ -81,6 +82,7 @@ with open('config.json') as f:
 consumer = Consumer(client_id=config['client_id'],
                     client_secret=config['client_secret'])
 # 以上内容改成从文本获取
+logging.info('Start 开始')
 start_time = time.time()
 json_format = load_msg_format()
 reset_msg_format(json_format)
@@ -107,8 +109,30 @@ while True:
             # 12 hour
             if heart_beat_count % 10 == 0:
                 print('\r test amq ')
+                current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+                milliseconds = datetime.now().microsecond // 1000  # 取毫秒部分
+                time_str = f"{current_time}-{milliseconds:03d}"
+
+                print(time_str)  # 输出示例：2024-05-20_15-30-45-123
+                json_format_test = '-'
+                try:
+                    json_format_test = load_msg_format()
+                    reset_msg_format(json_format_test)
+                    json_format_test['task_Dec_deg'] = 1.23
+                    json_format_test['task_Ra_deg'] = 4.56
+                    json_format_test['target_eqp'] = 'TEST'
+                    json_format_test['taskName'] = f'GRB_{time_str}_"test_id"'
+
+                    send_message("/topic/test_topic", json_format_test)
+                except Exception as e:
+                    print(f"Error-: {traceback.format_exc()}")
+                    logging.exception("Error processing message")
+                    print(f"Error: {e}")
+                logging.info(json_format_test)
+
             if heart_beat_count % 43200 == 0:
                 print('\r 12 H pass')
+                logging.info('12 H pass')
             current_time = time.strftime("%Y-%m-%d %H:%M:%S")
             print(f'\rHeartbeat {heart_beat_count}    {formatted_time}    {current_time}', end='', flush=True)
 
@@ -133,10 +157,11 @@ while True:
                 json_format['target_eqp'] = 'TEST'
                 json_format['taskName'] = f'GRB_{time_str}_{json_from_kafka["id"]}'
 
-                send_message("127.0.0.1", 61613, "/topic/test_topic", json_format)
+                send_message("/topic/test_topic", json_format)
 
             except Exception as e:
-                logging.info(e)
+                print(f"Error-: {traceback.format_exc()}")
+                logging.exception("Error processing message")
                 print(f"Error: {e}")
             logging.info(value)
             logging.info(json_format)
