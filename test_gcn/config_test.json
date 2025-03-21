@@ -1,0 +1,13 @@
+{
+  "kafka": {
+    "client_id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "client_secret": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+    "email": "mars.....mail",
+    "user": "xxx_xxxxx",
+    "target_eqp": "test",
+    "topic_path": "/topic/TEST_TASK",
+    "server_address": "127.0.0.1",
+    "server_port": 61613,
+    "status_topic_path": "/topic/test_equipment_status"
+  }
+}
