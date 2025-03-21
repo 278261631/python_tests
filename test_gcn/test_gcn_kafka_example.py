@@ -11,6 +11,12 @@ import json
 import logging
 
 # pip install stomp.py
+# pip.exe install gcn-kafka
+# pip.exe install cryptography
+
+# win7 安装   https://www.python.org/ftp/python/3.8.10/python-3.8.10-amd64.exe
+# D:\xxx\python38\Scripts\pip.exe uninstall cryptography -y
+# D:\xxx\python38\Scripts\pip.exe install cryptography==3.4.8
 def load_fake_kafka_ep_message():
     fake_ep_message = f"""{{
       "$schema": "https://gcn.nasa.gov/schema/v4.2.0/gcn/notices/einstein_probe/wxt/alert.schema.json",
@@ -26,8 +32,8 @@ def load_fake_kafka_ep_message():
       "additional_info": "The net count rate is derived from an accumulated image (up to 20 min) in 0.5-4 keV, assuming a constant flux. However, it can be significantly lower than the actual count rate of a burst with a duration much shorter than 20 min."
     }}"""
     # 转换成json对象返回
-    json_msg = json.loads(fake_ep_message)
-    return json_msg
+    # json_msg = json.loads(fake_ep_message)
+    return fake_ep_message
 def load_msg_format():
     grb_message = f"""{{
         "task_Dec_deg":51.1236,
@@ -48,15 +54,28 @@ def load_msg_format():
     # 转换成json对象返回
     json_msg = json.loads(grb_message)
     return json_msg
+def load_msg_status_format():
+    grb_message = f"""{{
+    "messageTime": "2025-03-21 10:49:27", 
+    "msgType": "gcn_kafka", 
+    "deviceName": "gcn_kafka", 
+    "deviceStatus": "OK", 
+    "deviceColor": "#FFAA00",
+    "sqm-val": "",
+    "messageColor": "green"
+    }}"""
+    # 转换成json对象返回
+    json_msg = json.loads(grb_message)
+    return json_msg
 def reset_msg_format(json_obj):
     json_obj['task_Dec_deg'] = 0
     json_obj['task_Ra_deg'] = 0
     json_obj['target_eqp'] = '---'
     json_obj['taskName'] = '---'
 
-def send_message(topic, stomp_message):
+def send_message(server_address, server_port, topic, stomp_message):
     # 创建连接
-    conn = stomp.Connection([('127.0.0.1', 61613)])
+    conn = stomp.Connection([(server_address, server_port)])
     conn.connect(wait=True)
     conn.send(body=str(stomp_message), destination=topic)
     conn.disconnect()
@@ -88,12 +107,16 @@ logging.info('Start 开始')
 start_time = time.time()
 json_format = load_msg_format()
 reset_msg_format(json_format)
+json_format_test = load_msg_format()
+reset_msg_format(json_format_test)
+json_status_format = load_msg_status_format()
 # Subscribe to topics and receive alerts
-consumer.subscribe(['gcn.circulars',
+consumer.subscribe([
+                    # 'gcn.circulars',
                     'gcn.heartbeat',
-                    'gcn.notices.icecube.lvk_nu_track_search',
-                    'igwn.gwalert',
-                    'gcn.notices.swift.bat.guano',
+                    # 'gcn.notices.icecube.lvk_nu_track_search',
+                    # 'igwn.gwalert',
+                    # 'gcn.notices.swift.bat.guano',
                     'gcn.notices.einstein_probe.wxt.alert'])
 heart_beat_count = 0
 while True:
@@ -116,16 +139,19 @@ while True:
                 time_str = f"{current_time}-{milliseconds:03d}"
 
                 print(time_str)  # 输出示例：2024-05-20_15-30-45-123
-                json_format_test = '-'
-                try:
-                    json_format_test = load_msg_format()
-                    reset_msg_format(json_format_test)
-                    json_format_test['task_Dec_deg'] = 1.23
-                    json_format_test['task_Ra_deg'] = 4.56
-                    json_format_test['target_eqp'] = 'TEST'
-                    json_format_test['taskName'] = f'GRB_{time_str}_"test_id"'
 
-                    send_message("/topic/test_topic", json_format_test)
+                # fake_value = load_fake_kafka_ep_message()
+                try:
+
+                    # fake_json_from_kafka = json.loads(fake_value)
+                    # json_format_test['task_Dec_deg'] =  fake_json_from_kafka['dec']
+                    # json_format_test['task_Ra_deg'] =  fake_json_from_kafka['ra']
+                    # json_format_test['target_eqp'] = config['target_eqp']
+                    # json_format_test['taskName'] = f'GRB_{time_str}_test_id'
+                    #
+                    # send_message(config['server_address'], config['server_port'], config['topic_path'], json_format_test)
+                    json_status_format['messageTime'] = time_str
+                    send_message(config['server_address'], config['server_port'], config['topic_path'], json_status_format)
                 except Exception as e:
                     print(f"Error-: {traceback.format_exc()}")
                     logging.exception("Error processing message")
@@ -156,10 +182,10 @@ while True:
                 json_from_kafka = json.loads(value)
                 json_format['task_Dec_deg'] = json_from_kafka['dec']
                 json_format['task_Ra_deg'] = json_from_kafka['ra']
-                json_format['target_eqp'] = 'TEST'
+                json_format['target_eqp'] = config['target_eqp']
                 json_format['taskName'] = f'GRB_{time_str}_{json_from_kafka["id"]}'
 
-                send_message("/topic/test_topic", json_format)
+                send_message(config['server_address'], config['server_port'], config['topic_path'], json_format)
 
             except Exception as e:
                 print(f"Error-: {traceback.format_exc()}")

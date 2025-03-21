@@ -28,3 +28,7 @@ GRBMessage = f"""{{
 "task_type":"",
 "task_level":"1000"
 }}"""
+
+
+
+{"messageTime": "2025-03-21 10:49:27", "msgType": "SQM", "deviceName": "SQM_GYZ", "deviceStatus": "OK", "deviceColor": "#FFAA00", "sqm-val": "", "messageColor": "green"}
