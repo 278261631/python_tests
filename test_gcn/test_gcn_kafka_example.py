@@ -90,7 +90,7 @@ time_handler = TimedRotatingFileHandler(
 )
 # 配置日志
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.WARNING,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[time_handler]
 )
@@ -103,7 +103,7 @@ with open('config.json') as f:
 consumer = Consumer(client_id=config['client_id'],
                     client_secret=config['client_secret'])
 # 以上内容改成从文本获取
-logging.info('Start 开始')
+logging.warning('Start 开始')
 start_time = time.time()
 json_format = load_msg_format()
 reset_msg_format(json_format)
@@ -133,12 +133,12 @@ while True:
 
             # 12 hour
             if heart_beat_count % 10 == 0:
-                print('\r test amq ')
+                # print('\r test amq ')
                 current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
                 milliseconds = datetime.now().microsecond // 1000  # 取毫秒部分
                 time_str = f"{current_time}-{milliseconds:03d}"
 
-                print(time_str)  # 输出示例：2024-05-20_15-30-45-123
+                # print(time_str)  # 输出示例：2024-05-20_15-30-45-123
 
                 # fake_value = load_fake_kafka_ep_message()
                 try:
@@ -151,16 +151,16 @@ while True:
                     #
                     # send_message(config['server_address'], config['server_port'], config['topic_path'], json_format_test)
                     json_status_format['messageTime'] = time_str
-                    send_message(config['server_address'], config['server_port'], config['topic_path'], json_status_format)
+                    send_message(config['server_address'], config['server_port'], config['status_topic_path'], json_status_format)
                 except Exception as e:
                     print(f"Error-: {traceback.format_exc()}")
                     logging.exception("Error processing message")
                     print(f"Error: {e}")
-                logging.info(json_format_test)
+                logging.debug(json_format_test)
 
             if heart_beat_count % 43200 == 0:
                 print('\r 12 H pass')
-                logging.info('12 H pass')
+                logging.warning('12 H pass')
             current_time = time.strftime("%Y-%m-%d %H:%M:%S")
             print(f'\rHeartbeat {heart_beat_count}    {formatted_time}    {current_time}', end='', flush=True)
 
@@ -191,11 +191,11 @@ while True:
                 print(f"Error-: {traceback.format_exc()}")
                 logging.exception("Error processing message")
                 print(f"Error: {e}")
-            logging.info(value)
-            logging.info(json_format)
+            logging.warning(value)
+            logging.warning(json_format)
 
             print(f'-------------')
             reset_msg_format(json_format)
         else:
             print(f'topic={message.topic()}, offset={message.offset()}, elapsed_time={elapsed_time}')
-            logging.info(f'topic={message.topic()}, offset={message.offset()}, elapsed_time={elapsed_time}')
+            logging.warning(f'topic={message.topic()}, offset={message.offset()}, elapsed_time={elapsed_time}')
