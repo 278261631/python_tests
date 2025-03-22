@@ -147,7 +147,7 @@ while True:
                     # json_format_test['task_Dec_deg'] =  fake_json_from_kafka['dec']
                     # json_format_test['task_Ra_deg'] =  fake_json_from_kafka['ra']
                     # json_format_test['target_eqp'] = config['target_eqp']
-                    # json_format_test['taskName'] = f'GRB_{time_str}_test_id'
+                    # json_format_test['taskName'] = f'GRB_{time_str}_test_{json_format_test["id"][0]}'
                     #
                     # send_message(config['server_address'], config['server_port'], config['topic_path'], json_format_test)
                     json_status_format['messageTime'] = time_str
