@@ -80,6 +80,7 @@ def send_message(server_address, server_port, topic, stomp_message):
     conn.send(body=str(stomp_message), destination=topic)
     conn.disconnect()
 
+
 # 创建每天轮转的处理器
 os.makedirs('log', exist_ok=True)
 time_handler = TimedRotatingFileHandler(
@@ -144,10 +145,10 @@ while True:
                 try:
 
                     # fake_json_from_kafka = json.loads(fake_value)
-                    # json_format_test['task_Dec_deg'] =  fake_json_from_kafka['dec']
-                    # json_format_test['task_Ra_deg'] =  fake_json_from_kafka['ra']
+                    # json_format_test['task_Dec_deg'] = fake_json_from_kafka['dec']
+                    # json_format_test['task_Ra_deg'] = fake_json_from_kafka['ra']
                     # json_format_test['target_eqp'] = config['target_eqp']
-                    # json_format_test['taskName'] = f'GRB_{time_str}_test_{json_format_test["id"][0]}'
+                    # json_format_test['taskName'] = f'GRB_{time_str}_test_{fake_json_from_kafka["id"][0]}'
                     #
                     # send_message(config['server_address'], config['server_port'], config['topic_path'], json_format_test)
                     json_status_format['messageTime'] = time_str
@@ -183,7 +184,7 @@ while True:
                 json_format['task_Dec_deg'] = json_from_kafka['dec']
                 json_format['task_Ra_deg'] = json_from_kafka['ra']
                 json_format['target_eqp'] = config['target_eqp']
-                json_format['taskName'] = f'GRB_{time_str}_{json_from_kafka["id"]}'
+                json_format['taskName'] = f'GRB_{time_str}_{json_from_kafka["id"][0]}'
 
                 send_message(config['server_address'], config['server_port'], config['topic_path'], json_format)
 
