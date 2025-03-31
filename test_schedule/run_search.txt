@@ -1,0 +1,3 @@
+cd /d E:/github/python_tests/test_schedule
+set PYTHONPATH=E:/github/python_tests/;%PYTHONPATH%
+C:/Python/Python310/python.exe search_get_fits_by_ra_dec.py
