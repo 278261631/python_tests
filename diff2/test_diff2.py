@@ -465,6 +465,31 @@ def finp(image, name, xslice, yslice, clean_sci, clean_ref, blackout):
     cdat, psf = chop_kern(sub_dat, psf_dat, psf_hed, xslice, yslice, clean_sci)
     cdat2, psf2 = chop_kern(sub_dat2, psf2_dat, psf2_hed, xslice, yslice, clean_ref)
     print(f'get_psf f')
+    # 保存cdat 和cdat2 中间的500*500像素数据到jpg文件
+    import matplotlib.pyplot as plt
+
+    def save_center_500x500(arr, filename):
+        """保存数组中心500x500区域为JPG"""
+        y, x = arr.shape
+        start_y = max(0, (y - 500) // 2)
+        start_x = max(0, (x - 500) // 2)
+        crop = arr[start_y:start_y + 500, start_x:start_x + 500]
+
+        plt.imsave(filename,
+                   crop,
+                   cmap='gray',
+                   vmin=np.percentile(crop, 1),  # 自动对比度拉伸
+                   vmax=np.percentile(crop, 99),
+                   format='jpg')
+
+    # 保存所有分块
+    for i in range(len(cdat)):
+        save_center_500x500(cdat[i],
+                            f'{file_prefix}_cdat_block{i + 1}.jpg')
+
+    for i in range(len(cdat2)):
+        save_center_500x500(cdat2[i],
+                            f'{file_prefix}_cdat2_block{i + 1}.jpg')
 
     data_D = [0] * len(cdat)  # empty frames
     data_S = [0] * len(cdat)
