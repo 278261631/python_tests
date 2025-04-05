@@ -7,6 +7,10 @@ from astropy.io import fits
 from astropy.io import ascii
 import numpy as np
 from scipy import ndimage
+import matplotlib
+
+matplotlib.use('Agg')  # 在导入pyplot之前设置非交互式后端
+import matplotlib.pyplot as plt
 
 try:
     import pyfftw.interfaces.numpy_fft as fft
@@ -299,6 +303,33 @@ def ZOGY(R, N, Pr, Pn, sr, sn, fr, fn, Vr, Vn, dx, dy):
     """
     R_hat = fft.fft2(R)
 
+    # 可视化原始输入 R
+    plt.figure(figsize=(12, 6))
+
+    # 绘制原始 R 矩阵
+    plt.subplot(1, 2, 1)
+    plt.imshow(R, cmap='gray',
+               vmin=np.percentile(R, 1),
+               vmax=np.percentile(R, 99))
+    plt.title('Original R Image')
+    plt.colorbar()
+
+    # 绘制 R_hat 的频谱 (对数缩放)
+    plt.subplot(1, 2, 2)
+    magnitude = np.abs(fft.fftshift(R_hat))  # 将低频移到中心
+    log_spectrum = np.log10(magnitude + 1e-10)  # 避免log(0)
+    plt.imshow(log_spectrum, cmap='viridis',
+               vmin=np.percentile(log_spectrum, 5),
+               vmax=np.percentile(log_spectrum, 95))
+    plt.title('R_hat Frequency Spectrum (log scale)')
+    plt.colorbar(label='log10(magnitude)')
+
+    plt.tight_layout()
+    plt.savefig('R_and_Rhat_visualization.png')
+    plt.close()
+
+    exit(0)
+
     N_hat = fft.fft2(N)
 
     Pn_hat = fft.fft2(Pn)
@@ -380,6 +411,28 @@ def ZOGY(R, N, Pr, Pn, sr, sn, fr, fn, Vr, Vn, dx, dy):
     alpha_std = np.zeros(alpha.shape)
     alpha_std[V_S > 0] = np.sqrt(V_S[V_S > 0]) / F_S
 
+    # 可视化输出
+
+    plt.figure(figsize=(15, 5))
+
+    plt.subplot(1, 3, 1)
+    plt.imshow(D, cmap='gray', vmin=np.percentile(D, 1), vmax=np.percentile(D, 99))
+    plt.title('D Image')
+    plt.colorbar()
+
+    plt.subplot(1, 3, 2)
+    plt.imshow(S, cmap='gray', vmin=np.percentile(S, 1), vmax=np.percentile(S, 99))
+    plt.title('S Image')
+    plt.colorbar()
+
+    plt.subplot(1, 3, 3)
+    plt.imshow(S_corr, cmap='gray', vmin=np.percentile(S_corr, 1), vmax=np.percentile(S_corr, 99))
+    plt.title('Scorr Image')
+    plt.colorbar()
+
+    plt.savefig('ZOGY_output.png')
+    plt.close()
+
     return (D, S, S_corr, alpha, alpha_std)
 
 
@@ -453,20 +506,29 @@ def finp(image, name, xslice, yslice, clean_sci, clean_ref, blackout):
     dat2 = hdu2[0].data
     dat2 = dat2.byteswap().newbyteorder()
 
+    # min_val = np.nanmin(dat2)
+    # dat2 = np.nan_to_num(dat2, nan=min_val, posinf=255, neginf=0)
+    dat2 = np.nan_to_num(dat2, nan=0, posinf=255, neginf=0)
+
+
+    # 保存dat2 图像数据
+    plt.imsave('dat2.jpg', dat2, cmap='gray', vmin=np.percentile(dat2, 1), vmax=np.percentile(dat2, 99))
+
     if blackout == True:  # remove data where there is no overlap
         dat2[dat == 0] = 0
 
     bkg2 = sep.Background(dat2, bw=16, bh=16)
     stdb2 = bkg2.rms()
+    plt.imsave('dat2_bkg.jpg', bkg2, cmap='gray', vmin=np.percentile(bkg2, 1), vmax=np.percentile(bkg2, 99))
 
     sub_dat2 = dat2 - bkg2  # bkg subtracted data
+
+    plt.imsave('dat2_sub.jpg', sub_dat2, cmap='gray', vmin=np.percentile(sub_dat2, 1), vmax=np.percentile(sub_dat2, 99))
 
     print(f'get_psf e')
     cdat, psf = chop_kern(sub_dat, psf_dat, psf_hed, xslice, yslice, clean_sci)
     cdat2, psf2 = chop_kern(sub_dat2, psf2_dat, psf2_hed, xslice, yslice, clean_ref)
     print(f'get_psf f')
-    # 保存cdat 和cdat2 中间的500*500像素数据到jpg文件
-    import matplotlib.pyplot as plt
 
     def save_center_500x500(arr, filename):
         """保存数组中心500x500区域为JPG"""
@@ -474,6 +536,11 @@ def finp(image, name, xslice, yslice, clean_sci, clean_ref, blackout):
         start_y = max(0, (y - 500) // 2)
         start_x = max(0, (x - 500) // 2)
         crop = arr[start_y:start_y + 500, start_x:start_x + 500]
+
+        print(f"Crop shape: {crop.shape}")  # 打印数组形状
+        print(f"Min value: {np.min(crop):.2f}")  # 最小值
+        print(f"Max value: {np.max(crop):.2f}")  # 最大值
+        print(f"Mean value: {np.mean(crop):.2f}")  # 平均值
 
         plt.imsave(filename,
                    crop,
@@ -537,6 +604,20 @@ def finp(image, name, xslice, yslice, clean_sci, clean_ref, blackout):
 
 
 SLICE = f'GY1_K014-5_C_60S_Bin2_UTC20250224_191818_-25C__pp_ref_cut1.fits'
+# with fits.open(SLICE) as hdul:
+#     # 获取第一个HDU的数据（根据代码中的使用习惯）
+#     data = hdul[0].data.byteswap().newbyteorder()  # 处理字节顺序
+#     first_500_rows = data[:500]  # 处理一维情况
+#
+#     # 禁用numpy的打印截断
+#     np.set_printoptions(threshold=np.inf, linewidth=np.inf)
+#
+#     # 打印前500行（二维数据的情况）
+#     if len(data.shape) == 2:
+#         print("完整的前500行数据：")
+#         print(data[:500, :])  # 打印全部列
+#
+#     exit(0)
 finp(SLICE, name = 'data', xslice=1, yslice=1, clean_sci=0.1, clean_ref=0.1, blackout=False)
 
 
