@@ -329,7 +329,7 @@ def ZOGY(R, N, Pr, Pn, sr, sn, fr, fn, Vr, Vn, dx, dy):
     plt.savefig('R_and_Rhat_visualization.png')
     plt.close()
 
-    exit(0)
+
 
     N_hat = fft.fft2(N)
 
@@ -505,7 +505,7 @@ def finp(image, name, xslice, yslice, clean_sci, clean_ref, blackout):
 
     # min_val = np.nanmin(dat2)
     # dat2 = np.nan_to_num(dat2, nan=min_val, posinf=255, neginf=0)
-    dat2 = np.nan_to_num(dat2, nan=0, posinf=255, neginf=0)
+    dat2 = np.nan_to_num(dat2, nan=0, posinf=65535, neginf=0)
 
     # 保存dat2 图像数据
     plt.imsave('dat2.jpg', dat2, cmap='gray', vmin=np.percentile(dat2, 1), vmax=np.percentile(dat2, 99))
