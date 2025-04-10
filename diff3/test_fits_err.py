@@ -5,7 +5,10 @@ from astropy.visualization import ImageNormalize, MinMaxInterval
 
 
 fits_ok = f'../diff/GY1_K035-4_C_60S_Bin2_UTC20240623_193150_-13.1C__pp_ref_cut1.fits'
-fits_er = f'../diff2/GY1_K014-5_C_60S_Bin2_UTC20250224_191818_-25C__pp_ref_cut1.fits'
+# fits_er = f'../diff2/GY1_K014-5_C_60S_Bin2_UTC20250224_191818_-25C__pp_ref_cut1.fits'
+# fits_er = f'E:/kats_process/debug_zo2/K014/redux/GY1_K014-5_C_60S_Bin2_UTC20250224_191818_-25C__pp.fits'
+# fits_er = f'E:/kats_process/debug_zo2/K014/redux/GY1_K014-5_C_60S_Bin2_UTC20250224_191818_-25C__pp_solved.fits'
+fits_er = f'E:/kats_process/debug_zo2/K014/redux/GY1_K014-5_No Filter_60S_Bin2_UTC20250224_191818_-25C_.fit'
 
 # 加载fits_ok fits_er并保存为jpg
 fits_ok_jpg = f'ok.jpg'
@@ -21,6 +24,10 @@ image_ok = hdulist_ok[0].data
 image_er = hdulist_er[0].data
 
 
+
+
+print("NaN values:", np.isnan(image_ok).any())
+print("Inf values:", np.isinf(image_ok).any())
 
 
 print("NaN values:", np.isnan(image_er).any())
