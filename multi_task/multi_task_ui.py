@@ -1,3 +1,5 @@
+import datetime
+import json
 import multiprocessing
 import subprocess
 
@@ -38,44 +40,62 @@ def worker_task(core_id, command_args):
     current_core = os.sched_getcpu() if hasattr(os, 'sched_getcpu') else \
         multiprocessing.current_process()._identity[0] % psutil.cpu_count()
 
+    # 记录任务开始时间
+    start_time = datetime.datetime.now()
+    print(f"time:{start_time} 任务 {command_args} 在核心 {current_core} 开始")
+
     # 启动python 或者其它程序
     result = subprocess.run(
         command_args,
         capture_output=True,
         text=True
     )
-    print(f"任务 {command_args} 在核心 {current_core} 结束")
+    end_time = datetime.datetime.now()
+    # 计算任务耗时
+    duration = end_time - start_time
+    print(f"time:{end_time} 任务 {command_args} 在核心 {current_core} 结束  : {result.stderr}")
+    print(f"任务 {command_args} 总耗时: {duration}")
 
 
 def create_tasks(command_args):
-    # 获取可用核心
-    _, available_cores = get_cpu_info()
-    if len(available_cores) < 2:
-        raise RuntimeError("至少需要两个可用CPU核心")
+    processes = []
+    for j, item_cmd in enumerate(command_args["commands"]):
+        print(f"任务 {j} 绑定到核心 {item_cmd['core_id']}")
+        item_cmd["core_id"] = selected_cores[i % len(selected_cores)]
+        p1 = multiprocessing.Process(
+            target=worker_task,
+            args=(item_cmd["core_id"], item_cmd["cmd"]),
+            name="Core{}_Task".format(item_cmd["core_id"])
+        )
+        processes.append(p1)
 
-    # 选择前两个核心
-    core1, core2 = available_cores[:2]
-
-    # 创建进程
-    p1 = multiprocessing.Process(
-        target=worker_task,
-        args=(core1, command_args),
-        name="Core{}_Task".format(core1)
-    )
-    # 启动并等待
-    p1.start()
-    p1.join()
+    for p in processes:
+        p.start()
+        p.join()
 
 
 
 if __name__ == "__main__":
     current, others = get_cpu_info()
+    max_core_limit = 3
+    selected_cores = others[:max_core_limit]
     print(f"当前核心: {current}")
     print(f"其他核心: {others}")
-    commands = [
-        f"python test_tasks.py prime 1000000 6000001",
-        f"python test_tasks.py pi 25000",
+    print(f"已选核心: {selected_cores}")
+    # with open('config.json') as f:
+    #     config = json.load(f)
+    #     commands = config["commands"]
+    demo_commands = {
+        "commands": [
+            {"cmd":f"python test_tasks.py prime 1000000 6000001",},
+            {"cmd":f"python test_tasks.py pi 25000",}
         ]
-    create_tasks(commands[0])
-    create_tasks(commands[1])
+    }
+
+    for i, raw_cmd in enumerate(demo_commands["commands"]):
+        raw_cmd["core_id"] = selected_cores[i % len(selected_cores)]
+
+    print(f"demo_commands: {demo_commands}")
+    create_tasks(demo_commands)
+
 
