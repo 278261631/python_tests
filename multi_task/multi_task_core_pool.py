@@ -4,6 +4,41 @@ import subprocess
 import psutil
 import os
 from ctypes import windll  # Windows核心获取需要
+import matplotlib
+matplotlib.use('Agg')  # 在导入pyplot之前设置非交互式后端
+import matplotlib.pyplot as plt
+from matplotlib.dates import DateFormatter
+
+def plot_timeline(task_history, filename="task_timeline.png"):
+    plt.figure(figsize=(12, len(task_history) * 0.5 + 2))
+
+    # 转换时间格式
+    min_time = min(t['start'] for t in task_history)
+    max_time = max(t['end'] for t in task_history)
+
+    for i, task in enumerate(task_history):
+        # 计算相对时间位置
+        start = (task['start'] - min_time).total_seconds()
+        duration = (task['end'] - task['start']).total_seconds()
+
+        plt.barh(
+            y=f"Core {task['core']}",
+            width=duration,
+            left=start,
+            height=0.6,
+            label=task['cmd']
+        )
+        plt.text(start + duration / 2, i, task['cmd'],
+                 ha='center', va='center', color='white')
+
+    # 设置时间轴格式
+    plt.gca().xaxis.set_major_formatter(DateFormatter("%H:%M:%S"))
+    plt.gca().xaxis_date()  # 声明X轴使用日期格式
+    plt.xlim(min_time, max_time)  # 显式设置时间范围
+    plt.xlabel(f"Time ({min_time.strftime('%Y-%m-%d')})")
+    plt.tight_layout()
+    plt.savefig(filename)
+    print(f"运行时间线已保存至 {filename}")
 
 
 def get_cpu_info():
@@ -23,7 +58,8 @@ def get_cpu_info():
     return current_core, [c for c in range(total_cores) if c != current_core]
 
 
-def worker_loop(core_id, task_queue):
+def worker_loop(core_id, task_queue, task_history):
+
     """核心工作循环"""
     process = psutil.Process(os.getpid())
     try:
@@ -45,7 +81,14 @@ def worker_loop(core_id, task_queue):
         start_time = datetime.datetime.now()
         current_core = os.sched_getcpu() if hasattr(os, 'sched_getcpu') else core_id
         print(f"time:{start_time} 任务 {cmd_args} 在核心 {current_core} 开始")
-
+        start_time = datetime.datetime.now()
+        # 记录任务元数据
+        task_data = {
+            "core": core_id,
+            "cmd": cmd_args.split()[-2],  # 提取命令类型（prime/pi等）
+            "start": start_time,
+            "end": datetime.datetime.now()  # 最后更新真实结束时间
+        }
         result = subprocess.run(
             cmd_args,
             capture_output=True,
@@ -55,13 +98,17 @@ def worker_loop(core_id, task_queue):
 
         end_time = datetime.datetime.now()
         duration = end_time - start_time
+        task_data["end"] = end_time
         print(f"time:{end_time} 任务 {cmd_args} 在核心 {current_core} 结束 : {result.stderr}")
         print(f"任务总耗时: {duration}")
+        task_history.append(task_data)
 
 
 def create_tasks(command_args):
     """创建核心池执行任务"""
     task_queue = multiprocessing.Queue()
+    manager = multiprocessing.Manager()
+    task_history = manager.list()
 
     # 填充任务队列
     for cmd in command_args["commands"]:
@@ -72,7 +119,7 @@ def create_tasks(command_args):
     for core_id in selected_cores:
         p = multiprocessing.Process(
             target=worker_loop,
-            args=(core_id, task_queue),
+            args=(core_id, task_queue, task_history),
             name=f"Core{core_id}_Worker"
         )
         processes.append(p)
@@ -82,6 +129,8 @@ def create_tasks(command_args):
     for p in processes:
         p.join()
 
+    plot_timeline(list(task_history),
+                filename=f"task_timeline_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.png")
 
 if __name__ == "__main__":
     # 初始化核心池
@@ -100,11 +149,11 @@ if __name__ == "__main__":
             # {"cmd": [f"c:/python/python310/python.exe", "test_tasks.py", "fib", "41"]},
             # {"cmd": [f"c:/python/python310/python.exe", "test_tasks.py", "matrix", "2000"]},
             # {"cmd": [f"c:/python/python310/python.exe", "test_tasks.py", "mc", "30000000"]},
-            {"cmd": f"c:/python/python310/python.exe test_tasks.py prime 1000000 6000001"},
-            {"cmd": f"c:/python/python310/python.exe test_tasks.py pi 25000"},
-            {"cmd": f"c:/python/python310/python.exe test_tasks.py fib 41"},
-            {"cmd": f"c:/python/python310/python.exe test_tasks.py matrix 000"},
-            {"cmd": f"c:/python/python310/python.exe test_tasks.py mc 30000000"},
+            {"cmd": f"c:/python/python310/python.exe test_tasks.py prime 1000000 2000001"},
+            {"cmd": f"c:/python/python310/python.exe test_tasks.py pi 10000"},
+            {"cmd": f"c:/python/python310/python.exe test_tasks.py fib 21"},
+            {"cmd": f"c:/python/python310/python.exe test_tasks.py matrix 1000"},
+            {"cmd": f"c:/python/python310/python.exe test_tasks.py mc 3000000"},
         ]
     }
 
