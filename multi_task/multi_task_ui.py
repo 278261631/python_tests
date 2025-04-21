@@ -39,7 +39,7 @@ def worker_task(core_id, command_args):
     # 验证实际运行核心
     current_core = os.sched_getcpu() if hasattr(os, 'sched_getcpu') else \
         multiprocessing.current_process()._identity[0] % psutil.cpu_count()
-
+    current_core =  current_core - 1
     # 记录任务开始时间
     start_time = datetime.datetime.now()
     print(f"time:{start_time} 任务 {command_args} 在核心 {current_core} 开始")
@@ -61,23 +61,23 @@ def create_tasks(command_args):
     processes = []
     for j, item_cmd in enumerate(command_args["commands"]):
         print(f"任务 {j} 绑定到核心 {item_cmd['core_id']}")
-        item_cmd["core_id"] = selected_cores[i % len(selected_cores)]
+        item_cmd["core_id"] = selected_cores[j % len(selected_cores)]
         p1 = multiprocessing.Process(
             target=worker_task,
             args=(item_cmd["core_id"], item_cmd["cmd"]),
             name="Core{}_Task".format(item_cmd["core_id"])
         )
         processes.append(p1)
+        p1.start()
 
     for p in processes:
-        p.start()
         p.join()
 
 
 
 if __name__ == "__main__":
     current, others = get_cpu_info()
-    max_core_limit = 3
+    max_core_limit = 5
     selected_cores = others[:max_core_limit]
     print(f"当前核心: {current}")
     print(f"其他核心: {others}")
@@ -88,7 +88,10 @@ if __name__ == "__main__":
     demo_commands = {
         "commands": [
             {"cmd":f"python test_tasks.py prime 1000000 6000001",},
-            {"cmd":f"python test_tasks.py pi 25000",}
+            {"cmd":f"python test_tasks.py pi 25000",},
+            {"cmd":f"python test_tasks.py fib 41",},
+            {"cmd":f"python test_tasks.py matrix 2000",},
+            {"cmd":f"python test_tasks.py mc 30000000",},
         ]
     }
 
