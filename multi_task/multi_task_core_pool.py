@@ -23,18 +23,21 @@ def plot_timeline(task_history, filename="task_timeline.png"):
         start = (task['start'] - min_time).total_seconds()
         duration = (task['end'] - task['start']).total_seconds()
 
-        plt.barh(
+        bar_container = plt.barh(
             y=f"Core {task['core']}",
             width=duration,
             left=start,
             height=0.6,
             label=task['cmd']
+            # label=str(i)
         )
-        plt.text(start + duration / 2, i, task['cmd'],
+        bar = bar_container.patches[0]
+        y_center = bar.get_y() + bar.get_height() / 2
+        plt.text(start + duration / 2, y_center, str(i),
                  ha='center', va='center', color='white')
 
     # 设置时间轴格式
-    plt.gca().xaxis.set_major_formatter(DateFormatter("%H:%M:%S"))
+    # plt.gca().xaxis.set_major_formatter(DateFormatter("%H:%M:%S"))
     # plt.gca().xaxis_date()  # 声明X轴使用日期格式
     # plt.xlim(min_time, max_time)  # 显式设置时间范围
     plt.xlabel(f"Time ({min_time.strftime('%Y-%m-%d')})")
@@ -74,7 +77,7 @@ def worker_loop(core_id, task_queue, task_history):
     while True:
         try:
             # 从队列获取任务（5秒超时检测）
-            cmd_args = task_queue.get(block=True, timeout=5)
+            index, cmd_args = task_queue.get(block=True, timeout=5)
         except multiprocessing.queues.Empty:
             # 队列持续空置5秒后退出
             break
@@ -82,7 +85,7 @@ def worker_loop(core_id, task_queue, task_history):
         # 执行任务
         start_time = datetime.datetime.now()
         current_core = os.sched_getcpu() if hasattr(os, 'sched_getcpu') else core_id
-        print(f"time:{start_time} 任务 {cmd_args} 在核心 {current_core} 开始")
+        print(f"time:{start_time} 任务 [{index}] {cmd_args} 在核心 {current_core} 开始")
         start_time = datetime.datetime.now()
         # 记录任务元数据
         task_data = {
@@ -95,6 +98,7 @@ def worker_loop(core_id, task_queue, task_history):
             cmd_args,
             capture_output=True,
             text=True,
+            encoding='utf-8',
             shell=True  # 允许执行shell命令
         )
 
@@ -113,8 +117,8 @@ def create_tasks(command_args):
     task_history = manager.list()
 
     # 填充任务队列
-    for cmd in command_args["commands"]:
-        task_queue.put(cmd["cmd"])
+    for idx, cmd in enumerate(command_args["commands"]):
+        task_queue.put((idx, cmd["cmd"]))
 
     # 创建核心池进程
     processes = []
@@ -151,11 +155,11 @@ if __name__ == "__main__":
             # {"cmd": [f"c:/python/python310/python.exe", "test_tasks.py", "fib", "41"]},
             # {"cmd": [f"c:/python/python310/python.exe", "test_tasks.py", "matrix", "2000"]},
             # {"cmd": [f"c:/python/python310/python.exe", "test_tasks.py", "mc", "30000000"]},
-            {"cmd": f"c:/python/python310/python.exe test_tasks.py prime 1000000 2000001"},
+            {"cmd": f"c:/python/python310/python.exe test_tasks.py prime 1000000 20000001"},
             {"cmd": f"c:/python/python310/python.exe test_tasks.py pi 10000"},
-            # {"cmd": f"c:/python/python310/python.exe test_tasks.py fib 21"},
-            # {"cmd": f"c:/python/python310/python.exe test_tasks.py matrix 1000"},
-            # {"cmd": f"c:/python/python310/python.exe test_tasks.py mc 3000000"},
+            {"cmd": f"c:/python/python310/python.exe test_tasks.py fib 21"},
+            {"cmd": f"c:/python/python310/python.exe test_tasks.py matrix 1000"},
+            {"cmd": f"c:/python/python310/python.exe test_tasks.py mc 3000000"},
         ]
     }
 
