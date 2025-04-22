@@ -28,7 +28,7 @@ def plot_timeline(task_history, filename="task_timeline.png"):
             width=duration,
             left=start,
             height=0.6,
-            label=task['cmd']
+            label=f"Task {i}: {task['cmd']}"
             # label=str(i)
         )
         bar = bar_container.patches[0]
@@ -94,13 +94,15 @@ def worker_loop(core_id, task_queue, task_history):
             "start": start_time,
             "end": datetime.datetime.now()  # 最后更新真实结束时间
         }
-        result = subprocess.run(
-            cmd_args,
-            capture_output=True,
-            text=True,
-            encoding='utf-8',
-            shell=True  # 允许执行shell命令
-        )
+        for i, cmd_item in enumerate(cmd_args):
+            print(f"任务 {index} 第 {i+1} 命令: {cmd_item}")
+            result = subprocess.run(
+                cmd_item,
+                capture_output=True,
+                text=True,
+                encoding='utf-8',
+                shell=True  # 允许执行shell命令
+            )
 
         end_time = datetime.datetime.now()
         duration = end_time - start_time
@@ -155,11 +157,11 @@ if __name__ == "__main__":
             # {"cmd": [f"c:/python/python310/python.exe", "test_tasks.py", "fib", "41"]},
             # {"cmd": [f"c:/python/python310/python.exe", "test_tasks.py", "matrix", "2000"]},
             # {"cmd": [f"c:/python/python310/python.exe", "test_tasks.py", "mc", "30000000"]},
-            {"cmd": f"c:/python/python310/python.exe test_tasks.py prime 1000000 20000001"},
-            {"cmd": f"c:/python/python310/python.exe test_tasks.py pi 10000"},
-            {"cmd": f"c:/python/python310/python.exe test_tasks.py fib 21"},
-            {"cmd": f"c:/python/python310/python.exe test_tasks.py matrix 1000"},
-            {"cmd": f"c:/python/python310/python.exe test_tasks.py mc 3000000"},
+            {"cmd": [f"c:/python/python310/python.exe test_tasks.py prime 1000000 20000001", f"c:/python/python310/python.exe test_tasks.py pi 10000"]},
+            {"cmd": [f"c:/python/python310/python.exe test_tasks.py pi 10000"]},
+            {"cmd": [f"c:/python/python310/python.exe test_tasks.py fib 21", f"c:/python/python310/python.exe test_tasks.py matrix 1000"]},
+            {"cmd": [f"c:/python/python310/python.exe test_tasks.py matrix 1000"]},
+            {"cmd": [f"c:/python/python310/python.exe test_tasks.py mc 3000000", f"c:/python/python310/python.exe test_tasks.py mc 3000000"]},
         ]
     }
 
