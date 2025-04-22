@@ -10,11 +10,13 @@ import matplotlib.pyplot as plt
 from matplotlib.dates import DateFormatter
 
 def plot_timeline(task_history, filename="task_timeline.png"):
+    print(f"任务 {task_history} ")
     plt.figure(figsize=(12, len(task_history) * 0.5 + 2))
 
     # 转换时间格式
     min_time = min(t['start'] for t in task_history)
     max_time = max(t['end'] for t in task_history)
+    print(f"时间范围: {min_time} - {max_time}")
 
     for i, task in enumerate(task_history):
         # 计算相对时间位置
@@ -33,8 +35,8 @@ def plot_timeline(task_history, filename="task_timeline.png"):
 
     # 设置时间轴格式
     plt.gca().xaxis.set_major_formatter(DateFormatter("%H:%M:%S"))
-    plt.gca().xaxis_date()  # 声明X轴使用日期格式
-    plt.xlim(min_time, max_time)  # 显式设置时间范围
+    # plt.gca().xaxis_date()  # 声明X轴使用日期格式
+    # plt.xlim(min_time, max_time)  # 显式设置时间范围
     plt.xlabel(f"Time ({min_time.strftime('%Y-%m-%d')})")
     plt.tight_layout()
     plt.savefig(filename)
@@ -85,7 +87,7 @@ def worker_loop(core_id, task_queue, task_history):
         # 记录任务元数据
         task_data = {
             "core": core_id,
-            "cmd": cmd_args.split()[-2],  # 提取命令类型（prime/pi等）
+            "cmd": cmd_args,
             "start": start_time,
             "end": datetime.datetime.now()  # 最后更新真实结束时间
         }
@@ -151,9 +153,9 @@ if __name__ == "__main__":
             # {"cmd": [f"c:/python/python310/python.exe", "test_tasks.py", "mc", "30000000"]},
             {"cmd": f"c:/python/python310/python.exe test_tasks.py prime 1000000 2000001"},
             {"cmd": f"c:/python/python310/python.exe test_tasks.py pi 10000"},
-            {"cmd": f"c:/python/python310/python.exe test_tasks.py fib 21"},
-            {"cmd": f"c:/python/python310/python.exe test_tasks.py matrix 1000"},
-            {"cmd": f"c:/python/python310/python.exe test_tasks.py mc 3000000"},
+            # {"cmd": f"c:/python/python310/python.exe test_tasks.py fib 21"},
+            # {"cmd": f"c:/python/python310/python.exe test_tasks.py matrix 1000"},
+            # {"cmd": f"c:/python/python310/python.exe test_tasks.py mc 3000000"},
         ]
     }
 
