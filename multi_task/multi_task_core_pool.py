@@ -22,18 +22,20 @@ def plot_timeline(task_history, filename="task_timeline.png"):
         # 计算相对时间位置
         start = (task['start'] - min_time).total_seconds()
         duration = (task['end'] - task['start']).total_seconds()
-
+        print(f"任务 {task['main_id']}_{task['sub_id']} 开始时间: {start}  duration [{duration}]")
+        duration = max(duration, 5)
         bar_container = plt.barh(
             y=f"Core {task['core']}",
             width=duration,
             left=start,
-            height=0.6,
-            label=f"Task {i}: {task['cmd']}"
+            height=0.3,
+            alpha=0.5,
+            label=f"Task {i}_{task['sub_id']}: {task['cmd']}"
             # label=str(i)
         )
         bar = bar_container.patches[0]
         y_center = bar.get_y() + bar.get_height() / 2
-        plt.text(start + duration / 2, y_center, str(i),
+        plt.text(start + duration / 2, y_center, f"{task['main_id']}_{task['sub_id']}",
                  ha='center', va='center', color='white')
 
     # 设置时间轴格式
@@ -41,6 +43,7 @@ def plot_timeline(task_history, filename="task_timeline.png"):
     # plt.gca().xaxis_date()  # 声明X轴使用日期格式
     # plt.xlim(min_time, max_time)  # 显式设置时间范围
     plt.xlabel(f"Time ({min_time.strftime('%Y-%m-%d')})")
+    # plt.xscale('log')
     plt.tight_layout()
     plt.savefig(filename)
     print(f"运行时间线已保存至 {filename}")
@@ -76,26 +79,28 @@ def worker_loop(core_id, task_queue, task_history):
 
     while True:
         try:
-            # 从队列获取任务（5秒超时检测）
-            index, cmd_args = task_queue.get(block=True, timeout=5)
+            # 从队列获取任务（3秒超时检测）
+            index, cmd_args = task_queue.get(block=True, timeout=3)
         except multiprocessing.queues.Empty:
-            # 队列持续空置5秒后退出
+            # 队列持续空置3秒后退出
             break
 
         # 执行任务
         start_time = datetime.datetime.now()
         current_core = os.sched_getcpu() if hasattr(os, 'sched_getcpu') else core_id
-        print(f"time:{start_time} 任务 [{index}] {cmd_args} 在核心 {current_core} 开始")
-        start_time = datetime.datetime.now()
-        # 记录任务元数据
-        task_data = {
-            "core": core_id,
-            "cmd": cmd_args,
-            "start": start_time,
-            "end": datetime.datetime.now()  # 最后更新真实结束时间
-        }
+        print(f"time:{start_time} 任务 [{index+1}] {cmd_args} 在核心 {current_core} 开始")
         for i, cmd_item in enumerate(cmd_args):
-            print(f"任务 {index} 第 {i+1} 命令: {cmd_item}")
+            start_time = datetime.datetime.now()
+            # 记录任务元数据
+            task_data = {
+                "main_id": index+1,
+                "sub_id": i+1,
+                "core": core_id,
+                "cmd": cmd_item,
+                "start": start_time,
+                "end": datetime.datetime.now()  # 最后更新真实结束时间
+            }
+            print(f"任务 {index+1}_{i+1} 命令: {cmd_item}")
             result = subprocess.run(
                 cmd_item,
                 capture_output=True,
@@ -103,13 +108,12 @@ def worker_loop(core_id, task_queue, task_history):
                 encoding='utf-8',
                 shell=True  # 允许执行shell命令
             )
-
-        end_time = datetime.datetime.now()
-        duration = end_time - start_time
-        task_data["end"] = end_time
-        print(f"time:{end_time} 任务 {cmd_args} 在核心 {current_core} 结束 : {result.stderr}")
-        print(f"任务总耗时: {duration}")
-        task_history.append(task_data)
+            end_time = datetime.datetime.now()
+            duration = (end_time - start_time).total_seconds()
+            task_data["end"] = end_time
+            print(f"time:{end_time} 任务 {cmd_args} 在核心 {current_core} 结束 : {result.stderr}")
+            print(f"任务总耗时: {duration}")
+            task_history.append(task_data)
 
 
 def create_tasks(command_args):
@@ -157,11 +161,11 @@ if __name__ == "__main__":
             # {"cmd": [f"c:/python/python310/python.exe", "test_tasks.py", "fib", "41"]},
             # {"cmd": [f"c:/python/python310/python.exe", "test_tasks.py", "matrix", "2000"]},
             # {"cmd": [f"c:/python/python310/python.exe", "test_tasks.py", "mc", "30000000"]},
-            {"cmd": [f"c:/python/python310/python.exe test_tasks.py prime 1000000 20000001", f"c:/python/python310/python.exe test_tasks.py pi 10000"]},
+            {"cmd": [f"c:/python/python310/python.exe test_tasks.py prime 1000000 5000001", f"c:/python/python310/python.exe test_tasks.py pi 10000"]},
             {"cmd": [f"c:/python/python310/python.exe test_tasks.py pi 10000"]},
-            {"cmd": [f"c:/python/python310/python.exe test_tasks.py fib 21", f"c:/python/python310/python.exe test_tasks.py matrix 1000"]},
-            {"cmd": [f"c:/python/python310/python.exe test_tasks.py matrix 1000"]},
-            {"cmd": [f"c:/python/python310/python.exe test_tasks.py mc 3000000", f"c:/python/python310/python.exe test_tasks.py mc 3000000"]},
+            {"cmd": [f"c:/python/python310/python.exe test_tasks.py fib 21", f"c:/python/python310/python.exe test_tasks.py matrix 500"]},
+            {"cmd": [f"c:/python/python310/python.exe test_tasks.py matrix 500"]},
+            {"cmd": [f"c:/python/python310/python.exe test_tasks.py mc 1000000", f"c:/python/python310/python.exe test_tasks.py matrix 500"]},
         ]
     }
 
