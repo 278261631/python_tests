@@ -161,11 +161,11 @@ if __name__ == "__main__":
             # {"cmd": [f"c:/python/python310/python.exe", "test_tasks.py", "fib", "41"]},
             # {"cmd": [f"c:/python/python310/python.exe", "test_tasks.py", "matrix", "2000"]},
             # {"cmd": [f"c:/python/python310/python.exe", "test_tasks.py", "mc", "30000000"]},
-            {"cmd": [f"c:/python/python310/python.exe test_tasks.py prime 1000000 5000001", f"c:/python/python310/python.exe test_tasks.py pi 10000"]},
-            {"cmd": [f"c:/python/python310/python.exe test_tasks.py pi 10000"]},
-            {"cmd": [f"c:/python/python310/python.exe test_tasks.py fib 21", f"c:/python/python310/python.exe test_tasks.py matrix 500"]},
+            {"cmd": [f"c:/python/python310/python.exe test_tasks.py prime 1000000 5000001", f"c:/python/python310/python.exe test_tasks.py pi 10000", f"E:/github/python_tests/multi_task/test_task.exe mc 400000000"]},
+            {"cmd": [f"c:/python/python310/python.exe test_tasks.py pi 10000",  f"E:/github/python_tests/multi_task/test_task.exe fib 48"]},
+            {"cmd": [f"c:/python/python310/python.exe test_tasks.py fib 21", f"c:/python/python310/python.exe test_tasks.py matrix 500",  f"E:/github/python_tests/multi_task/test_task.exe prime 1000000 6000001"]},
             {"cmd": [f"c:/python/python310/python.exe test_tasks.py matrix 500"]},
-            {"cmd": [f"c:/python/python310/python.exe test_tasks.py mc 1000000", f"c:/python/python310/python.exe test_tasks.py matrix 500"]},
+            {"cmd": [f"c:/python/python310/python.exe test_tasks.py mc 1000000", f"c:/python/python310/python.exe test_tasks.py matrix 500", f"E:/github/python_tests/multi_task/test_task.exe pi 5000000000"]},
         ]
     }
 
