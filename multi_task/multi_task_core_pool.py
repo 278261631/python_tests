@@ -29,7 +29,7 @@ os.makedirs('img_core_pool', exist_ok=True)
 file_handler = RotatingFileHandler(
     'log_core_pool/task.log',
     maxBytes=10*1024*1024,
-    backupCount=5,
+    backupCount=30,
     encoding='utf-8'
 )
 
@@ -159,7 +159,12 @@ def worker_loop(core_id, task_queue, task_history):
             task_history.append(task_data)
 
 
-def create_tasks(command_args):
+def create_tasks(command_args, max_core_limit=10):
+    current, others = get_cpu_info()
+    selected_cores = others[:max_core_limit]
+
+    logging.warning(f"当前核心: {current}")
+    logging.warning(f"可用核心池: {selected_cores}")
     """创建核心池执行任务"""
     task_queue = multiprocessing.Queue()
     manager = multiprocessing.Manager()
@@ -188,13 +193,6 @@ def create_tasks(command_args):
                 filename=f"img_core_pool/task_timeline_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.png")
 
 if __name__ == "__main__":
-    # 初始化核心池
-    current, others = get_cpu_info()
-    max_core_limit = 3
-    selected_cores = others[:max_core_limit]
-
-    logging.warning(f"当前核心: {current}")
-    logging.warning(f"可用核心池: {selected_cores}")
 
     if sys.platform.startswith(('linux', 'darwin')):  # Linux/MacOS
         demo_commands = {
@@ -218,4 +216,4 @@ if __name__ == "__main__":
         }
 
     # 执行任务
-    create_tasks(demo_commands)
+    create_tasks(demo_commands, 4)
