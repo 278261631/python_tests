@@ -1,9 +1,11 @@
 import datetime
 import multiprocessing
 import subprocess
+import sys
+
 import psutil
 import os
-from ctypes import windll  # Windows核心获取需要
+
 import matplotlib
 matplotlib.use('Agg')  # 在导入pyplot之前设置非交互式后端
 import matplotlib.pyplot as plt
@@ -23,7 +25,7 @@ def plot_timeline(task_history, filename="task_timeline.png"):
         start = (task['start'] - min_time).total_seconds()
         duration = (task['end'] - task['start']).total_seconds()
         print(f"任务 {task['main_id']}_{task['sub_id']} 开始时间: {start}  duration [{duration}]")
-        duration = max(duration, 5)
+        duration = max(duration, 2)
         bar_container = plt.barh(
             y=f"Core {task['core']}",
             width=duration,
@@ -56,9 +58,14 @@ def get_cpu_info():
 
     # 获取当前运行核心
     current_core = None
-    if hasattr(os, 'sched_getcpu'):  # Linux/MacOS
-        current_core = os.sched_getcpu()
+    if sys.platform.startswith(('linux', 'darwin')):  # Linux/MacOS
+        try:
+            current_core = os.sched_getcpu()
+        except AttributeError:
+            # 对于不支持sched_getcpu的系统，使用psutil降级方案
+            current_core = psutil.Process().cpu_num()
     else:  # Windows
+        from ctypes import windll
         current_core = windll.kernel32.GetCurrentProcessorNumber()
 
     # 获取系统总核心数
@@ -87,7 +94,14 @@ def worker_loop(core_id, task_queue, task_history):
 
         # 执行任务
         start_time = datetime.datetime.now()
-        current_core = os.sched_getcpu() if hasattr(os, 'sched_getcpu') else core_id
+        # current_core = os.sched_getcpu() if sys.platform.startswith(('linux', 'darwin')) else core_id
+        if sys.platform.startswith(('linux', 'darwin')):
+            try:
+                current_core = os.sched_getcpu()
+            except AttributeError:
+                current_core = psutil.Process().cpu_num()
+        else:
+            current_core = core_id
         print(f"time:{start_time} 任务 [{index+1}] {cmd_args} 在核心 {current_core} 开始")
         for i, cmd_item in enumerate(cmd_args):
             start_time = datetime.datetime.now()
@@ -161,11 +175,17 @@ if __name__ == "__main__":
             # {"cmd": [f"c:/python/python310/python.exe", "test_tasks.py", "fib", "41"]},
             # {"cmd": [f"c:/python/python310/python.exe", "test_tasks.py", "matrix", "2000"]},
             # {"cmd": [f"c:/python/python310/python.exe", "test_tasks.py", "mc", "30000000"]},
-            {"cmd": [f"c:/python/python310/python.exe test_tasks.py prime 1000000 5000001", f"c:/python/python310/python.exe test_tasks.py pi 10000", f"E:/github/python_tests/multi_task/test_task.exe mc 400000000"]},
-            {"cmd": [f"c:/python/python310/python.exe test_tasks.py pi 10000",  f"E:/github/python_tests/multi_task/test_task.exe fib 48"]},
-            {"cmd": [f"c:/python/python310/python.exe test_tasks.py fib 21", f"c:/python/python310/python.exe test_tasks.py matrix 500",  f"E:/github/python_tests/multi_task/test_task.exe prime 1000000 6000001"]},
-            {"cmd": [f"c:/python/python310/python.exe test_tasks.py matrix 500"]},
-            {"cmd": [f"c:/python/python310/python.exe test_tasks.py mc 1000000", f"c:/python/python310/python.exe test_tasks.py matrix 500", f"E:/github/python_tests/multi_task/test_task.exe pi 5000000000"]},
+            # {"cmd": [f"c:/python/python310/python.exe test_tasks.py prime 1000000 5000001", f"c:/python/python310/python.exe test_tasks.py pi 10000", f"E:/github/python_tests/multi_task/test_task.exe mc 400000000"]},
+            # {"cmd": [f"c:/python/python310/python.exe test_tasks.py pi 10000",  f"E:/github/python_tests/mu   lti_task/test_task.exe fib 48"]},
+            # {"cmd": [f"c:/python/python310/python.exe test_tasks.py fib 21", f"c:/python/python310/python.exe test_tasks.py matrix 500",  f"E:/github/python_tests/multi_task/test_task.exe prime 1000000 6000001"]},
+            # {"cmd": [f"c:/python/python310/python.exe test_tasks.py matrix 500"]},
+            # {"cmd": [f"c:/python/python310/python.exe test_tasks.py mc 1000000", f"c:/python/python310/python.exe test_tasks.py matrix 500", f"E:/github/python_tests/multi_task/test_task.exe pi 5000000000"]},
+
+            {"cmd": [f"python test_tasks.py prime 1000000 5000001", f"python test_tasks.py pi 10000", f"/home/mars/PycharmProjects/python_tests/multi_task/test_task mc 400000000"]},
+            {"cmd": [f"python test_tasks.py pi 10000",  f"/home/mars/PycharmProjects/python_tests/multi_task/test_task fib 48"]},
+            {"cmd": [f"python test_tasks.py fib 21", f"python test_tasks.py matrix 500",  f"/home/mars/PycharmProjects/python_tests/multi_task/test_task prime 1000000 40000001"]},
+            {"cmd": [f"python test_tasks.py matrix 5000"]},
+            {"cmd": [f"python test_tasks.py mc 5000000", f"python test_tasks.py matrix 500", f"/home/mars/PycharmProjects/python_tests/multi_task/test_task pi 5000000000"]},
         ]
     }
 
