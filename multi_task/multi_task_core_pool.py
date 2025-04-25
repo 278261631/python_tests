@@ -163,7 +163,7 @@ def create_tasks(command_args, max_core_limit=10):
     current, others = get_cpu_info()
     selected_cores = others[:max_core_limit]
 
-    logging.warning(f"当前核心: {current}")
+    logging.warning(f"当前核心: {current}/{len(others)+1}")
     logging.warning(f"可用核心池: {selected_cores}")
     """创建核心池执行任务"""
     task_queue = multiprocessing.Queue()

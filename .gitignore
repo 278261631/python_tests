@@ -5,3 +5,5 @@
 /sep_flux/src_process
 /test_schedule/__pycache__
 /tools/__pycache__/*.pyc
+/multi_task/log_core_pool
+/multi_task/img_core_pool
