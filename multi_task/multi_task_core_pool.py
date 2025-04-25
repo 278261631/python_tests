@@ -131,7 +131,7 @@ def worker_loop(core_id, task_queue, task_history):
                 current_core = psutil.Process().cpu_num()
         else:
             current_core = core_id
-        logging.info(f"time:{start_time} 任务 [{index+1}] {cmd_args} 在核心 {current_core} 开始")
+        logging.warning(f"time:{start_time} 任务 [{index+1}] {cmd_args} 在核心 {current_core} 开始")
         for i, cmd_item in enumerate(cmd_args):
             start_time = datetime.datetime.now()
             # 记录任务元数据
