@@ -41,15 +41,6 @@ file_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
 logger.addHandler(file_handler)
 
-def singleton():
-    lock_file = 'multi_core_pool.lock'
-    try:
-        with open(lock_file, 'w') as f:
-            portalocker.lock(f, portalocker.LOCK_EX | portalocker.LOCK_NB)
-            print("Singleton process is running...")
-    except portalocker.AlreadyLocked:
-        print("Another instance is already running.")
-        sys.exit(1)
 def plot_timeline(task_history, filename="task_timeline.png"):
     logging.info(f"任务 {task_history} ")
     plt.figure(figsize=(12, len(task_history) * 0.5 + 2))
@@ -174,7 +165,7 @@ def create_tasks(command_args, max_core_limit=10):
 
     logging.warning(f"当前核心: {current}/{len(others)+1}")
     logging.warning(f"可用核心池: {selected_cores}")
-    singleton()
+
     """创建核心池执行任务"""
     task_queue = multiprocessing.Queue()
     manager = multiprocessing.Manager()
@@ -203,7 +194,6 @@ def create_tasks(command_args, max_core_limit=10):
                 filename=f"img_core_pool/task_timeline_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.png")
 
 if __name__ == "__main__":
-
     if sys.platform.startswith(('linux', 'darwin')):  # Linux/MacOS
         demo_commands = {
             "commands": [
@@ -225,5 +215,12 @@ if __name__ == "__main__":
             ]
         }
 
-    # 执行任务
-    create_tasks(demo_commands, 4)
+    lock_file = 'multi_core_pool.lock'
+    lock = portalocker.Lock(lock_file)
+    try:
+        with lock:
+            # 执行任务
+            create_tasks(demo_commands, 4)
+    except portalocker.exceptions.AlreadyLocked:
+        logging.error(f"Another instance of the script is already running.{lock_file}")
+        sys.exit(1)
