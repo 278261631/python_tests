@@ -28,7 +28,7 @@ os.makedirs('log_core_pool', exist_ok=True)
 os.makedirs('img_core_pool', exist_ok=True)
 # 文件Handler（DEBUG级别）
 file_handler = RotatingFileHandler(
-    'log_core_pool/task.log',
+    f'log_core_pool/task_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}.log',
     maxBytes=10*1024*1024,
     backupCount=30,
     encoding='utf-8'
@@ -43,6 +43,9 @@ logger.addHandler(file_handler)
 
 def plot_timeline(task_history, filename="task_timeline.png"):
     logging.info(f"任务 {task_history} ")
+    if not task_history:
+        logging.error("task_history = 0  无法生成时间线图表 - 任务历史记录为空")
+        return
     plt.figure(figsize=(12, len(task_history) * 0.5 + 2))
 
     # 转换时间格式
@@ -215,7 +218,7 @@ if __name__ == "__main__":
             ]
         }
 
-    lock_file = 'multi_core_pool.lock'
+    lock_file = os.path.expanduser('~/multi_core_pool.lock')
     lock = portalocker.Lock(lock_file)
     try:
         with lock:
