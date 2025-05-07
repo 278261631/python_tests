@@ -1,5 +1,6 @@
 import datetime
 import multiprocessing
+import signal
 import subprocess
 import sys
 from logging.handlers import RotatingFileHandler
@@ -226,11 +227,12 @@ if __name__ == "__main__":
     if sys.platform.startswith(('linux', 'darwin')):  # Linux/MacOS
         demo_commands = {
             "commands": [
-                {"cmd": [f"python test_tasks.py prime 1000000 5000001", f"python test_tasks.py pi 10000", f"/home/mars/PycharmProjects/python_tests/multi_task/test_task mc 400000000"],"timeout":[None,None,None]},
-                {"cmd": [f"python test_tasks.py pi 10000",  f"/home/mars/PycharmProjects/python_tests/multi_task/test_task fib 48"],"timeout":[None,None]},
-                {"cmd": [f"python test_tasks.py fib 21", f"python test_tasks.py matrix 500",  f"/home/mars/PycharmProjects/python_tests/multi_task/test_task prime 1000000 40000001"],"timeout":[None,None]},
-                {"cmd": [f"python test_tasks.py matrix 5000"],"timeout":[None]},
-                {"cmd": [f"python test_tasks.py mc 5000000", f"python test_tasks.py matrix 500", f"/home/mars/PycharmProjects/python_tests/multi_task/test_task pi 5000000000"],"timeout":[None,None,None]},
+                # {"cmd": [f"python test_tasks.py prime 1000000 5000001", f"python test_tasks.py pi 10000", f"/home/mars/PycharmProjects/python_tests/multi_task/test_task mc 400000000"],"timeout":[None,None,None]},
+                # {"cmd": [f"python test_tasks.py pi 10000",  f"/home/mars/PycharmProjects/python_tests/multi_task/test_task fib 48"],"timeout":[None,None]},
+                # {"cmd": [f"python test_tasks.py fib 21", f"python test_tasks.py matrix 500",  f"/home/mars/PycharmProjects/python_tests/multi_task/test_task prime 1000000 40000001"],"timeout":[None,None,None]},
+                {"cmd": [f"python test_tasks.py mc 50000000"],"timeout":[15]},
+                {"cmd": [f"ping baidu.com "], "timeout": [5]},
+                {"cmd": [f"python test_tasks.py mc 50000000", f"python test_tasks.py matrix 500000", f"/home/mars/PycharmProjects/python_tests/multi_task/test_task pi 500000"],"timeout":[None,None,None]},
             ]
         }
     else:
