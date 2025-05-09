@@ -29,7 +29,7 @@ os.makedirs('log_core_pool', exist_ok=True)
 os.makedirs('img_core_pool', exist_ok=True)
 # 文件Handler（DEBUG级别）
 file_handler = RotatingFileHandler(
-    f'log_core_pool/task_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}.log',
+    f'log_core_pool/task_{datetime.datetime.now().strftime("%Y%m%d_%H%M")}.log',
     maxBytes=10*1024*1024,
     backupCount=30,
     encoding='utf-8'
