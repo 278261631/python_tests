@@ -1,19 +1,26 @@
 import os
+from datetime import datetime
 
 import matplotlib
+import numpy as np
 from astropy.io import fits
 from astropy.stats import sigma_clipped_stats
 from matplotlib import pyplot as plt
 from photutils.detection import DAOStarFinder
 
 matplotlib.use('TkAgg')
+plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'KaiTi']  # 常用中文字体
+plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示异常
 
 
-temp_download_pathA = r'D:\kats\temp_recent\20250616\gy6\K034-1.fits'
-temp_download_pathB = r'D:\kats\temp_recent\20250616\gy6\K034-1_no_trim.fits'
+# temp_download_pathA = r'D:\kats\temp_recent\20250616\gy1\K034-1.fits'
+# temp_download_pathB = r'D:\kats\temp_recent\20250616\gy1\K034-1_no_trim.fits'
+# input_dir = r'D:\kats\temp_recent\20250616\gy6'
+input_dir = r'D:\kats\temp_recent\20250616\gy1'
+time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+output_base_dir = f'png/{time_str}'
 
-
-def extract_subimages(file_path, output_dir, tile_size=100, grid_size=(4, 4)):
+def extract_subimages(file_path, output_dir, tile_size=100, grid_size=(3, 3)):
     """
     从FITS文件中均匀截取网格化的小图并保存为PNG
     :param file_path: FITS文件路径
@@ -32,24 +39,24 @@ def extract_subimages(file_path, output_dir, tile_size=100, grid_size=(4, 4)):
     height, width = data.shape
 
     # 计算网格步长
-    y_step = height // grid_size[0]
-    x_step = width // grid_size[1]
+    # y_step = height // grid_size[0]
+    # x_step = width // grid_size[1]
+    y_step_middle = height // (grid_size[0]+1)
+    x_step_middle = width // (grid_size[1]+1)
 
     # 生成并保存子图
     fig, axes = plt.subplots(grid_size[0], grid_size[1], figsize=(10, 10))
-    for i in range(grid_size[0]):
-        for j in range(grid_size[1]):
+    for i_grid in range(grid_size[0]):
+        for j_grid in range(grid_size[1]):
             # 计算截取区域
-            y_start = i * y_step + (y_step - tile_size) // 2
-            x_start = j * x_step + (x_step - tile_size) // 2
+            # y_start = i * y_step + (y_step - tile_size) // 2
+            # x_start = j * x_step + (x_step - tile_size) // 2
+            y_start = (i_grid + 1) * y_step_middle - (y_step_middle//2)
+            x_start = (j_grid + 1) * x_step_middle - (x_step_middle//2)
             tile = data[y_start:y_start+tile_size, x_start:x_start+tile_size]
 
-            # 保存为PNG
-            output_path = os.path.join(output_dir, f'tile_{i}_{j}.png')
-            # plt.imsave(output_path, tile, cmap='gray', origin='lower')
-
             # 可选：绘制子图预览
-            ax = axes[i, j] if grid_size[0] > 1 else axes[j]
+            ax = axes[i_grid, j_grid] if grid_size[0] > 1 else axes[j_grid]
             ax.imshow(tile, cmap='gray', origin='lower')
             ax.axis('off')
 
@@ -57,7 +64,7 @@ def extract_subimages(file_path, output_dir, tile_size=100, grid_size=(4, 4)):
     preview_filename = f'{base_name}_grid_preview.png'  # 构建新文件名
     # 保存网格预览图
     plt.tight_layout()
-    plt.savefig(os.path.join(output_dir, f'{preview_filename}_grid.png'))
+    plt.savefig(os.path.join(output_dir, preview_filename))
     plt.close(fig)
 
 
@@ -92,29 +99,53 @@ def check_image_quality(file_path):
 
     return rms, 0, 0, lm
 
-extract_subimages(temp_download_pathA, 'png')
-extract_subimages(temp_download_pathB, 'png')
+# extract_subimages(temp_download_pathA, 'png')
+# extract_subimages(temp_download_pathB, 'png')
 
-# 检查两个文件的图像质量
-rms_A, fwhm_A, ellipticity_A, lm_A = check_image_quality(temp_download_pathA)
-rms_B, fwhm_B, ellipticity_B, lm_B = check_image_quality(temp_download_pathB)
 
-# 打印结果
-print(f'File A - RMS: {rms_A}, FWHM: {fwhm_A}, Ellipticity: {ellipticity_A}, LM: {lm_A}')
-print(f'File B - RMS: {rms_B}, FWHM: {fwhm_B}, Ellipticity: {ellipticity_B}, LM: {lm_B}')
+file_names = []
+all_metrics = []
+# 处理目录下所有FITS文件
+for filename in os.listdir(input_dir):
+    if filename.lower().endswith('.fits'):
+        file_path = os.path.join(input_dir, filename)
+        extract_subimages(file_path, output_base_dir)
+        rms, fwhm, ellipticity, lm = check_image_quality(file_path)
+        file_names.append(os.path.splitext(filename)[0])  # 存储文件名（不含扩展名）
+        all_metrics.append([rms, fwhm, ellipticity, lm])
 
-# 绘制质量图
-labels = ['RMS', 'FWHM', 'Ellipticity', 'LM']
-values_A = [rms_A, fwhm_A, ellipticity_A, lm_A]
-values_B = [rms_B, fwhm_B, ellipticity_B, lm_B]
+# 检查是否收集到文件数据
+if not all_metrics:
+    print("未找到任何FITS文件进行质量检查")
+else:
+    # 打印所有文件的质量指标
+    print("\n图像质量指标对比:")
+    for name, metrics in zip(file_names, all_metrics):
+        rms, fwhm, ellipticity, lm = metrics
+        print(f"{name} - RMS: {rms:.4f}, FWHM: {fwhm:.4f}, "
+              f"Ellipticity: {ellipticity:.4f}, LM: {lm:.4f}")
 
-x = range(len(labels))
-plt.bar([i - 0.2 for i in x], values_A, 0.4, label='File A')
-plt.bar([i + 0.2 for i in x], values_B, 0.4, label='File B')
+    # 绘制质量对比图
+    labels = ['RMS', 'FWHM', 'Ellipticity', 'LM']
+    x = range(len(labels))
 
-plt.xticks(x, labels)
-plt.xlabel('Quality Metrics')
-plt.ylabel('Values')
-plt.title('Image Quality Comparison')
-plt.legend()
-plt.show()
+    plt.figure(figsize=(12, 6))
+
+    # 设置条形宽度和间距
+    bar_width = 0.8 / len(file_names)
+    offset = np.arange(len(labels)) - (0.4 - bar_width / 2)
+
+    # 为每个文件绘制条形
+    for i, (name, metrics) in enumerate(zip(file_names, all_metrics)):
+        plt.bar(offset + i * bar_width, metrics, width=bar_width, label=name)
+
+    plt.xticks(x, labels)
+    plt.xlabel('质量指标')
+    plt.ylabel('数值')
+    plt.title('多文件图像质量对比')
+    plt.legend(loc='upper right', bbox_to_anchor=(1.15, 1))
+    plt.grid(axis='y', linestyle='--', alpha=0.7)
+    plt.tight_layout()
+    # plt.show()
+    # 保存 plt
+    plt.savefig(os.path.join(output_base_dir, f'quality_{time_str}.png'))
