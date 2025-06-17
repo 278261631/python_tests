@@ -17,13 +17,28 @@ plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示异常
 # temp_download_pathB = r'D:\kats\temp_recent\20250616\gy1\K034-1_no_trim.fits'
 # input_dir = r'D:\kats\temp_recent\20250616\gy6'
 input_dir = r'D:\kats\temp_recent\20250616\gy1'
+# input_dir = r'D:\kats\temp_recent\20250616\test_gy2'
 time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
 output_base_dir = f'png/{time_str}'
+os.makedirs(output_base_dir, exist_ok=True)
 
-def extract_subimages(file_path, output_dir, tile_size=100, grid_size=(3, 3)):
+def extract_png_images(fits_file_path, output_dir):
+    with fits.open(fits_file_path) as hdul:
+        data = hdul[0].data
+    base_name = os.path.splitext(os.path.basename(fits_file_path))[0]
+    output_path = os.path.join(output_dir, f"{base_name}.png")
+    plt.figure(figsize=(8, 8))
+    plt.imshow(data, cmap='gray', origin='lower')
+    plt.axis('off')  # 关闭坐标轴
+    plt.savefig(output_path, bbox_inches='tight', pad_inches=0)
+    plt.close()
+
+    print(f"已生成PNG图像: {output_path}")
+
+def extract_subimages(fits_file_path, output_dir, tile_size=100, grid_size=(3, 3)):
     """
     从FITS文件中均匀截取网格化的小图并保存为PNG
-    :param file_path: FITS文件路径
+    :param fits_file_path: FITS文件路径
     :param output_dir: PNG输出目录
     :param tile_size: 单张小图尺寸 (默认100×100像素)
     :param grid_size: 网格划分维度 (默认3×3网格)
@@ -32,7 +47,7 @@ def extract_subimages(file_path, output_dir, tile_size=100, grid_size=(3, 3)):
     os.makedirs(output_dir, exist_ok=True)
 
     # 读取FITS数据
-    with fits.open(file_path) as hdul:
+    with fits.open(fits_file_path) as hdul:
         data = hdul[0].data
 
     # 获取图像尺寸
@@ -60,7 +75,7 @@ def extract_subimages(file_path, output_dir, tile_size=100, grid_size=(3, 3)):
             ax.imshow(tile, cmap='gray', origin='lower')
             ax.axis('off')
 
-    base_name = os.path.splitext(os.path.basename(file_path))[0]  # 获取不带扩展名的文件名
+    base_name = os.path.splitext(os.path.basename(fits_file_path))[0]  # 获取不带扩展名的文件名
     preview_filename = f'{base_name}_grid_preview.png'  # 构建新文件名
     # 保存网格预览图
     plt.tight_layout()
@@ -71,18 +86,18 @@ def extract_subimages(file_path, output_dir, tile_size=100, grid_size=(3, 3)):
 # todo check rms fwhm ellipticity lm
 
 # 定义函数来检查图像质量
-def check_image_quality(file_path):
-    hdul = fits.open(file_path)
+def check_image_quality(fits_file_path):
+    hdul = fits.open(fits_file_path)
     data = hdul[0].data
     hdul.close()
 
     # 计算背景统计量
     mean, median, std = sigma_clipped_stats(data, sigma=3.0)
-    rms = std
+    rms_v = std
 
     # 使用DAOStarFinder检测恒星
-    daofind = DAOStarFinder(fwhm=3.0, threshold=5.*std)
-    sources = daofind(data - median)
+    # dao_finder = DAOStarFinder(fwhm=3.0, threshold=5.*std)
+    # sources = dao_finder(data - median)
     # 均匀的截取9张小图， 每张100*100 像素 ，保存为png
 
 
@@ -95,19 +110,24 @@ def check_image_quality(file_path):
     #     ellipticity = 0
 
     # 这里lm暂时用背景均值代替
-    lm = mean
+    lm_v = mean
 
-    return rms, 0, 0, lm
+    return rms_v, 0, 0, lm_v
 
-# extract_subimages(temp_download_pathA, 'png')
-# extract_subimages(temp_download_pathB, 'png')
 
+# for filename in os.listdir(input_dir):
+#     if filename.lower().endswith('.fits'):
+#         file_path = os.path.join(input_dir, filename)
+#         extract_png_images(file_path, output_base_dir)
+#
+# exit(0)
 
 file_names = []
 all_metrics = []
 # 处理目录下所有FITS文件
 for filename in os.listdir(input_dir):
-    if filename.lower().endswith('.fits'):
+    if filename.lower().endswith('.fit'):
+    # if filename.lower().endswith('.fits'):
         file_path = os.path.join(input_dir, filename)
         extract_subimages(file_path, output_base_dir)
         rms, fwhm, ellipticity, lm = check_image_quality(file_path)
