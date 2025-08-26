@@ -1,9 +1,9 @@
-// Stellarium 脚本 - 在指定赤经赤纬坐标显示方框
+// Stellarium 脚本 - 可调用的天球坐标方框绘制工具
 // 作者: 通知服务系统
-// 用途: 在天球的指定坐标位置显示方框标记
+// 用途: 提供可重复调用的方框绘制函数
 
 // 脚本开始
-core.debug("开始在指定坐标显示方框脚本");
+core.debug("加载天球坐标方框绘制工具");
 
 // 设置初始环境
 core.setTimeRate(1);
@@ -12,145 +12,246 @@ core.setDate("2024-01-01T20:00:00");
 // 清除所有现有标记
 core.clear("ScreenImages");
 
-// 定义要显示方框的坐标 (可以修改这些值)
-var targetRA = 90;    // 赤经 90度 (6小时)
-var targetDec = 30;   // 赤纬 30度
+// ========================================
+// 可调用的方框绘制函数
+// ========================================
 
-// 显示欢迎信息（仅在屏幕上显示说明）
-LabelMgr.labelScreen("在指定坐标显示方框演示", 400, 50, true, 20, "#FFFFFF");
-LabelMgr.labelScreen("目标坐标: RA=" + targetRA + "° DEC=" + targetDec + "°", 400, 80, true, 16, "#CCCCCC");
+/**
+ * 在指定天球坐标绘制方框
+ * @param {number} ra - 赤经 (度数, 0-360)
+ * @param {number} dec - 赤纬 (度数, -90到+90)
+ * @param {number} size - 方框大小 (度数)
+ * @param {string} color - 方框颜色 (十六进制, 如 "#FF6B6B")
+ * @param {string} title - 方框标题
+ * @param {string} subtitle - 副标题 (可选)
+ */
+function drawBoxAtCoordinates(ra, dec, size, color, title, subtitle) {
+    core.debug("绘制方框: " + title + " 在坐标 RA=" + ra + "° DEC=" + dec + "°");
 
-core.debug("目标坐标: RA=" + targetRA + "° DEC=" + targetDec + "°");
+    var halfSize = size / 2;
+
+    // 显示标题和坐标信息
+    LabelMgr.labelEquatorial(title, ra, dec, true, 20, color);
+    if (subtitle) {
+        LabelMgr.labelEquatorial(subtitle, ra, dec - 1, true, 14, "#FFFFFF");
+    }
+    LabelMgr.labelEquatorial("RA:" + ra + "° DEC:" + dec + "°", ra, dec - 2, true, 12, "#CCCCCC");
+
+    // 绘制方框的四个角
+    LabelMgr.labelEquatorial("┌", ra - halfSize, dec + halfSize, true, 18, color);
+    LabelMgr.labelEquatorial("┐", ra + halfSize, dec + halfSize, true, 18, color);
+    LabelMgr.labelEquatorial("└", ra - halfSize, dec - halfSize, true, 18, color);
+    LabelMgr.labelEquatorial("┘", ra + halfSize, dec - halfSize, true, 18, color);
+
+    // 绘制水平边
+    var steps = Math.max(3, Math.floor(size));
+    for(var i = 1; i < steps; i++) {
+        var raOffset = (ra - halfSize) + (size * i / steps);
+        LabelMgr.labelEquatorial("─", raOffset, dec + halfSize, true, 14, color);
+        LabelMgr.labelEquatorial("─", raOffset, dec - halfSize, true, 14, color);
+    }
+
+    // 绘制垂直边
+    for(var j = 1; j < steps; j++) {
+        var decOffset = (dec - halfSize) + (size * j / steps);
+        LabelMgr.labelEquatorial("│", ra - halfSize, decOffset, true, 14, color);
+        LabelMgr.labelEquatorial("│", ra + halfSize, decOffset, true, 14, color);
+    }
+
+    // 显示中心十字准星
+    LabelMgr.labelEquatorial("✚", ra, dec, true, 16, "#FFFF00");
+
+    return true;
+}
+
+/**
+ * 移动视角到指定坐标并绘制方框
+ * @param {number} ra - 赤经 (度数)
+ * @param {number} dec - 赤纬 (度数)
+ * @param {number} size - 方框大小 (度数)
+ * @param {string} color - 方框颜色
+ * @param {string} title - 方框标题
+ * @param {string} subtitle - 副标题
+ * @param {number} waitTime - 等待时间 (秒, 默认3秒)
+ */
+function moveToAndDrawBox(ra, dec, size, color, title, subtitle, waitTime) {
+    waitTime = waitTime || 3;
+
+    core.debug("移动到坐标并绘制方框: " + title);
+
+    // 移动视角
+    core.moveToRaDec(ra, dec);
+    core.wait(waitTime);
+
+    // 绘制方框
+    drawBoxAtCoordinates(ra, dec, size, color, title, subtitle);
+
+    return true;
+}
+
+/**
+ * 批量绘制多个方框
+ * @param {Array} boxList - 方框配置数组
+ * 每个元素格式: {ra: number, dec: number, size: number, color: string, title: string, subtitle: string}
+ */
+function drawMultipleBoxes(boxList) {
+    core.debug("批量绘制 " + boxList.length + " 个方框");
+
+    for(var i = 0; i < boxList.length; i++) {
+        var box = boxList[i];
+        drawBoxAtCoordinates(
+            box.ra,
+            box.dec,
+            box.size || 3,
+            box.color || "#FFFFFF",
+            box.title || "方框" + (i+1),
+            box.subtitle
+        );
+    }
+
+    return true;
+}
+
+// ========================================
+// 使用示例和演示
+// ========================================
+
+// 显示欢迎信息
+LabelMgr.labelScreen("天球坐标方框绘制工具", 400, 50, true, 20, "#FFFFFF");
+LabelMgr.labelScreen("可调用函数演示", 400, 80, true, 16, "#CCCCCC");
+
+core.debug("开始函数调用演示");
 
 // 等待2秒
 core.wait(2);
 
-// 使用 core.moveToRaDec 移动视角到目标坐标
-core.debug("移动视角到目标坐标");
-core.moveToRaDec(targetRA, targetDec);
+// ========================================
+// 示例1: 单个方框绘制
+// ========================================
 
-// 等待移动完成
+core.debug("示例1: 使用 drawBoxAtCoordinates 函数");
+LabelMgr.labelScreen("示例1: 绘制单个方框", 400, 120, true, 16, "#FFFF00");
+
+// 调用方框绘制函数
+drawBoxAtCoordinates(90, 30, 4, "#FF6B6B", "双子座方框", "示例方框1");
+
 core.wait(3);
 
-// 在天球坐标上显示方框信息
-core.debug("在天球坐标上显示方框");
+// ========================================
+// 示例2: 移动视角并绘制方框
+// ========================================
 
-// 在指定的天球坐标上显示标签
-LabelMgr.labelEquatorial("目标方框", targetRA, targetDec, true, 24, "#FF6B6B");
-LabelMgr.labelEquatorial("坐标位置", targetRA, targetDec - 2, true, 18, "#FFFFFF");
-LabelMgr.labelEquatorial("RA:" + targetRA + "° DEC:" + targetDec + "°", targetRA, targetDec - 4, true, 14, "#CCCCCC");
+core.debug("示例2: 使用 moveToAndDrawBox 函数");
+LabelMgr.labelScreen("示例2: 移动视角并绘制方框", 400, 150, true, 16, "#FFFF00");
 
-// 显示当前时间
-var currentTime = new Date();
-var timeStr = currentTime.getHours() + ":" +
-              (currentTime.getMinutes() < 10 ? "0" : "") + currentTime.getMinutes() + ":" +
-              (currentTime.getSeconds() < 10 ? "0" : "") + currentTime.getSeconds();
-LabelMgr.labelEquatorial("时间:" + timeStr, targetRA, targetDec - 6, true, 12, "#FFFF00");
+// 调用移动并绘制函数
+moveToAndDrawBox(180, -20, 5, "#4ECDC4", "室女座方框", "示例方框2", 3);
 
-// 在天球坐标上绘制方框边界
-var boxSize = 3; // 方框大小（度）
-var halfSize = boxSize / 2;
-
-// 绘制方框的四个角
-LabelMgr.labelEquatorial("┌", targetRA - halfSize, targetDec + halfSize, true, 20, "#FF6B6B");
-LabelMgr.labelEquatorial("┐", targetRA + halfSize, targetDec + halfSize, true, 20, "#FF6B6B");
-LabelMgr.labelEquatorial("└", targetRA - halfSize, targetDec - halfSize, true, 20, "#FF6B6B");
-LabelMgr.labelEquatorial("┘", targetRA + halfSize, targetDec - halfSize, true, 20, "#FF6B6B");
-
-// 绘制水平边（上边和下边）
-for(var i = 1; i < 6; i++) {
-    var raOffset = (targetRA - halfSize) + (boxSize * i / 6);
-    LabelMgr.labelEquatorial("─", raOffset, targetDec + halfSize, true, 16, "#FF6B6B");
-    LabelMgr.labelEquatorial("─", raOffset, targetDec - halfSize, true, 16, "#FF6B6B");
-}
-
-// 绘制垂直边（左边和右边）
-for(var j = 1; j < 6; j++) {
-    var decOffset = (targetDec - halfSize) + (boxSize * j / 6);
-    LabelMgr.labelEquatorial("│", targetRA - halfSize, decOffset, true, 16, "#FF6B6B");
-    LabelMgr.labelEquatorial("│", targetRA + halfSize, decOffset, true, 16, "#FF6B6B");
-}
-
-// 在方框内显示额外信息
-LabelMgr.labelEquatorial("目标区域", targetRA, targetDec + 1, true, 16, "#FFFFFF");
-LabelMgr.labelEquatorial("已定位", targetRA, targetDec - 1, true, 14, "#00FF00");
-
-// 显示十字准星标记中心点
-LabelMgr.labelEquatorial("✚", targetRA, targetDec, true, 24, "#FFFF00");
+core.wait(3);
 
 // 等待5秒让用户观察
 core.wait(5);
 
-// 显示完成信息（屏幕提示）
-LabelMgr.labelScreen("第一个方框显示完成", 400, 500, true, 18, "#00FF00");
-LabelMgr.labelScreen("已在天球坐标上绘制方框", 400, 530, true, 14, "#FFFFFF");
+// ========================================
+// 示例3: 批量绘制多个方框
+// ========================================
 
-core.debug("第一个方框显示完成");
+core.debug("示例3: 使用 drawMultipleBoxes 函数");
+LabelMgr.labelScreen("示例3: 批量绘制多个方框", 400, 180, true, 16, "#FFFF00");
 
-// 可选: 显示更多坐标的方框
-core.wait(3);
+// 定义方框配置数组
+var boxConfigs = [
+    {
+        ra: 0,
+        dec: 0,
+        size: 3,
+        color: "#FF6B6B",
+        title: "春分点",
+        subtitle: "赤道与黄道交点"
+    },
+    {
+        ra: 270,
+        dec: 45,
+        size: 4,
+        color: "#96CEB4",
+        title: "天鹅座",
+        subtitle: "北十字星座"
+    },
+    {
+        ra: 315,
+        dec: -15,
+        size: 3.5,
+        color: "#FFEAA7",
+        title: "宝瓶座",
+        subtitle: "黄道星座"
+    }
+];
 
-// 第二个坐标示例
-var targetRA2 = 180;   // 赤经 180度 (12小时)
-var targetDec2 = -20;  // 赤纬 -20度
-
-core.debug("移动到第二个坐标: RA=" + targetRA2 + "° DEC=" + targetDec2 + "°");
-LabelMgr.labelScreen("移动到第二个坐标...", 400, 100, true, 16, "#FFFF00");
-
-// 移动到第二个坐标
-core.moveToRaDec(targetRA2, targetDec2);
-core.wait(3);
-
-// 在第二个天球坐标上显示方框
-LabelMgr.labelEquatorial("第二个方框", targetRA2, targetDec2, true, 24, "#4ECDC4");
-LabelMgr.labelEquatorial("RA:" + targetRA2 + "° DEC:" + targetDec2 + "°", targetRA2, targetDec2 - 2, true, 14, "#CCCCCC");
-
-// 绘制第二个方框的边界
-var boxSize2 = 4; // 稍大一些的方框
-var halfSize2 = boxSize2 / 2;
-
-// 绘制第二个方框的四个角
-LabelMgr.labelEquatorial("┌", targetRA2 - halfSize2, targetDec2 + halfSize2, true, 20, "#4ECDC4");
-LabelMgr.labelEquatorial("┐", targetRA2 + halfSize2, targetDec2 + halfSize2, true, 20, "#4ECDC4");
-LabelMgr.labelEquatorial("└", targetRA2 - halfSize2, targetDec2 - halfSize2, true, 20, "#4ECDC4");
-LabelMgr.labelEquatorial("┘", targetRA2 + halfSize2, targetDec2 - halfSize2, true, 20, "#4ECDC4");
-
-// 绘制第二个方框的边
-for(var i = 1; i < 8; i++) {
-    var raOffset2 = (targetRA2 - halfSize2) + (boxSize2 * i / 8);
-    LabelMgr.labelEquatorial("─", raOffset2, targetDec2 + halfSize2, true, 16, "#4ECDC4");
-    LabelMgr.labelEquatorial("─", raOffset2, targetDec2 - halfSize2, true, 16, "#4ECDC4");
-}
-
-for(var j = 1; j < 8; j++) {
-    var decOffset2 = (targetDec2 - halfSize2) + (boxSize2 * j / 8);
-    LabelMgr.labelEquatorial("│", targetRA2 - halfSize2, decOffset2, true, 16, "#4ECDC4");
-    LabelMgr.labelEquatorial("│", targetRA2 + halfSize2, decOffset2, true, 16, "#4ECDC4");
-}
-
-LabelMgr.labelEquatorial("第二区域", targetRA2, targetDec2 + 1, true, 16, "#FFFFFF");
-LabelMgr.labelEquatorial("已定位", targetRA2, targetDec2 - 1, true, 14, "#00FF00");
-LabelMgr.labelEquatorial("✚", targetRA2, targetDec2, true, 24, "#FFFF00");
+// 批量绘制方框
+drawMultipleBoxes(boxConfigs);
 
 core.wait(5);
 
+// ========================================
+// 自定义调用示例
+// ========================================
+
+core.debug("自定义调用示例");
+LabelMgr.labelScreen("自定义调用示例", 400, 210, true, 16, "#FFFF00");
+
+// 你可以直接调用这些函数来绘制自定义方框:
+
+// 示例: 在北极星附近绘制方框
+drawBoxAtCoordinates(37.95, 89.26, 2, "#FF0000", "北极星", "极星标记");
+
+// 示例: 移动到天狼星并绘制方框
+moveToAndDrawBox(101.287, -16.716, 3, "#00FFFF", "天狼星", "最亮恒星", 2);
+
+core.wait(3);
+
 // 脚本结束
-LabelMgr.labelScreen("演示结束", 400, 600, true, 20, "#FF0000");
-LabelMgr.labelScreen("已在天球坐标上显示方框", 400, 630, true, 16, "#FFFFFF");
+LabelMgr.labelScreen("函数演示完成", 400, 600, true, 20, "#00FF00");
+LabelMgr.labelScreen("可调用函数已加载完毕", 400, 630, true, 16, "#FFFFFF");
 
-core.debug("在指定坐标显示方框脚本结束");
+core.debug("天球坐标方框绘制工具加载完成");
 
-// 使用说明注释:
-// 要修改目标坐标，请修改以下变量:
-// targetRA - 赤经 (度数，0-360)
-// targetDec - 赤纬 (度数，-90到+90)
-// 
-// 赤经转换: 小时 × 15 = 度数
-// 例如: 6小时 = 90度, 12小时 = 180度
-//
-// 常见坐标示例:
-// 春分点: RA=0°, DEC=0°
-// 夏至点: RA=90°, DEC=23.5°
-// 秋分点: RA=180°, DEC=0°
-// 冬至点: RA=270°, DEC=-23.5°
-// 北极星: RA=37.95°, DEC=89.26°
+// ========================================
+// 函数使用说明
+// ========================================
+
+/*
+可用函数:
+
+1. drawBoxAtCoordinates(ra, dec, size, color, title, subtitle)
+   - 在指定坐标绘制方框
+   - ra: 赤经 (度数, 0-360)
+   - dec: 赤纬 (度数, -90到+90)
+   - size: 方框大小 (度数)
+   - color: 颜色 (十六进制, 如 "#FF6B6B")
+   - title: 标题
+   - subtitle: 副标题 (可选)
+
+2. moveToAndDrawBox(ra, dec, size, color, title, subtitle, waitTime)
+   - 移动视角到坐标并绘制方框
+   - 参数同上，额外的 waitTime: 等待时间 (秒)
+
+3. drawMultipleBoxes(boxList)
+   - 批量绘制多个方框
+   - boxList: 方框配置数组
+
+使用示例:
+drawBoxAtCoordinates(90, 30, 4, "#FF6B6B", "我的方框", "自定义标记");
+moveToAndDrawBox(180, -20, 5, "#4ECDC4", "目标区域", "重要位置", 3);
+
+坐标转换:
+- 赤经小时制转度数: 小时 × 15
+- 例如: 6小时 = 90度, 12小时 = 180度
+
+常见坐标:
+- 春分点: RA=0°, DEC=0°
+- 夏至点: RA=90°, DEC=23.5°
+- 秋分点: RA=180°, DEC=0°
+- 冬至点: RA=270°, DEC=-23.5°
+- 北极星: RA=37.95°, DEC=89.26°
+- 天狼星: RA=101.287°, DEC=-16.716°
+*/
