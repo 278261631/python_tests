@@ -1,0 +1,156 @@
+// Stellarium 脚本 - 在指定赤经赤纬坐标显示方框
+// 作者: 通知服务系统
+// 用途: 在天球的指定坐标位置显示方框标记
+
+// 脚本开始
+core.debug("开始在指定坐标显示方框脚本");
+
+// 设置初始环境
+core.setTimeRate(1);
+core.setDate("2024-01-01T20:00:00");
+
+// 清除所有现有标记
+core.clear("ScreenImages");
+
+// 定义要显示方框的坐标 (可以修改这些值)
+var targetRA = 90;    // 赤经 90度 (6小时)
+var targetDec = 30;   // 赤纬 30度
+
+// 显示欢迎信息（仅在屏幕上显示说明）
+LabelMgr.labelScreen("在指定坐标显示方框演示", 400, 50, true, 20, "#FFFFFF");
+LabelMgr.labelScreen("目标坐标: RA=" + targetRA + "° DEC=" + targetDec + "°", 400, 80, true, 16, "#CCCCCC");
+
+core.debug("目标坐标: RA=" + targetRA + "° DEC=" + targetDec + "°");
+
+// 等待2秒
+core.wait(2);
+
+// 使用 core.moveToRaDec 移动视角到目标坐标
+core.debug("移动视角到目标坐标");
+core.moveToRaDec(targetRA, targetDec);
+
+// 等待移动完成
+core.wait(3);
+
+// 在天球坐标上显示方框信息
+core.debug("在天球坐标上显示方框");
+
+// 在指定的天球坐标上显示标签
+LabelMgr.labelEquatorial("目标方框", targetRA, targetDec, true, 24, "#FF6B6B");
+LabelMgr.labelEquatorial("坐标位置", targetRA, targetDec - 2, true, 18, "#FFFFFF");
+LabelMgr.labelEquatorial("RA:" + targetRA + "° DEC:" + targetDec + "°", targetRA, targetDec - 4, true, 14, "#CCCCCC");
+
+// 显示当前时间
+var currentTime = new Date();
+var timeStr = currentTime.getHours() + ":" +
+              (currentTime.getMinutes() < 10 ? "0" : "") + currentTime.getMinutes() + ":" +
+              (currentTime.getSeconds() < 10 ? "0" : "") + currentTime.getSeconds();
+LabelMgr.labelEquatorial("时间:" + timeStr, targetRA, targetDec - 6, true, 12, "#FFFF00");
+
+// 在天球坐标上绘制方框边界
+var boxSize = 3; // 方框大小（度）
+var halfSize = boxSize / 2;
+
+// 绘制方框的四个角
+LabelMgr.labelEquatorial("┌", targetRA - halfSize, targetDec + halfSize, true, 20, "#FF6B6B");
+LabelMgr.labelEquatorial("┐", targetRA + halfSize, targetDec + halfSize, true, 20, "#FF6B6B");
+LabelMgr.labelEquatorial("└", targetRA - halfSize, targetDec - halfSize, true, 20, "#FF6B6B");
+LabelMgr.labelEquatorial("┘", targetRA + halfSize, targetDec - halfSize, true, 20, "#FF6B6B");
+
+// 绘制水平边（上边和下边）
+for(var i = 1; i < 6; i++) {
+    var raOffset = (targetRA - halfSize) + (boxSize * i / 6);
+    LabelMgr.labelEquatorial("─", raOffset, targetDec + halfSize, true, 16, "#FF6B6B");
+    LabelMgr.labelEquatorial("─", raOffset, targetDec - halfSize, true, 16, "#FF6B6B");
+}
+
+// 绘制垂直边（左边和右边）
+for(var j = 1; j < 6; j++) {
+    var decOffset = (targetDec - halfSize) + (boxSize * j / 6);
+    LabelMgr.labelEquatorial("│", targetRA - halfSize, decOffset, true, 16, "#FF6B6B");
+    LabelMgr.labelEquatorial("│", targetRA + halfSize, decOffset, true, 16, "#FF6B6B");
+}
+
+// 在方框内显示额外信息
+LabelMgr.labelEquatorial("目标区域", targetRA, targetDec + 1, true, 16, "#FFFFFF");
+LabelMgr.labelEquatorial("已定位", targetRA, targetDec - 1, true, 14, "#00FF00");
+
+// 显示十字准星标记中心点
+LabelMgr.labelEquatorial("✚", targetRA, targetDec, true, 24, "#FFFF00");
+
+// 等待5秒让用户观察
+core.wait(5);
+
+// 显示完成信息（屏幕提示）
+LabelMgr.labelScreen("第一个方框显示完成", 400, 500, true, 18, "#00FF00");
+LabelMgr.labelScreen("已在天球坐标上绘制方框", 400, 530, true, 14, "#FFFFFF");
+
+core.debug("第一个方框显示完成");
+
+// 可选: 显示更多坐标的方框
+core.wait(3);
+
+// 第二个坐标示例
+var targetRA2 = 180;   // 赤经 180度 (12小时)
+var targetDec2 = -20;  // 赤纬 -20度
+
+core.debug("移动到第二个坐标: RA=" + targetRA2 + "° DEC=" + targetDec2 + "°");
+LabelMgr.labelScreen("移动到第二个坐标...", 400, 100, true, 16, "#FFFF00");
+
+// 移动到第二个坐标
+core.moveToRaDec(targetRA2, targetDec2);
+core.wait(3);
+
+// 在第二个天球坐标上显示方框
+LabelMgr.labelEquatorial("第二个方框", targetRA2, targetDec2, true, 24, "#4ECDC4");
+LabelMgr.labelEquatorial("RA:" + targetRA2 + "° DEC:" + targetDec2 + "°", targetRA2, targetDec2 - 2, true, 14, "#CCCCCC");
+
+// 绘制第二个方框的边界
+var boxSize2 = 4; // 稍大一些的方框
+var halfSize2 = boxSize2 / 2;
+
+// 绘制第二个方框的四个角
+LabelMgr.labelEquatorial("┌", targetRA2 - halfSize2, targetDec2 + halfSize2, true, 20, "#4ECDC4");
+LabelMgr.labelEquatorial("┐", targetRA2 + halfSize2, targetDec2 + halfSize2, true, 20, "#4ECDC4");
+LabelMgr.labelEquatorial("└", targetRA2 - halfSize2, targetDec2 - halfSize2, true, 20, "#4ECDC4");
+LabelMgr.labelEquatorial("┘", targetRA2 + halfSize2, targetDec2 - halfSize2, true, 20, "#4ECDC4");
+
+// 绘制第二个方框的边
+for(var i = 1; i < 8; i++) {
+    var raOffset2 = (targetRA2 - halfSize2) + (boxSize2 * i / 8);
+    LabelMgr.labelEquatorial("─", raOffset2, targetDec2 + halfSize2, true, 16, "#4ECDC4");
+    LabelMgr.labelEquatorial("─", raOffset2, targetDec2 - halfSize2, true, 16, "#4ECDC4");
+}
+
+for(var j = 1; j < 8; j++) {
+    var decOffset2 = (targetDec2 - halfSize2) + (boxSize2 * j / 8);
+    LabelMgr.labelEquatorial("│", targetRA2 - halfSize2, decOffset2, true, 16, "#4ECDC4");
+    LabelMgr.labelEquatorial("│", targetRA2 + halfSize2, decOffset2, true, 16, "#4ECDC4");
+}
+
+LabelMgr.labelEquatorial("第二区域", targetRA2, targetDec2 + 1, true, 16, "#FFFFFF");
+LabelMgr.labelEquatorial("已定位", targetRA2, targetDec2 - 1, true, 14, "#00FF00");
+LabelMgr.labelEquatorial("✚", targetRA2, targetDec2, true, 24, "#FFFF00");
+
+core.wait(5);
+
+// 脚本结束
+LabelMgr.labelScreen("演示结束", 400, 600, true, 20, "#FF0000");
+LabelMgr.labelScreen("已在天球坐标上显示方框", 400, 630, true, 16, "#FFFFFF");
+
+core.debug("在指定坐标显示方框脚本结束");
+
+// 使用说明注释:
+// 要修改目标坐标，请修改以下变量:
+// targetRA - 赤经 (度数，0-360)
+// targetDec - 赤纬 (度数，-90到+90)
+// 
+// 赤经转换: 小时 × 15 = 度数
+// 例如: 6小时 = 90度, 12小时 = 180度
+//
+// 常见坐标示例:
+// 春分点: RA=0°, DEC=0°
+// 夏至点: RA=90°, DEC=23.5°
+// 秋分点: RA=180°, DEC=0°
+// 冬至点: RA=270°, DEC=-23.5°
+// 北极星: RA=37.95°, DEC=89.26°
