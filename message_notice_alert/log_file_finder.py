@@ -349,6 +349,20 @@ class LogFileFinder:
         except (ValueError, IndexError):
             return None
 
+    def extract_system_name_from_filename(self, filename: str) -> Optional[str]:
+        """
+        从FIT文件名中提取系统名称 GY\d{1}
+
+        Args:
+            filename: FIT文件名
+
+        Returns:
+            提取的系统名称，如GY1、GY2等，如果未找到则返回None
+        """
+        system_pattern = re.compile(r'GY\d{1}', re.IGNORECASE)
+        match = system_pattern.search(filename)
+        return match.group(0).upper() if match else None
+
     def extract_fit_files_from_multiple_logs(self, log_filenames: List[str]) -> Set[str]:
         """
         从多个日志文件中提取匹配 GY*_K*.fit 模式的文件名
@@ -371,14 +385,14 @@ class LogFileFinder:
 
     def display_fit_files(self, fit_files: Set[str], title: str = "找到的FIT文件"):
         """
-        显示fit文件列表，包含天区索引、坐标和UTC时间信息
+        显示fit文件列表，包含系统名称、天区索引、坐标和UTC时间信息
 
         Args:
             fit_files: fit文件名集合
             title: 显示标题
         """
         print(f"\n{title}:")
-        print("-" * 120)
+        print("-" * 140)
 
         if not fit_files:
             print("未找到匹配的FIT文件")
@@ -387,10 +401,14 @@ class LogFileFinder:
         # 转换为排序的列表
         sorted_files = sorted(list(fit_files))
 
-        print(f"{'序号':<4} {'文件名':<35} {'天区索引':<8} {'坐标(RA, DEC)':<20} {'UTC时间':<19}")
-        print("-" * 120)
+        print(f"{'序号':<4} {'文件名':<35} {'系统':<6} {'天区索引':<8} {'坐标(RA, DEC)':<20} {'UTC时间':<19}")
+        print("-" * 140)
 
         for i, filename in enumerate(sorted_files, 1):
+            # 提取系统名称 - 默认显示
+            system_name = self.extract_system_name_from_filename(filename)
+            system_str = system_name if system_name else "N/A"
+
             # 提取天区索引 - 默认显示
             k_index = self.extract_k_index_from_filename(filename)
             k_index_str = k_index if k_index else "N/A"
@@ -410,7 +428,7 @@ class LogFileFinder:
             else:
                 utc_str = "时间未找到"
 
-            print(f"{i:<4} {filename:<35} {k_index_str:<8} {coord_str:<20} {utc_str:<19}")
+            print(f"{i:<4} {filename:<35} {system_str:<6} {k_index_str:<8} {coord_str:<20} {utc_str:<19}")
 
         print(f"\n总共找到 {len(fit_files)} 个唯一的FIT文件")
 
@@ -427,10 +445,11 @@ class LogFileFinder:
         fit_files = self.extract_fit_files_from_log(latest_file)
         self.display_fit_files(fit_files, f"从 {latest_file} 中找到的FIT文件")
 
-        # 显示坐标分布摘要和时间分析
+        # 显示坐标分布摘要、时间分析和系统分析
         if fit_files:
             self.display_coordinate_summary(fit_files)
             self.display_time_analysis(fit_files)
+            self.display_system_analysis(fit_files)
 
         return fit_files
 
@@ -450,10 +469,11 @@ class LogFileFinder:
         fit_files = self.extract_fit_files_from_multiple_logs(recent_files)
         self.display_fit_files(fit_files, f"从最近{days}天内的日志文件中找到的FIT文件")
 
-        # 显示坐标分布摘要和时间分析
+        # 显示坐标分布摘要、时间分析和系统分析
         if fit_files:
             self.display_coordinate_summary(fit_files)
             self.display_time_analysis(fit_files)
+            self.display_system_analysis(fit_files)
 
         return fit_files
 
@@ -483,7 +503,7 @@ class LogFileFinder:
 
     def display_coordinate_summary(self, fit_files: Set[str]):
         """
-        显示FIT文件的坐标分布摘要，包含时间信息
+        显示FIT文件的坐标分布摘要，包含系统名称和时间信息
 
         Args:
             fit_files: FIT文件名集合
@@ -491,27 +511,37 @@ class LogFileFinder:
         coord_groups = self.analyze_fit_coordinates(fit_files)
 
         print(f"\n坐标分布摘要:")
-        print("-" * 100)
-        print(f"{'坐标(RA, DEC)':<20} {'文件数量':<8} {'天区索引':<15} {'时间范围':<35}")
-        print("-" * 100)
+        print("-" * 120)
+        print(f"{'坐标(RA, DEC)':<20} {'文件数量':<8} {'系统':<10} {'天区索引':<15} {'时间范围':<35}")
+        print("-" * 120)
 
         for coord, files in sorted(coord_groups.items()):
+            # 收集系统名称
+            systems = []
             # 收集天区索引
             k_indices = []
             # 收集时间信息
             times = []
 
             for filename in files:
+                # 收集系统名称
+                system_name = self.extract_system_name_from_filename(filename)
+                if system_name and system_name not in systems:
+                    systems.append(system_name)
+
+                # 收集天区索引
                 k_index = self.extract_k_index_from_filename(filename)
                 if k_index and k_index not in k_indices:
                     k_indices.append(k_index)
 
+                # 收集时间信息
                 utc_raw = self.extract_utc_datetime_from_filename(filename)
                 if utc_raw:
                     utc_formatted = self.format_utc_datetime(utc_raw)
                     if utc_formatted:
                         times.append(utc_formatted)
 
+            systems_str = ", ".join(sorted(systems)) if systems else "N/A"
             k_indices_str = ", ".join(sorted(k_indices)) if k_indices else "N/A"
 
             # 时间范围信息
@@ -524,7 +554,7 @@ class LogFileFinder:
             else:
                 time_range = "时间信息缺失"
 
-            print(f"{coord:<20} {len(files):<8} {k_indices_str:<15} {time_range:<35}")
+            print(f"{coord:<20} {len(files):<8} {systems_str:<10} {k_indices_str:<15} {time_range:<35}")
 
         print(f"\n总共涉及 {len(coord_groups)} 个不同的坐标位置")
 
@@ -552,11 +582,15 @@ class LogFileFinder:
         time_data.sort(key=lambda x: x[1])
 
         print(f"\n时间分析 (按时间排序):")
-        print("-" * 120)
-        print(f"{'序号':<4} {'UTC时间':<19} {'文件名':<35} {'天区索引':<8} {'坐标(RA, DEC)':<20}")
-        print("-" * 120)
+        print("-" * 140)
+        print(f"{'序号':<4} {'UTC时间':<19} {'文件名':<35} {'系统':<6} {'天区索引':<8} {'坐标(RA, DEC)':<20}")
+        print("-" * 140)
 
         for i, (filename, utc_raw, utc_formatted) in enumerate(time_data, 1):
+            # 获取系统名称
+            system_name = self.extract_system_name_from_filename(filename)
+            system_str = system_name if system_name else "N/A"
+
             # 获取天区索引和坐标信息
             k_index = self.extract_k_index_from_filename(filename)
             k_index_str = k_index if k_index else "N/A"
@@ -567,7 +601,7 @@ class LogFileFinder:
             else:
                 coord_str = "N/A"
 
-            print(f"{i:<4} {utc_formatted:<19} {filename:<35} {k_index_str:<8} {coord_str:<20}")
+            print(f"{i:<4} {utc_formatted:<19} {filename:<35} {system_str:<6} {k_index_str:<8} {coord_str:<20}")
 
         if len(time_data) > 1:
             earliest = time_data[0][2]
@@ -590,6 +624,64 @@ class LogFileFinder:
                 print(f"{date}: {len(files)} 个文件")
 
         print(f"\n总共 {len(time_data)} 个文件包含UTC时间信息")
+
+    def display_system_analysis(self, fit_files: Set[str]):
+        """
+        显示系统分析统计
+
+        Args:
+            fit_files: FIT文件名集合
+        """
+        system_groups = {}
+
+        for filename in fit_files:
+            system_name = self.extract_system_name_from_filename(filename)
+            system_key = system_name if system_name else "未知系统"
+
+            if system_key not in system_groups:
+                system_groups[system_key] = []
+            system_groups[system_key].append(filename)
+
+        print(f"\n系统分析统计:")
+        print("-" * 80)
+        print(f"{'系统名称':<10} {'文件数量':<8} {'天区数量':<8} {'坐标数量':<8} {'时间跨度':<30}")
+        print("-" * 80)
+
+        for system, files in sorted(system_groups.items()):
+            # 统计天区数量
+            k_indices = set()
+            # 统计坐标数量
+            coordinates = set()
+            # 统计时间信息
+            times = []
+
+            for filename in files:
+                k_index = self.extract_k_index_from_filename(filename)
+                if k_index:
+                    k_indices.add(k_index)
+                    coord = self.get_coordinates_for_k_index(k_index)
+                    if coord:
+                        coordinates.add(f"{coord[0]}, {coord[1]}")
+
+                utc_raw = self.extract_utc_datetime_from_filename(filename)
+                if utc_raw:
+                    utc_formatted = self.format_utc_datetime(utc_raw)
+                    if utc_formatted:
+                        times.append(utc_formatted)
+
+            # 时间跨度
+            if times:
+                times.sort()
+                if len(times) == 1:
+                    time_span = times[0]
+                else:
+                    time_span = f"{times[0]} ~ {times[-1]}"
+            else:
+                time_span = "无时间信息"
+
+            print(f"{system:<10} {len(files):<8} {len(k_indices):<8} {len(coordinates):<8} {time_span:<30}")
+
+        print(f"\n总共涉及 {len(system_groups)} 个系统")
 
 
 def main():
@@ -624,6 +716,7 @@ def main():
             if fit_files:
                 finder.display_coordinate_summary(fit_files)
                 finder.display_time_analysis(fit_files)
+                finder.display_system_analysis(fit_files)
 
     elif args.start_date and args.end_date:
         # 查找日期范围内的文件
@@ -637,6 +730,7 @@ def main():
             if fit_files:
                 finder.display_coordinate_summary(fit_files)
                 finder.display_time_analysis(fit_files)
+                finder.display_system_analysis(fit_files)
 
     elif args.list_all:
         # 列出所有文件
@@ -650,6 +744,7 @@ def main():
             if fit_files:
                 finder.display_coordinate_summary(fit_files)
                 finder.display_time_analysis(fit_files)
+                finder.display_system_analysis(fit_files)
 
     elif args.search_fit:
         # 在最新日志文件中搜索FIT文件
