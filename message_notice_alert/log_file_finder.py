@@ -9,7 +9,7 @@ import os
 import glob
 import re
 from datetime import datetime, timedelta
-from typing import List, Optional
+from typing import List, Optional, Set
 import argparse
 
 
@@ -84,27 +84,27 @@ class LogFileFinder:
     def find_files_by_date(self, target_date: str) -> List[str]:
         """
         根据指定日期查找日志文件
-        
+
         Args:
-            target_date: 目标日期，格式: YYYY-MM-DD
-            
+            target_date: 目标日期，格式: YYYYMMDD
+
         Returns:
             匹配指定日期的文件名列表
         """
         try:
-            target_dt = datetime.strptime(target_date, '%Y-%m-%d')
+            target_dt = datetime.strptime(target_date, '%Y%m%d')
         except ValueError:
-            print(f"错误: 日期格式不正确，请使用 YYYY-MM-DD 格式")
+            print(f"错误: 日期格式不正确，请使用 YYYYMMDD 格式")
             return []
-        
+
         all_files = self.find_log_files()
         matching_files = []
-        
+
         for filename in all_files:
             file_date = self.extract_date_from_filename(filename)
             if file_date and file_date.date() == target_dt.date():
                 matching_files.append(filename)
-        
+
         return matching_files
     
     def find_files_by_date_range(self, start_date: str, end_date: str) -> List[str]:
@@ -112,17 +112,17 @@ class LogFileFinder:
         根据日期范围查找日志文件
 
         Args:
-            start_date: 开始日期，格式: YYYY-MM-DD
-            end_date: 结束日期，格式: YYYY-MM-DD
+            start_date: 开始日期，格式: YYYYMMDD
+            end_date: 结束日期，格式: YYYYMMDD
 
         Returns:
             匹配日期范围的文件名列表
         """
         try:
-            start_dt = datetime.strptime(start_date, '%Y-%m-%d')
-            end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+            start_dt = datetime.strptime(start_date, '%Y%m%d')
+            end_dt = datetime.strptime(end_date, '%Y%m%d')
         except ValueError:
-            print(f"错误: 日期格式不正确，请使用 YYYY-MM-DD 格式")
+            print(f"错误: 日期格式不正确，请使用 YYYYMMDD 格式")
             return []
 
         all_files = self.find_log_files()
@@ -217,17 +217,127 @@ class LogFileFinder:
 
         return latest_file
 
+    def extract_fit_files_from_log(self, log_filename: str) -> Set[str]:
+        """
+        从日志文件中提取匹配 GY*_K*.fit 模式的文件名
+
+        Args:
+            log_filename: 日志文件名
+
+        Returns:
+            匹配的fit文件名集合（去重）
+        """
+        log_path = os.path.join(self.log_directory, log_filename)
+
+        if not os.path.exists(log_path):
+            print(f"错误: 日志文件 {log_path} 不存在")
+            return set()
+
+        fit_files = set()
+        fit_pattern = re.compile(r'GY\d_K\d{3}-.*?\.fit', re.IGNORECASE)
+
+        try:
+            with open(log_path, 'r', encoding='utf-8', errors='ignore') as f:
+                for line_num, line in enumerate(f, 1):
+                    matches = fit_pattern.findall(line)
+                    for match in matches:
+                        fit_files.add(match)
+        except Exception as e:
+            print(f"读取日志文件 {log_filename} 时出错: {e}")
+
+        return fit_files
+
+    def extract_fit_files_from_multiple_logs(self, log_filenames: List[str]) -> Set[str]:
+        """
+        从多个日志文件中提取匹配 GY*_K*.fit 模式的文件名
+
+        Args:
+            log_filenames: 日志文件名列表
+
+        Returns:
+            所有匹配的fit文件名集合（去重）
+        """
+        all_fit_files = set()
+
+        for log_filename in log_filenames:
+            print(f"正在处理日志文件: {log_filename}")
+            fit_files = self.extract_fit_files_from_log(log_filename)
+            all_fit_files.update(fit_files)
+            print(f"  找到 {len(fit_files)} 个fit文件")
+
+        return all_fit_files
+
+    def display_fit_files(self, fit_files: Set[str], title: str = "找到的FIT文件"):
+        """
+        显示fit文件列表
+
+        Args:
+            fit_files: fit文件名集合
+            title: 显示标题
+        """
+        print(f"\n{title}:")
+        print("-" * 50)
+
+        if not fit_files:
+            print("未找到匹配的FIT文件")
+            return
+
+        # 转换为排序的列表
+        sorted_files = sorted(list(fit_files))
+
+        for i, filename in enumerate(sorted_files, 1):
+            print(f"{i:3d}. {filename}")
+
+        print(f"\n总共找到 {len(fit_files)} 个唯一的FIT文件")
+
+    def search_fit_files_in_latest(self):
+        """
+        在最新的日志文件中搜索fit文件
+        """
+        latest_file = self.get_latest_file()
+        if not latest_file:
+            print("未找到最近30天内的日志文件")
+            return
+
+        print(f"正在从最新日志文件中搜索FIT文件: {latest_file}")
+        fit_files = self.extract_fit_files_from_log(latest_file)
+        self.display_fit_files(fit_files, f"从 {latest_file} 中找到的FIT文件")
+
+        return fit_files
+
+    def search_fit_files_in_recent(self, days: int = 30):
+        """
+        在最近指定天数内的所有日志文件中搜索fit文件
+
+        Args:
+            days: 搜索最近多少天的日志文件
+        """
+        recent_files = self.find_files_last_30_days()
+        if not recent_files:
+            print(f"未找到最近{days}天内的日志文件")
+            return
+
+        print(f"正在从最近{days}天内的 {len(recent_files)} 个日志文件中搜索FIT文件...")
+        fit_files = self.extract_fit_files_from_multiple_logs(recent_files)
+        self.display_fit_files(fit_files, f"从最近{days}天内的日志文件中找到的FIT文件")
+
+        return fit_files
+
 
 def main():
     """主函数"""
     parser = argparse.ArgumentParser(description='日志文件查找器')
     parser.add_argument('--dir', '-d', default=r"D:\kats\logs\log_core_pool",
                        help='日志文件目录路径')
-    parser.add_argument('--date', help='指定日期 (YYYY-MM-DD)')
-    parser.add_argument('--start-date', help='开始日期 (YYYY-MM-DD)')
-    parser.add_argument('--end-date', help='结束日期 (YYYY-MM-DD)')
+    parser.add_argument('--date', help='指定日期 (YYYYMMDD)')
+    parser.add_argument('--start-date', help='开始日期 (YYYYMMDD)')
+    parser.add_argument('--end-date', help='结束日期 (YYYYMMDD)')
     parser.add_argument('--list-all', '-l', action='store_true',
                        help='列出所有匹配的日志文件')
+    parser.add_argument('--search-fit', '-f', action='store_true',
+                       help='在最新日志文件中搜索FIT文件')
+    parser.add_argument('--search-fit-recent', '-fr', action='store_true',
+                       help='在最近30天的日志文件中搜索FIT文件')
     
     args = parser.parse_args()
     
@@ -238,16 +348,39 @@ def main():
         # 查找指定日期的文件
         files = finder.find_files_by_date(args.date)
         finder.display_files(files, f"日期 {args.date} 的日志文件")
-    
+        # 在找到的文件中搜索FIT文件
+        if files:
+            print("\n" + "=" * 60)
+            fit_files = finder.extract_fit_files_from_multiple_logs(files)
+            finder.display_fit_files(fit_files, f"从日期 {args.date} 的日志文件中找到的FIT文件")
+
     elif args.start_date and args.end_date:
         # 查找日期范围内的文件
         files = finder.find_files_by_date_range(args.start_date, args.end_date)
         finder.display_files(files, f"日期范围 {args.start_date} 到 {args.end_date} 的日志文件")
-    
+        # 在找到的文件中搜索FIT文件
+        if files:
+            print("\n" + "=" * 60)
+            fit_files = finder.extract_fit_files_from_multiple_logs(files)
+            finder.display_fit_files(fit_files, f"从日期范围 {args.start_date} 到 {args.end_date} 的日志文件中找到的FIT文件")
+
     elif args.list_all:
         # 列出所有文件
         files = finder.find_log_files()
         finder.display_files(files, "所有匹配的日志文件")
+        # 在所有文件中搜索FIT文件
+        if files:
+            print("\n" + "=" * 60)
+            fit_files = finder.extract_fit_files_from_multiple_logs(files)
+            finder.display_fit_files(fit_files, "从所有日志文件中找到的FIT文件")
+
+    elif args.search_fit:
+        # 在最新日志文件中搜索FIT文件
+        finder.search_fit_files_in_latest()
+
+    elif args.search_fit_recent:
+        # 在最近30天的日志文件中搜索FIT文件
+        finder.search_fit_files_in_recent()
     
     else:
         # 默认模式：显示最近30天内的文件，并推荐最新的
@@ -263,6 +396,10 @@ def main():
         if not latest_file:
             return
 
+        # 默认搜索最新日志文件中的FIT文件
+        print("\n" + "=" * 60)
+        finder.search_fit_files_in_latest()
+
         # 询问用户是否需要其他操作
         while True:
             print("\n选择操作:")
@@ -270,18 +407,20 @@ def main():
             print("2. 查找日期范围内的文件")
             print("3. 列出所有匹配的文件")
             print("4. 重新显示最近30天的文件")
-            print("5. 退出")
+            print("5. 在最新日志文件中搜索FIT文件")
+            print("6. 在最近30天日志文件中搜索FIT文件")
+            print("7. 退出")
 
-            choice = input("\n请输入选择 (1-5): ").strip()
+            choice = input("\n请输入选择 (1-7): ").strip()
 
             if choice == '1':
-                date = input("请输入日期 (YYYY-MM-DD): ").strip()
+                date = input("请输入日期 (YYYYMMDD): ").strip()
                 files = finder.find_files_by_date(date)
                 finder.display_files(files, f"日期 {date} 的日志文件")
 
             elif choice == '2':
-                start_date = input("请输入开始日期 (YYYY-MM-DD): ").strip()
-                end_date = input("请输入结束日期 (YYYY-MM-DD): ").strip()
+                start_date = input("请输入开始日期 (YYYYMMDD): ").strip()
+                end_date = input("请输入结束日期 (YYYYMMDD): ").strip()
                 files = finder.find_files_by_date_range(start_date, end_date)
                 finder.display_files(files, f"日期范围 {start_date} 到 {end_date} 的日志文件")
 
@@ -293,6 +432,12 @@ def main():
                 finder.display_latest_file()
 
             elif choice == '5':
+                finder.search_fit_files_in_latest()
+
+            elif choice == '6':
+                finder.search_fit_files_in_recent()
+
+            elif choice == '7':
                 print("退出程序")
                 break
 
