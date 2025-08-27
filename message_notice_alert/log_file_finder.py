@@ -311,6 +311,44 @@ class LogFileFinder:
         """
         return self.k_map_data.get(k_index.upper())
 
+    def extract_utc_datetime_from_filename(self, filename: str) -> Optional[str]:
+        """
+        从FIT文件名中提取UTC日期时间 UTC20250823_202712
+
+        Args:
+            filename: FIT文件名
+
+        Returns:
+            提取的UTC日期时间字符串，如果未找到则返回None
+        """
+        utc_pattern = re.compile(r'UTC(\d{8}_\d{6})', re.IGNORECASE)
+        match = utc_pattern.search(filename)
+        return match.group(1) if match else None
+
+    def format_utc_datetime(self, utc_str: str) -> Optional[str]:
+        """
+        格式化UTC日期时间字符串为可读格式
+
+        Args:
+            utc_str: UTC日期时间字符串，格式: 20250823_202712
+
+        Returns:
+            格式化后的日期时间字符串，如: 2025-08-23 20:27:12
+        """
+        try:
+            # 解析格式: 20250823_202712
+            date_part, time_part = utc_str.split('_')
+            year = date_part[:4]
+            month = date_part[4:6]
+            day = date_part[6:8]
+            hour = time_part[:2]
+            minute = time_part[2:4]
+            second = time_part[4:6]
+
+            return f"{year}-{month}-{day} {hour}:{minute}:{second}"
+        except (ValueError, IndexError):
+            return None
+
     def extract_fit_files_from_multiple_logs(self, log_filenames: List[str]) -> Set[str]:
         """
         从多个日志文件中提取匹配 GY*_K*.fit 模式的文件名
@@ -333,14 +371,14 @@ class LogFileFinder:
 
     def display_fit_files(self, fit_files: Set[str], title: str = "找到的FIT文件"):
         """
-        显示fit文件列表，包含天区索引和坐标信息
+        显示fit文件列表，包含天区索引、坐标和UTC时间信息
 
         Args:
             fit_files: fit文件名集合
             title: 显示标题
         """
         print(f"\n{title}:")
-        print("-" * 80)
+        print("-" * 120)
 
         if not fit_files:
             print("未找到匹配的FIT文件")
@@ -349,19 +387,30 @@ class LogFileFinder:
         # 转换为排序的列表
         sorted_files = sorted(list(fit_files))
 
-        print(f"{'序号':<4} {'文件名':<30} {'天区索引':<8} {'坐标(RA, DEC)':<20}")
-        print("-" * 80)
+        print(f"{'序号':<4} {'文件名':<35} {'天区索引':<8} {'坐标(RA, DEC)':<20} {'UTC时间':<19}")
+        print("-" * 120)
 
         for i, filename in enumerate(sorted_files, 1):
+            # 提取天区索引 - 默认显示
             k_index = self.extract_k_index_from_filename(filename)
+            k_index_str = k_index if k_index else "N/A"
+
+            # 提取坐标信息 - 默认显示
             if k_index:
                 coordinates = self.get_coordinates_for_k_index(k_index)
-                coord_str = f"{coordinates[0]}, {coordinates[1]}" if coordinates else "未找到坐标"
+                coord_str = f"{coordinates[0]}, {coordinates[1]}" if coordinates else "坐标未找到"
             else:
-                k_index = "未找到"
                 coord_str = "N/A"
 
-            print(f"{i:<4} {filename:<30} {k_index:<8} {coord_str:<20}")
+            # 提取UTC时间 - 默认显示
+            utc_raw = self.extract_utc_datetime_from_filename(filename)
+            if utc_raw:
+                utc_formatted = self.format_utc_datetime(utc_raw)
+                utc_str = utc_formatted if utc_formatted else f"格式错误:{utc_raw}"
+            else:
+                utc_str = "时间未找到"
+
+            print(f"{i:<4} {filename:<35} {k_index_str:<8} {coord_str:<20} {utc_str:<19}")
 
         print(f"\n总共找到 {len(fit_files)} 个唯一的FIT文件")
 
@@ -378,9 +427,10 @@ class LogFileFinder:
         fit_files = self.extract_fit_files_from_log(latest_file)
         self.display_fit_files(fit_files, f"从 {latest_file} 中找到的FIT文件")
 
-        # 显示坐标分布摘要
+        # 显示坐标分布摘要和时间分析
         if fit_files:
             self.display_coordinate_summary(fit_files)
+            self.display_time_analysis(fit_files)
 
         return fit_files
 
@@ -400,9 +450,10 @@ class LogFileFinder:
         fit_files = self.extract_fit_files_from_multiple_logs(recent_files)
         self.display_fit_files(fit_files, f"从最近{days}天内的日志文件中找到的FIT文件")
 
-        # 显示坐标分布摘要
+        # 显示坐标分布摘要和时间分析
         if fit_files:
             self.display_coordinate_summary(fit_files)
+            self.display_time_analysis(fit_files)
 
         return fit_files
 
@@ -432,7 +483,7 @@ class LogFileFinder:
 
     def display_coordinate_summary(self, fit_files: Set[str]):
         """
-        显示FIT文件的坐标分布摘要
+        显示FIT文件的坐标分布摘要，包含时间信息
 
         Args:
             fit_files: FIT文件名集合
@@ -440,21 +491,105 @@ class LogFileFinder:
         coord_groups = self.analyze_fit_coordinates(fit_files)
 
         print(f"\n坐标分布摘要:")
-        print("-" * 60)
-        print(f"{'坐标(RA, DEC)':<20} {'文件数量':<8} {'天区索引':<30}")
-        print("-" * 60)
+        print("-" * 100)
+        print(f"{'坐标(RA, DEC)':<20} {'文件数量':<8} {'天区索引':<15} {'时间范围':<35}")
+        print("-" * 100)
 
         for coord, files in sorted(coord_groups.items()):
+            # 收集天区索引
             k_indices = []
+            # 收集时间信息
+            times = []
+
             for filename in files:
                 k_index = self.extract_k_index_from_filename(filename)
                 if k_index and k_index not in k_indices:
                     k_indices.append(k_index)
 
-            k_indices_str = ", ".join(sorted(k_indices))
-            print(f"{coord:<20} {len(files):<8} {k_indices_str:<30}")
+                utc_raw = self.extract_utc_datetime_from_filename(filename)
+                if utc_raw:
+                    utc_formatted = self.format_utc_datetime(utc_raw)
+                    if utc_formatted:
+                        times.append(utc_formatted)
+
+            k_indices_str = ", ".join(sorted(k_indices)) if k_indices else "N/A"
+
+            # 时间范围信息
+            if times:
+                times.sort()
+                if len(times) == 1:
+                    time_range = times[0]
+                else:
+                    time_range = f"{times[0]} ~ {times[-1]}"
+            else:
+                time_range = "时间信息缺失"
+
+            print(f"{coord:<20} {len(files):<8} {k_indices_str:<15} {time_range:<35}")
 
         print(f"\n总共涉及 {len(coord_groups)} 个不同的坐标位置")
+
+    def display_time_analysis(self, fit_files: Set[str]):
+        """
+        显示FIT文件的时间分析
+
+        Args:
+            fit_files: FIT文件名集合
+        """
+        time_data = []
+
+        for filename in fit_files:
+            utc_raw = self.extract_utc_datetime_from_filename(filename)
+            if utc_raw:
+                utc_formatted = self.format_utc_datetime(utc_raw)
+                if utc_formatted:
+                    time_data.append((filename, utc_raw, utc_formatted))
+
+        if not time_data:
+            print("\n未找到包含UTC时间信息的文件")
+            return
+
+        # 按时间排序
+        time_data.sort(key=lambda x: x[1])
+
+        print(f"\n时间分析 (按时间排序):")
+        print("-" * 120)
+        print(f"{'序号':<4} {'UTC时间':<19} {'文件名':<35} {'天区索引':<8} {'坐标(RA, DEC)':<20}")
+        print("-" * 120)
+
+        for i, (filename, utc_raw, utc_formatted) in enumerate(time_data, 1):
+            # 获取天区索引和坐标信息
+            k_index = self.extract_k_index_from_filename(filename)
+            k_index_str = k_index if k_index else "N/A"
+
+            if k_index:
+                coordinates = self.get_coordinates_for_k_index(k_index)
+                coord_str = f"{coordinates[0]}, {coordinates[1]}" if coordinates else "坐标未找到"
+            else:
+                coord_str = "N/A"
+
+            print(f"{i:<4} {utc_formatted:<19} {filename:<35} {k_index_str:<8} {coord_str:<20}")
+
+        if len(time_data) > 1:
+            earliest = time_data[0][2]
+            latest = time_data[-1][2]
+            print(f"\n时间范围: {earliest} 到 {latest}")
+            print(f"总时间跨度: {len(time_data)} 个文件")
+
+        # 按日期分组统计
+        date_groups = {}
+        for filename, utc_raw, utc_formatted in time_data:
+            date_part = utc_formatted.split(' ')[0]  # 提取日期部分
+            if date_part not in date_groups:
+                date_groups[date_part] = []
+            date_groups[date_part].append(filename)
+
+        if len(date_groups) > 1:
+            print(f"\n按日期分组:")
+            print("-" * 40)
+            for date, files in sorted(date_groups.items()):
+                print(f"{date}: {len(files)} 个文件")
+
+        print(f"\n总共 {len(time_data)} 个文件包含UTC时间信息")
 
 
 def main():
@@ -488,6 +623,7 @@ def main():
             finder.display_fit_files(fit_files, f"从日期 {args.date} 的日志文件中找到的FIT文件")
             if fit_files:
                 finder.display_coordinate_summary(fit_files)
+                finder.display_time_analysis(fit_files)
 
     elif args.start_date and args.end_date:
         # 查找日期范围内的文件
@@ -500,6 +636,7 @@ def main():
             finder.display_fit_files(fit_files, f"从日期范围 {args.start_date} 到 {args.end_date} 的日志文件中找到的FIT文件")
             if fit_files:
                 finder.display_coordinate_summary(fit_files)
+                finder.display_time_analysis(fit_files)
 
     elif args.list_all:
         # 列出所有文件
@@ -512,6 +649,7 @@ def main():
             finder.display_fit_files(fit_files, "从所有日志文件中找到的FIT文件")
             if fit_files:
                 finder.display_coordinate_summary(fit_files)
+                finder.display_time_analysis(fit_files)
 
     elif args.search_fit:
         # 在最新日志文件中搜索FIT文件
