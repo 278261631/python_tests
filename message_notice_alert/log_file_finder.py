@@ -332,41 +332,57 @@ class LogFileFinder:
 
         return fit_files
 
-    def _load_k_map(self) -> Dict[str, Tuple[str, str]]:
+    def _load_k_map(self) -> Dict[str, Dict[str, Tuple[str, str]]]:
         """
-        加载k_map.txt文件，构建天区索引到坐标的映射
+        加载所有系统的k_map文件，构建系统到天区索引到坐标的映射
 
         Returns:
-            字典，键为K索引（如K001-1），值为坐标元组（RA, DEC）
+            嵌套字典，外层键为系统名（如GY1），内层键为K索引（如K001-1），值为坐标元组（RA, DEC）
         """
-        k_map_path = os.path.join(os.path.dirname(__file__), self.k_map_file)
-        k_map_data = {}
+        systems = ['GY1', 'GY2', 'GY3', 'GY4', 'GY5', 'GY6']
+        all_k_map_data = {}
 
-        if not os.path.exists(k_map_path):
-            print(f"警告: k_map.txt 文件不存在于 {k_map_path}")
-            return k_map_data
+        for system in systems:
+            k_map_file = f"k_map_{system.lower()}.txt"
+            k_map_path = os.path.join(os.path.dirname(__file__), k_map_file)
+            system_data = {}
 
-        try:
-            with open(k_map_path, 'r', encoding='utf-8', errors='ignore') as f:
-                for line_num, line in enumerate(f, 1):
-                    line = line.strip()
-                    # 跳过空行和注释行
-                    if not line or line.startswith('//') or line.startswith('LabelMgr'):
-                        continue
+            if not os.path.exists(k_map_path):
+                print(f"警告: {k_map_file} 文件不存在于 {k_map_path}")
+                # 如果系统文件不存在，尝试使用原始 k_map.txt
+                fallback_path = os.path.join(os.path.dirname(__file__), self.k_map_file)
+                if os.path.exists(fallback_path):
+                    print(f"使用备用文件: {self.k_map_file}")
+                    k_map_path = fallback_path
+                else:
+                    continue
 
-                    # 解析格式: K001-1, 1.09091h, +69.0
-                    parts = [part.strip() for part in line.split(',')]
-                    if len(parts) >= 3:
-                        k_index = parts[0]
-                        ra = parts[1]
-                        dec = parts[2]
-                        k_map_data[k_index] = (ra, dec)
+            try:
+                with open(k_map_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    for line_num, line in enumerate(f, 1):
+                        line = line.strip()
+                        # 跳过空行和注释行
+                        if not line or line.startswith('//') or line.startswith('LabelMgr'):
+                            continue
 
-        except Exception as e:
-            print(f"读取 k_map.txt 文件时出错: {e}")
+                        # 解析格式: K001-1, 1.09091h, +69.0
+                        parts = [part.strip() for part in line.split(',')]
+                        if len(parts) >= 3:
+                            k_index = parts[0]
+                            ra = parts[1]
+                            dec = parts[2]
+                            system_data[k_index] = (ra, dec)
 
-        print(f"成功加载 {len(k_map_data)} 个天区索引映射")
-        return k_map_data
+            except Exception as e:
+                print(f"读取 {k_map_file} 文件时出错: {e}")
+                continue
+
+            all_k_map_data[system] = system_data
+            print(f"成功加载 {system} 系统 {len(system_data)} 个天区索引映射")
+
+        total_mappings = sum(len(data) for data in all_k_map_data.values())
+        print(f"总共加载 {len(all_k_map_data)} 个系统，{total_mappings} 个天区索引映射")
+        return all_k_map_data
 
     def extract_k_index_from_filename(self, filename: str) -> Optional[str]:
         """
@@ -382,17 +398,27 @@ class LogFileFinder:
         match = k_pattern.search(filename)
         return match.group(0).upper() if match else None
 
-    def get_coordinates_for_k_index(self, k_index: str) -> Optional[Tuple[str, str]]:
+    def get_coordinates_for_k_index(self, k_index: str, system: str = None) -> Optional[Tuple[str, str]]:
         """
-        根据K索引获取对应的坐标
+        根据K索引和系统名获取对应的坐标
 
         Args:
             k_index: 天区索引，如K001-1
+            system: 系统名，如GY1, GY2等
 
         Returns:
             坐标元组(RA, DEC)，如果未找到则返回None
         """
-        return self.k_map_data.get(k_index.upper())
+        if system and system.upper() in self.k_map_data:
+            return self.k_map_data[system.upper()].get(k_index.upper())
+
+        # 如果没有指定系统或系统不存在，尝试在所有系统中查找
+        for sys_name, sys_data in self.k_map_data.items():
+            coords = sys_data.get(k_index.upper())
+            if coords:
+                return coords
+
+        return None
 
     def extract_utc_datetime_from_filename(self, filename: str) -> Optional[str]:
         """
@@ -504,7 +530,7 @@ class LogFileFinder:
 
             # 提取坐标信息 - 默认显示
             if k_index:
-                coordinates = self.get_coordinates_for_k_index(k_index)
+                coordinates = self.get_coordinates_for_k_index(k_index, system_str)
                 coord_str = f"{coordinates[0]}, {coordinates[1]}" if coordinates else "坐标未找到"
             else:
                 coord_str = "N/A"
@@ -628,8 +654,9 @@ class LogFileFinder:
 
         for filename in fit_files:
             k_index = self.extract_k_index_from_filename(filename)
+            system_name = self.extract_system_name_from_filename(filename)
             if k_index:
-                coordinates = self.get_coordinates_for_k_index(k_index)
+                coordinates = self.get_coordinates_for_k_index(k_index, system_name)
                 if coordinates:
                     coord_key = f"{coordinates[0]}, {coordinates[1]}"
                     if coord_key not in coord_groups:
@@ -731,9 +758,10 @@ class LogFileFinder:
             # 获取天区索引和坐标信息
             k_index = self.extract_k_index_from_filename(filename)
             k_index_str = k_index if k_index else "N/A"
+            system_name = self.extract_system_name_from_filename(filename)
 
             if k_index:
-                coordinates = self.get_coordinates_for_k_index(k_index)
+                coordinates = self.get_coordinates_for_k_index(k_index, system_name)
                 coord_str = f"{coordinates[0]}, {coordinates[1]}" if coordinates else "坐标未找到"
             else:
                 coord_str = "N/A"
@@ -794,9 +822,10 @@ class LogFileFinder:
 
             for filename in files:
                 k_index = self.extract_k_index_from_filename(filename)
+                system_name = self.extract_system_name_from_filename(filename)
                 if k_index:
                     k_indices.add(k_index)
-                    coord = self.get_coordinates_for_k_index(k_index)
+                    coord = self.get_coordinates_for_k_index(k_index, system_name)
                     if coord:
                         coordinates.add(f"{coord[0]}, {coord[1]}")
 
