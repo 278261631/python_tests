@@ -219,9 +219,66 @@ class LogFileFinder:
 
         return latest_file
 
+    def extract_timestamp_from_line(self, line: str) -> Optional[str]:
+        """
+        从日志行开头提取时间戳，格式: 2025-08-23 03:00:15,978
+
+        Args:
+            line: 日志行内容
+
+        Returns:
+            提取的时间戳字符串，如果未找到则返回None
+        """
+        timestamp_pattern = re.compile(r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}')
+        match = timestamp_pattern.search(line)
+        return match.group(0) if match else None
+
+    def parse_timestamp(self, timestamp_str: str) -> Optional[datetime]:
+        """
+        解析时间戳字符串为datetime对象
+
+        Args:
+            timestamp_str: 时间戳字符串，格式: 2025-08-23 03:00:15,978
+
+        Returns:
+            datetime对象，如果解析失败则返回None
+        """
+        try:
+            # 将逗号替换为点号以符合Python的microsecond格式
+            timestamp_str = timestamp_str.replace(',', '.')
+            return datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S.%f')
+        except ValueError:
+            return None
+
+    def calculate_time_difference(self, start_time: datetime, end_time: datetime) -> str:
+        """
+        计算两个时间之间的差值
+
+        Args:
+            start_time: 开始时间
+            end_time: 结束时间
+
+        Returns:
+            时间差的字符串表示
+        """
+        time_diff = end_time - start_time
+        total_seconds = time_diff.total_seconds()
+
+        if total_seconds < 60:
+            return f"{total_seconds:.3f}秒"
+        elif total_seconds < 3600:
+            minutes = int(total_seconds // 60)
+            seconds = total_seconds % 60
+            return f"{minutes}分{seconds:.3f}秒"
+        else:
+            hours = int(total_seconds // 3600)
+            minutes = int((total_seconds % 3600) // 60)
+            seconds = total_seconds % 60
+            return f"{hours}小时{minutes}分{seconds:.3f}秒"
+
     def extract_fit_files_from_log(self, log_filename: str) -> Set[str]:
         """
-        从日志文件中提取匹配 GY*_K*.fit 模式的文件名
+        从日志文件中提取匹配 GY*_K*.fit 模式的文件名，并记录开始/结束时间
 
         Args:
             log_filename: 日志文件名
@@ -238,12 +295,38 @@ class LogFileFinder:
         fit_files = set()
         fit_pattern = re.compile(r'GY\d_K\d{3}-.*?\.fit', re.IGNORECASE)
 
+        # 初始化文件时间存储（如果不存在）
+        if not hasattr(self, 'fit_file_times'):
+            self.fit_file_times = {}
+
         try:
             with open(log_path, 'r', encoding='utf-8', errors='ignore') as f:
                 for line_num, line in enumerate(f, 1):
-                    matches = fit_pattern.findall(line)
-                    for match in matches:
-                        fit_files.add(match)
+                    # 检查是否包含开始或结束关键词
+                    if "开始" in line or "结束" in line:
+                        timestamp = self.extract_timestamp_from_line(line)
+                        if timestamp:
+                            # 查找该行中的FIT文件名
+                            matches = fit_pattern.findall(line)
+                            for match in matches:
+                                fit_files.add(match)
+
+                                # 记录时间信息
+                                if match not in self.fit_file_times:
+                                    self.fit_file_times[match] = {}
+
+                                if "开始" in line:
+                                    self.fit_file_times[match]['start'] = timestamp
+                                    # print(f"  调试: 记录开始时间 {match} -> {timestamp}")
+                                elif "结束" in line:
+                                    self.fit_file_times[match]['end'] = timestamp
+                                    # print(f"  调试: 记录结束时间 {match} -> {timestamp}")
+                    else:
+                        # 普通行，只提取文件名
+                        matches = fit_pattern.findall(line)
+                        for match in matches:
+                            fit_files.add(match)
+
         except Exception as e:
             print(f"读取日志文件 {log_filename} 时出错: {e}")
 
@@ -375,6 +458,9 @@ class LogFileFinder:
         """
         all_fit_files = set()
 
+        # 在处理多个文件前清空时间信息
+        self.fit_file_times = {}
+
         for log_filename in log_filenames:
             print(f"正在处理日志文件: {log_filename}")
             fit_files = self.extract_fit_files_from_log(log_filename)
@@ -385,14 +471,14 @@ class LogFileFinder:
 
     def display_fit_files(self, fit_files: Set[str], title: str = "找到的FIT文件"):
         """
-        显示fit文件列表，包含系统名称、天区索引、坐标和UTC时间信息
+        显示fit文件列表，包含系统名称、天区索引、坐标、UTC时间和处理时间信息
 
         Args:
             fit_files: fit文件名集合
             title: 显示标题
         """
         print(f"\n{title}:")
-        print("-" * 140)
+        print("-" * 180)
 
         if not fit_files:
             print("未找到匹配的FIT文件")
@@ -401,8 +487,8 @@ class LogFileFinder:
         # 转换为排序的列表
         sorted_files = sorted(list(fit_files))
 
-        print(f"{'序号':<4} {'文件名':<35} {'系统':<6} {'天区索引':<8} {'坐标(RA, DEC)':<20} {'UTC时间':<19}")
-        print("-" * 140)
+        print(f"{'序号':<4} {'文件名':<35} {'系统':<6} {'天区索引':<8} {'坐标(RA, DEC)':<20} {'UTC时间':<19} {'开始时间':<23} {'结束时间':<23} {'处理时长':<12}")
+        print("-" * 180)
 
         for i, filename in enumerate(sorted_files, 1):
             # 提取系统名称 - 默认显示
@@ -428,7 +514,24 @@ class LogFileFinder:
             else:
                 utc_str = "时间未找到"
 
-            print(f"{i:<4} {filename:<35} {system_str:<6} {k_index_str:<8} {coord_str:<20} {utc_str:<19}")
+            # 提取处理时间信息
+            start_time_str = "未记录"
+            end_time_str = "未记录"
+            duration_str = "N/A"
+
+            if hasattr(self, 'fit_file_times') and filename in self.fit_file_times:
+                time_info = self.fit_file_times[filename]
+                start_time_str = time_info.get('start', '未记录')
+                end_time_str = time_info.get('end', '未记录')
+
+                # 计算时间差
+                if 'start' in time_info and 'end' in time_info:
+                    start_dt = self.parse_timestamp(time_info['start'])
+                    end_dt = self.parse_timestamp(time_info['end'])
+                    if start_dt and end_dt:
+                        duration_str = self.calculate_time_difference(start_dt, end_dt)
+
+            print(f"{i:<4} {filename:<35} {system_str:<6} {k_index_str:<8} {coord_str:<20} {utc_str:<19} {start_time_str:<23} {end_time_str:<23} {duration_str:<12}")
 
         print(f"\n总共找到 {len(fit_files)} 个唯一的FIT文件")
 
@@ -441,15 +544,25 @@ class LogFileFinder:
             print("未找到最近30天内的日志文件")
             return
 
+        # 清空时间信息
+        self.fit_file_times = {}
+
         print(f"正在从最新日志文件中搜索FIT文件: {latest_file}")
         fit_files = self.extract_fit_files_from_log(latest_file)
+
+        # 调试信息：显示收集到的时间信息
+        print(f"调试: 收集到 {len(self.fit_file_times)} 个文件的时间信息")
+        for filename, times in self.fit_file_times.items():
+            print(f"  {filename}: {times}")
+
         self.display_fit_files(fit_files, f"从 {latest_file} 中找到的FIT文件")
 
-        # 显示坐标分布摘要、时间分析和系统分析
+        # 显示坐标分布摘要、时间分析、系统分析和处理时间分析
         if fit_files:
             self.display_coordinate_summary(fit_files)
             self.display_time_analysis(fit_files)
             self.display_system_analysis(fit_files)
+            self.display_processing_time_analysis(fit_files)
 
         return fit_files
 
@@ -469,11 +582,12 @@ class LogFileFinder:
         fit_files = self.extract_fit_files_from_multiple_logs(recent_files)
         self.display_fit_files(fit_files, f"从最近{days}天内的日志文件中找到的FIT文件")
 
-        # 显示坐标分布摘要、时间分析和系统分析
+        # 显示坐标分布摘要、时间分析、系统分析和处理时间分析
         if fit_files:
             self.display_coordinate_summary(fit_files)
             self.display_time_analysis(fit_files)
             self.display_system_analysis(fit_files)
+            self.display_processing_time_analysis(fit_files)
 
         return fit_files
 
@@ -683,6 +797,68 @@ class LogFileFinder:
 
         print(f"\n总共涉及 {len(system_groups)} 个系统")
 
+    def display_processing_time_analysis(self, fit_files: Set[str]):
+        """
+        显示处理时间分析
+
+        Args:
+            fit_files: FIT文件名集合
+        """
+        if not hasattr(self, 'fit_file_times') or not self.fit_file_times:
+            print(f"\n处理时间分析:")
+            print("-" * 60)
+            print("未找到包含开始/结束时间信息的文件")
+            return
+
+        processing_data = []
+
+        for filename in fit_files:
+            if filename in self.fit_file_times:
+                time_info = self.fit_file_times[filename]
+                start_time = time_info.get('start')
+                end_time = time_info.get('end')
+
+                if start_time and end_time:
+                    start_dt = self.parse_timestamp(start_time)
+                    end_dt = self.parse_timestamp(end_time)
+                    if start_dt and end_dt:
+                        duration = self.calculate_time_difference(start_dt, end_dt)
+                        duration_seconds = (end_dt - start_dt).total_seconds()
+                        processing_data.append((filename, start_time, end_time, duration, duration_seconds))
+
+        if not processing_data:
+            print(f"\n处理时间分析:")
+            print("-" * 60)
+            print("未找到完整的开始/结束时间对")
+            return
+
+        # 按处理时长排序
+        processing_data.sort(key=lambda x: x[4])  # 按秒数排序
+
+        print(f"\n处理时间分析 (按处理时长排序):")
+        print("-" * 120)
+        print(f"{'序号':<4} {'文件名':<35} {'开始时间':<23} {'结束时间':<23} {'处理时长':<15}")
+        print("-" * 120)
+
+        total_duration = 0
+        for i, (filename, start_time, end_time, duration, duration_seconds) in enumerate(processing_data, 1):
+            print(f"{i:<4} {filename:<35} {start_time:<23} {end_time:<23} {duration:<15}")
+            total_duration += duration_seconds
+
+        # 统计信息
+        if processing_data:
+            avg_duration = total_duration / len(processing_data)
+            min_duration = min(processing_data, key=lambda x: x[4])
+            max_duration = max(processing_data, key=lambda x: x[4])
+
+            print(f"\n处理时间统计:")
+            print("-" * 60)
+            print(f"总文件数: {len(processing_data)}")
+            print(f"总处理时间: {self.calculate_time_difference(datetime.min, datetime.min + timedelta(seconds=total_duration))}")
+            print(f"平均处理时间: {self.calculate_time_difference(datetime.min, datetime.min + timedelta(seconds=avg_duration))}")
+            print(f"最短处理时间: {min_duration[3]} ({min_duration[0]})")
+            print(f"最长处理时间: {max_duration[3]} ({max_duration[0]})")
+
 
 def main():
     """主函数"""
@@ -717,6 +893,7 @@ def main():
                 finder.display_coordinate_summary(fit_files)
                 finder.display_time_analysis(fit_files)
                 finder.display_system_analysis(fit_files)
+                finder.display_processing_time_analysis(fit_files)
 
     elif args.start_date and args.end_date:
         # 查找日期范围内的文件
@@ -731,6 +908,7 @@ def main():
                 finder.display_coordinate_summary(fit_files)
                 finder.display_time_analysis(fit_files)
                 finder.display_system_analysis(fit_files)
+                finder.display_processing_time_analysis(fit_files)
 
     elif args.list_all:
         # 列出所有文件
@@ -745,6 +923,7 @@ def main():
                 finder.display_coordinate_summary(fit_files)
                 finder.display_time_analysis(fit_files)
                 finder.display_system_analysis(fit_files)
+                finder.display_processing_time_analysis(fit_files)
 
     elif args.search_fit:
         # 在最新日志文件中搜索FIT文件
