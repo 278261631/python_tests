@@ -1047,52 +1047,85 @@ core.output("文件数量：{len(timeline_data)}个");
 core.output("总时长：{total_duration}秒（{total_duration}分钟实际时间）");
 core.output("时间尺度：1秒 = 1分钟");
 
+// 存储上一次的状态，用于优化更新
+var previousStates = {{}};
+var previousStats = "";
+
 // 主显示循环
 for (var currentTime = 0; currentTime < {total_duration}; currentTime++) {{
-    // 清除所有标签
-    LabelMgr.deleteAllLabels();
-
-    // 显示时间信息
+    // 显示时间信息（每次更新）
     var hours = Math.floor(currentTime / 60);
     var minutes = currentTime % 60;
     var timeDisplay = "观测时间: " + hours + ":" + String(minutes).padStart(2, '0');
+    LabelMgr.deleteLabel("时间");
     LabelMgr.labelEquatorial("时间", "12.00000h", "+85.0", true, 16, "#ffffff");
 
     // 统计状态
     var stats = {{idle: 0, waiting: 0, processing: 0, completed: 0}};
     var activeCount = 0;
+    var currentStates = {{}};
 
     // 处理每个FIT文件
     for (var i = 0; i < fitTimeline.length; i++) {{
         var entry = fitTimeline[i];
         var status = getStatus(entry, currentTime);
         var progress = getProgress(entry, currentTime);
+        var labelName = entry.system + "_" + entry.region + "_" + i;
 
         stats[status]++;
+        currentStates[labelName] = {{status: status, progress: progress}};
 
-        // 显示非空闲状态的天区
+        // 检查状态是否发生变化
+        var needsUpdate = false;
+        if (!previousStates[labelName]) {{
+            needsUpdate = true;
+        }} else {{
+            var prevState = previousStates[labelName];
+            if (prevState.status !== status || prevState.progress !== progress) {{
+                needsUpdate = true;
+            }}
+        }}
+
+        // 只在状态变化时更新标签
+        if (needsUpdate) {{
+            // 删除旧标签
+            LabelMgr.deleteLabel(labelName);
+
+            // 如果不是空闲状态，创建新标签
+            if (status !== "idle") {{
+                var color = colors[status];
+                var text = getStatusText(entry, status, progress);
+
+                LabelMgr.labelEquatorial(
+                    labelName,
+                    entry.ra,
+                    entry.dec,
+                    true,
+                    12,
+                    color
+                );
+            }}
+        }}
+
         if (status !== "idle") {{
             activeCount++;
-            var color = colors[status];
-            var text = getStatusText(entry, status, progress);
-
-            LabelMgr.labelEquatorial(
-                entry.system + "_" + entry.region + "_" + i,
-                entry.ra,
-                entry.dec,
-                true,
-                12,
-                color
-            );
         }}
     }}
 
-    // 显示统计信息
-    var statsText = "状态 - 等待:" + stats.waiting +
-                   " 处理:" + stats.processing +
-                   " 完成:" + stats.completed +
-                   " 活跃:" + activeCount;
-    LabelMgr.labelEquatorial("统计", "0.00000h", "+80.0", true, 12, "#cccccc");
+    // 更新统计信息（仅在变化时）
+    var currentStatsText = "状态 - 等待:" + stats.waiting +
+                          " 处理:" + stats.processing +
+                          " 完成:" + stats.completed +
+                          " 活跃:" + activeCount;
+
+    if (currentStatsText !== previousStats) {{
+        LabelMgr.deleteLabel("统计");
+        LabelMgr.labelEquatorial("统计", "0.00000h", "+80.0", true, 12, "#cccccc");
+        previousStats = currentStatsText;
+    }}
+
+    // 保存当前状态用于下次比较
+    previousStates = currentStates;
 
     // 等待1秒
     core.wait(1);
