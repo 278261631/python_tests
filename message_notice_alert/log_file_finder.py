@@ -490,6 +490,9 @@ class LogFileFinder:
         print(f"{'序号':<4} {'文件名':<35} {'系统':<6} {'天区索引':<8} {'坐标(RA, DEC)':<20} {'UTC时间':<19} {'开始时间':<23} {'结束时间':<23} {'处理时长':<12}")
         print("-" * 180)
 
+        # 收集数据用于生成SSC文件
+        ssc_data = []
+
         for i, filename in enumerate(sorted_files, 1):
             # 提取系统名称 - 默认显示
             system_name = self.extract_system_name_from_filename(filename)
@@ -533,7 +536,27 @@ class LogFileFinder:
 
             print(f"{i:<4} {filename:<35} {system_str:<6} {k_index_str:<8} {coord_str:<20} {utc_str:<19} {start_time_str:<23} {end_time_str:<23} {duration_str:<12}")
 
+            # 收集数据用于SSC生成
+            if k_index and coordinates and start_time_str != "未记录":
+                ssc_data.append({
+                    'filename': filename,
+                    'system': system_str,
+                    'k_index': k_index,
+                    'ra': coordinates[0],
+                    'dec': coordinates[1],
+                    'utc_time': utc_str,
+                    'start_time': start_time_str,
+                    'end_time': end_time_str,
+                    'duration': duration_str
+                })
+
         print(f"\n总共找到 {len(fit_files)} 个唯一的FIT文件")
+
+        # 生成SSC文件
+        if ssc_data:
+            self.generate_stellarium_script(ssc_data)
+        else:
+            print("没有足够的数据生成Stellarium脚本")
 
     def search_fit_files_in_latest(self):
         """
@@ -858,6 +881,228 @@ class LogFileFinder:
             print(f"平均处理时间: {self.calculate_time_difference(datetime.min, datetime.min + timedelta(seconds=avg_duration))}")
             print(f"最短处理时间: {min_duration[3]} ({min_duration[0]})")
             print(f"最长处理时间: {max_duration[3]} ({max_duration[0]})")
+
+    def generate_stellarium_script(self, ssc_data: List[Dict], output_filename: str = "stellarium_log_generated.ssc"):
+        """
+        根据FIT文件数据生成Stellarium脚本
+
+        Args:
+            ssc_data: FIT文件数据列表
+            output_filename: 输出文件名
+        """
+        if not ssc_data:
+            print("没有数据可用于生成Stellarium脚本")
+            return
+
+        # 计算时间线
+        timeline_data = self._calculate_timeline(ssc_data)
+
+        # 生成脚本内容
+        script_content = self._generate_script_content(timeline_data)
+
+        # 保存文件
+        output_path = os.path.join(os.path.dirname(__file__), output_filename)
+        try:
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write(script_content)
+            print(f"\n✅ Stellarium脚本已生成: {output_path}")
+            print(f"📊 包含 {len(ssc_data)} 个FIT文件的处理状态")
+            print(f"⏱️  时间尺度: 1秒 = 1分钟实际时间")
+            print(f"🎯 使用方法: 在Stellarium中按F12打开脚本控制台，加载并运行此文件")
+        except Exception as e:
+            print(f"❌ 保存脚本文件时出错: {e}")
+
+    def _calculate_timeline(self, ssc_data: List[Dict]) -> List[Dict]:
+        """计算相对时间线"""
+        if not ssc_data:
+            return []
+
+        # 找到最早的开始时间作为基准
+        earliest_time = None
+        for entry in ssc_data:
+            if entry['start_time'] != "未记录":
+                start_dt = self.parse_timestamp(entry['start_time'])
+                if start_dt and (earliest_time is None or start_dt < earliest_time):
+                    earliest_time = start_dt
+
+        if not earliest_time:
+            # 如果没有时间信息，使用模拟时间线
+            for i, entry in enumerate(ssc_data):
+                entry['relative_start'] = i * 60  # 每个文件间隔1分钟
+                entry['relative_duration'] = 180  # 默认3分钟处理时间
+            return ssc_data
+
+        # 计算相对时间（以秒为单位，因为1秒=1分钟）
+        for entry in ssc_data:
+            if entry['start_time'] != "未记录":
+                start_dt = self.parse_timestamp(entry['start_time'])
+                if start_dt:
+                    entry['relative_start'] = int((start_dt - earliest_time).total_seconds() / 60)
+                else:
+                    entry['relative_start'] = 0
+            else:
+                entry['relative_start'] = 0
+
+            # 计算处理时长（转换为秒）
+            if entry['end_time'] != "未记录" and entry['start_time'] != "未记录":
+                start_dt = self.parse_timestamp(entry['start_time'])
+                end_dt = self.parse_timestamp(entry['end_time'])
+                if start_dt and end_dt:
+                    duration_minutes = (end_dt - start_dt).total_seconds() / 60
+                    entry['relative_duration'] = max(int(duration_minutes), 30)  # 最少30秒显示
+                else:
+                    entry['relative_duration'] = 180  # 默认3分钟
+            else:
+                entry['relative_duration'] = 180  # 默认3分钟
+
+        return ssc_data
+
+    def _generate_script_content(self, timeline_data: List[Dict]) -> str:
+        """生成脚本内容"""
+        # 计算总时长
+        max_end_time = 0
+        for entry in timeline_data:
+            end_time = entry['relative_start'] + entry['relative_duration']
+            if end_time > max_end_time:
+                max_end_time = end_time
+
+        total_duration = max_end_time + 60  # 额外1分钟缓冲
+
+        script_content = f'''// Stellarium 脚本：显示日志中 FIT 文件处理状态
+// 自动生成于: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+// 时间尺度：1秒 = 1分钟实际时间
+// 数据来源：日志文件分析结果
+
+LabelMgr.deleteAllLabels();
+
+// 状态颜色定义
+var colors = {{
+    idle: "#666666",      // 灰色 - 空闲
+    waiting: "#ffff00",   // 黄色 - 等待
+    processing: "#ff8800", // 橙色 - 处理中
+    completed: "#00ff00",  // 绿色 - 完成
+    error: "#ff0000"      // 红色 - 错误
+}};
+
+// FIT文件处理时间线（从日志提取）
+var fitTimeline = [
+'''
+
+        # 添加时间线数据
+        for i, entry in enumerate(timeline_data):
+            script_content += f'''    {{
+        filename: "{entry['filename']}",
+        region: "{entry['k_index']}",
+        system: "{entry['system']}",
+        ra: "{entry['ra']}",
+        dec: "{entry['dec']}",
+        utcTime: "{entry['utc_time']}",
+        startTime: {entry['relative_start']},
+        duration: {entry['relative_duration']}
+    }}{"," if i < len(timeline_data) - 1 else ""}
+'''
+
+        script_content += f'''];
+
+// 获取当前状态
+function getStatus(entry, currentTime) {{
+    if (currentTime < entry.startTime) {{
+        return "idle";
+    }} else if (currentTime < entry.startTime + 5) {{
+        return "waiting";
+    }} else if (currentTime < entry.startTime + entry.duration - 5) {{
+        return "processing";
+    }} else if (currentTime < entry.startTime + entry.duration) {{
+        return "completed";
+    }} else {{
+        return "idle";
+    }}
+}}
+
+// 获取进度百分比
+function getProgress(entry, currentTime) {{
+    if (currentTime <= entry.startTime + 5) return 0;
+    if (currentTime >= entry.startTime + entry.duration - 5) return 100;
+
+    var processTime = currentTime - entry.startTime - 5;
+    var totalProcessTime = entry.duration - 10;
+    return Math.floor((processTime / totalProcessTime) * 100);
+}}
+
+// 获取状态文本
+function getStatusText(entry, status, progress) {{
+    var baseText = entry.region + " [" + entry.system + "]";
+    switch(status) {{
+        case "waiting": return baseText + " 准备";
+        case "processing": return baseText + " " + progress + "%";
+        case "completed": return baseText + " 完成";
+        case "error": return baseText + " 错误";
+        default: return baseText;
+    }}
+}}
+
+core.output("开始显示FIT文件处理状态");
+core.output("数据来源：日志文件分析");
+core.output("文件数量：{len(timeline_data)}个");
+core.output("总时长：{total_duration}秒（{total_duration}分钟实际时间）");
+core.output("时间尺度：1秒 = 1分钟");
+
+// 主显示循环
+for (var currentTime = 0; currentTime < {total_duration}; currentTime++) {{
+    // 清除所有标签
+    LabelMgr.deleteAllLabels();
+
+    // 显示时间信息
+    var hours = Math.floor(currentTime / 60);
+    var minutes = currentTime % 60;
+    var timeDisplay = "观测时间: " + hours + ":" + String(minutes).padStart(2, '0');
+    LabelMgr.labelEquatorial("时间", "12.00000h", "+85.0", true, 16, "#ffffff");
+
+    // 统计状态
+    var stats = {{idle: 0, waiting: 0, processing: 0, completed: 0}};
+    var activeCount = 0;
+
+    // 处理每个FIT文件
+    for (var i = 0; i < fitTimeline.length; i++) {{
+        var entry = fitTimeline[i];
+        var status = getStatus(entry, currentTime);
+        var progress = getProgress(entry, currentTime);
+
+        stats[status]++;
+
+        // 显示非空闲状态的天区
+        if (status !== "idle") {{
+            activeCount++;
+            var color = colors[status];
+            var text = getStatusText(entry, status, progress);
+
+            LabelMgr.labelEquatorial(
+                entry.system + "_" + entry.region + "_" + i,
+                entry.ra,
+                entry.dec,
+                true,
+                12,
+                color
+            );
+        }}
+    }}
+
+    // 显示统计信息
+    var statsText = "状态 - 等待:" + stats.waiting +
+                   " 处理:" + stats.processing +
+                   " 完成:" + stats.completed +
+                   " 活跃:" + activeCount;
+    LabelMgr.labelEquatorial("统计", "0.00000h", "+80.0", true, 12, "#cccccc");
+
+    // 等待1秒
+    core.wait(1);
+}}
+
+core.output("FIT文件处理状态显示完成");
+core.output("所有文件处理完毕");
+'''
+
+        return script_content
 
 
 def main():
