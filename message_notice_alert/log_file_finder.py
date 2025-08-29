@@ -999,7 +999,7 @@ class LogFileFinder:
 
         script_content = f'''// Stellarium 脚本：显示日志中 FIT 文件处理状态
 // 自动生成于: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-// 时间尺度：1秒 = 1分钟实际时间
+// 时间尺度：0.3秒 = 1分钟实际时间
 // 数据来源：日志文件分析结果
 
 LabelMgr.deleteAllLabels();
@@ -1074,7 +1074,7 @@ core.output("开始显示FIT文件处理状态");
 core.output("数据来源：日志文件分析");
 core.output("文件数量：{len(timeline_data)}个");
 core.output("总时长：{total_duration}秒（{total_duration}分钟实际时间）");
-core.output("时间尺度：1秒 = 1分钟");
+core.output("时间尺度：0.3秒 = 1分钟");
 
 // 存储上一次的状态，用于优化更新
 var previousStates = {{}};
@@ -1156,8 +1156,8 @@ for (var currentTime = 0; currentTime < {total_duration}; currentTime++) {{
     // 保存当前状态用于下次比较
     previousStates = currentStates;
 
-    // 等待1秒
-    core.wait(1);
+    // 等待0.3秒
+    core.wait(0.3);
 }}
 
 core.output("FIT文件处理状态显示完成");

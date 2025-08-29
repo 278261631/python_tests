@@ -15,6 +15,6 @@ for (var i = 0; i < 60; i++) {
     LabelMgr.labelEquatorial("GY1_K001-2", "2.18182h", "+69.0", true, 14, colors[colorIndex]);
 
     // 等待1秒
-    core.wait(1);
+    core.wait(0.3);
 }
 
