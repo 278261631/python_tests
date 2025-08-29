@@ -581,6 +581,7 @@ class LogFileFinder:
         # 生成SSC文件
         if ssc_data:
             self.generate_stellarium_script(ssc_data)
+            self.generate_stellarium_utc_script(ssc_data)
         else:
             print("没有足够的数据生成Stellarium脚本")
 
@@ -988,6 +989,9 @@ class LogFileFinder:
 
     def _generate_script_content(self, timeline_data: List[Dict]) -> str:
         """生成脚本内容"""
+        # 处理重复的 region+system 组合，调整 DEC 坐标
+        timeline_data = self._adjust_duplicate_coordinates(timeline_data)
+
         # 计算总时长
         max_end_time = 0
         for entry in timeline_data:
@@ -1165,6 +1169,288 @@ core.output("所有文件处理完毕");
 '''
 
         return script_content
+
+    def generate_stellarium_utc_script(self, ssc_data: List[Dict], output_filename: str = "stellarium_utc_display.ssc"):
+        """
+        生成基于UTC时间的Stellarium脚本，所有标签都是绿色
+
+        Args:
+            ssc_data: FIT文件数据列表
+            output_filename: 输出文件名
+        """
+        if not ssc_data:
+            print("没有数据可用于生成UTC时间Stellarium脚本")
+            return
+
+        # 生成脚本内容
+        script_content = self._generate_utc_script_content(ssc_data)
+
+        # 保存文件
+        output_path = os.path.join(os.path.dirname(__file__), output_filename)
+        try:
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write(script_content)
+            print(f"\n✅ UTC时间Stellarium脚本已生成: {output_path}")
+            print(f"📊 包含 {len(ssc_data)} 个FIT文件的UTC时间显示")
+            print(f"🎨 所有标签均为绿色显示")
+            print(f"⏰ 使用实际UTC时间信息")
+            print(f"🎯 使用方法: 在Stellarium中按F12打开脚本控制台，加载并运行此文件")
+        except Exception as e:
+            print(f"❌ 保存UTC时间脚本文件时出错: {e}")
+
+    def _generate_utc_script_content(self, ssc_data: List[Dict]) -> str:
+        """生成UTC时间脚本内容"""
+
+        script_content = f'''// Stellarium 脚本：显示FIT文件UTC时间信息
+// 自动生成于: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+// 显示模式：所有标签绿色显示，按UTC时间顺序出现
+// 时间尺度：1秒 = 10分钟实际时间
+// 数据来源：日志文件分析结果
+
+LabelMgr.deleteAllLabels();
+
+// 绿色标签颜色
+var greenColor = "#00ff00";
+
+// FIT文件UTC时间数据（按时间排序）
+var fitData = [
+'''
+
+        # 计算相对时间并排序数据
+        timeline_data = self._calculate_utc_timeline(ssc_data)
+
+        # 处理重复的 region+system 组合，调整 DEC 坐标
+        timeline_data = self._adjust_duplicate_coordinates(timeline_data)
+
+        # 添加排序后的数据
+        for i, entry in enumerate(timeline_data):
+            script_content += f'''    {{
+        filename: "{entry['filename']}",
+        region: "{entry['k_index']}",
+        system: "{entry['system']}",
+        ra: "{entry['ra']}",
+        dec: "{entry['dec']}",
+        utcTime: "{entry['utc_time']}",
+        startTime: "{entry.get('start_time', 'N/A')}",
+        endTime: "{entry.get('end_time', 'N/A')}",
+        relativeTime: {entry['relative_time']}
+    }}{"," if i < len(timeline_data) - 1 else ""}
+'''
+
+        # 计算总时长
+        max_time = max(entry['relative_time'] for entry in timeline_data) if timeline_data else 0
+        total_duration = max_time + 60  # 额外1分钟缓冲
+
+        script_content += f'''];
+
+core.output("开始显示FIT文件UTC时间信息");
+core.output("显示模式：绿色标签按时间顺序出现");
+core.output("文件数量：{len(timeline_data)}个");
+core.output("时间尺度：1秒 = 10分钟实际时间");
+core.output("总时长：{total_duration}秒");
+
+// 存储已显示的标签
+var displayedLabels = {{}};
+
+// 主时间循环
+for (var currentTime = 0; currentTime < {total_duration}; currentTime++) {{
+    // 显示当前时间信息
+    var hours = Math.floor(currentTime / 6);  // 6秒 = 1小时 (因为1秒=10分钟)
+    var minutes = Math.floor((currentTime % 6) * 10);  // 转换为分钟
+    var timeDisplay = "观测时间: " + hours + ":" + String(minutes).padStart(2, '0');
+    LabelMgr.deleteLabel("时间");
+    LabelMgr.labelEquatorial("时间", "12.00000h", "+85.0", true, 16, "#ffffff");
+
+    var activeCount = 0;
+    var newLabelsThisSecond = 0;
+
+    // 检查是否有新的标签需要显示
+    for (var i = 0; i < fitData.length; i++) {{
+        var entry = fitData[i];
+        var labelName = entry.system + "_" + entry.region + "_" + i;
+
+        // 如果到了显示时间且还未显示
+        if (currentTime >= entry.relativeTime && !displayedLabels[labelName]) {{
+            var labelText = entry.system + "_" + entry.region + " [" + entry.utcTime + "]";
+
+            // 创建绿色标签
+            LabelMgr.labelEquatorial(
+                labelName,
+                entry.ra,
+                entry.dec,
+                true,
+                12,
+                greenColor
+            );
+
+            displayedLabels[labelName] = true;
+            newLabelsThisSecond++;
+        }}
+
+        // 统计已显示的标签
+        if (displayedLabels[labelName]) {{
+            activeCount++;
+        }}
+    }}
+
+    // 更新统计信息
+    var statsText = "UTC时间显示 - 已显示:" + activeCount + "/" + fitData.length + " 全部绿色";
+    LabelMgr.deleteLabel("统计");
+    LabelMgr.labelEquatorial("统计", "0.00000h", "+80.0", true, 12, "#cccccc");
+
+    // 如果有新标签出现，显示提示
+    if (newLabelsThisSecond > 0) {{
+        var newLabelText = "新增 " + newLabelsThisSecond + " 个标签";
+        LabelMgr.deleteLabel("新增提示");
+        LabelMgr.labelEquatorial("新增提示", "0.00000h", "+75.0", true, 10, "#ffff00");
+    }} else {{
+        LabelMgr.deleteLabel("新增提示");
+    }}
+
+    // 等待1秒（代表10分钟实际时间）
+    core.wait(1);
+}}
+
+core.output("UTC时间显示完成");
+core.output("所有" + fitData.length + "个文件均已按时间顺序显示");
+'''
+
+        return script_content
+
+    def _calculate_utc_timeline(self, ssc_data: List[Dict]) -> List[Dict]:
+        """
+        计算基于UTC时间的相对时间线
+        时间尺度：1秒 = 10分钟实际时间
+
+        Args:
+            ssc_data: FIT文件数据列表
+
+        Returns:
+            包含相对时间的排序数据列表
+        """
+        if not ssc_data:
+            return []
+
+        # 解析UTC时间并找到最早时间
+        timeline_data = []
+        earliest_time = None
+
+        for entry in ssc_data:
+            utc_str = entry.get('utc_time', '')
+            if utc_str and utc_str != 'N/A':
+                try:
+                    # 解析UTC时间字符串 "2025-08-23 20:27:12"
+                    utc_dt = datetime.strptime(utc_str, '%Y-%m-%d %H:%M:%S')
+
+                    if earliest_time is None or utc_dt < earliest_time:
+                        earliest_time = utc_dt
+
+                    entry_copy = entry.copy()
+                    entry_copy['utc_datetime'] = utc_dt
+                    timeline_data.append(entry_copy)
+
+                except ValueError as e:
+                    print(f"警告：无法解析UTC时间 '{utc_str}': {e}")
+                    # 如果无法解析时间，设置为相对时间0
+                    entry_copy = entry.copy()
+                    entry_copy['relative_time'] = 0
+                    timeline_data.append(entry_copy)
+
+        if not earliest_time:
+            # 如果没有有效的UTC时间，按顺序分配时间
+            for i, entry in enumerate(timeline_data):
+                entry['relative_time'] = i * 60  # 每个文件间隔1分钟（6秒显示时间）
+            return timeline_data
+
+        # 计算相对时间（以秒为单位，1秒=10分钟）
+        for entry in timeline_data:
+            if 'utc_datetime' in entry:
+                time_diff = entry['utc_datetime'] - earliest_time
+                # 将时间差转换为秒（1秒=10分钟，所以除以600）
+                entry['relative_time'] = int(time_diff.total_seconds() / 600)
+            else:
+                entry['relative_time'] = 0
+
+        # 按相对时间排序
+        timeline_data.sort(key=lambda x: x['relative_time'])
+
+        return timeline_data
+
+    def _adjust_duplicate_coordinates(self, timeline_data: List[Dict]) -> List[Dict]:
+        """
+        调整重复的 region+system 组合的 DEC 坐标
+        每多一个重复的组合，DEC 坐标偏移 -0.01 度
+
+        Args:
+            timeline_data: 时间线数据列表
+
+        Returns:
+            调整后的时间线数据列表
+        """
+        if not timeline_data:
+            return timeline_data
+
+        # 创建数据副本以避免修改原始数据
+        adjusted_data = []
+        region_system_count = {}
+
+        for entry in timeline_data:
+            # 创建条目副本
+            new_entry = entry.copy()
+
+            region = entry.get('k_index', '')
+            system = entry.get('system', '')
+            key = f"{system}_{region}"
+
+            # 统计出现次数
+            if key not in region_system_count:
+                region_system_count[key] = 0
+                # 第一次出现，不调整坐标
+                new_entry['dec_adjusted'] = False
+                new_entry['dec_offset'] = 0.0
+            else:
+                # 重复出现，需要调整坐标
+                region_system_count[key] += 1
+
+                current_dec = entry.get('dec', '+0.0')
+
+                # 解析 DEC 坐标
+                try:
+                    # 移除 '+' 符号并转换为浮点数
+                    dec_value = float(current_dec.replace('+', ''))
+
+                    # 计算偏移量：每个重复 -0.01 度
+                    offset = region_system_count[key] * -0.01
+                    new_dec_value = dec_value + offset
+
+                    # 格式化新的 DEC 坐标
+                    if new_dec_value >= 0:
+                        new_entry['dec'] = f"+{new_dec_value:.2f}"
+                    else:
+                        new_entry['dec'] = f"{new_dec_value:.2f}"
+
+                    # 记录调整信息
+                    new_entry['dec_adjusted'] = True
+                    new_entry['dec_offset'] = offset
+
+                except ValueError as e:
+                    print(f"警告：无法解析DEC坐标 '{current_dec}': {e}")
+                    new_entry['dec_adjusted'] = False
+                    new_entry['dec_offset'] = 0.0
+
+            adjusted_data.append(new_entry)
+
+        # 统计调整结果
+        adjusted_count = sum(1 for entry in adjusted_data if entry.get('dec_adjusted', False))
+        if adjusted_count > 0:
+            print(f"📍 调整了 {adjusted_count} 个重复坐标的DEC偏移")
+
+            # 显示调整详情
+            for entry in adjusted_data:
+                if entry.get('dec_adjusted', False):
+                    print(f"   {entry['system']}_{entry['k_index']}: DEC偏移 {entry['dec_offset']:.2f}° → {entry['dec']}")
+
+        return adjusted_data
 
 
 def main():
