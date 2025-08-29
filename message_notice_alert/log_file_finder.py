@@ -999,7 +999,7 @@ class LogFileFinder:
             if end_time > max_end_time:
                 max_end_time = end_time
 
-        total_duration = max_end_time + 60  # 额外1分钟缓冲
+        total_duration = max_end_time  # 不需要额外缓冲
 
         script_content = f'''// Stellarium 脚本：显示日志中 FIT 文件处理状态
 // 自动生成于: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
@@ -1086,12 +1086,18 @@ var previousStats = "";
 
 // 主显示循环
 for (var currentTime = 0; currentTime < {total_duration}; currentTime++) {{
-    // 显示时间信息（每次更新）
+    // 计算时间和进度信息
     var hours = Math.floor(currentTime / 60);
     var minutes = currentTime % 60;
     var timeDisplay = "观测时间: " + hours + ":" + String(minutes).padStart(2, '0');
-    LabelMgr.deleteLabel("时间");
-    LabelMgr.labelEquatorial("时间", "12.00000h", "+85.0", true, 16, "#ffffff");
+
+    var remainingTime = {total_duration} - currentTime;
+    var remainingHours = Math.floor(remainingTime / 60);
+    var remainingMinutes = remainingTime % 60;
+    var countdownText = "倒计时: " + remainingHours + ":" + String(remainingMinutes).padStart(2, '0');
+
+    var overallProgress = Math.floor((currentTime / {total_duration}) * 100);
+    var progressText = "总体进度: " + overallProgress + "% (" + currentTime + "/" + {total_duration} + "秒)";
 
     // 统计状态
     var stats = {{idle: 0, waiting: 0, processing: 0, completed: 0}};
@@ -1145,16 +1151,26 @@ for (var currentTime = 0; currentTime < {total_duration}; currentTime++) {{
         }}
     }}
 
-    // 更新统计信息（仅在变化时）
+    // 计算统计和阶段进度信息
     var currentStatsText = "状态 - 等待:" + stats.waiting +
                           " 处理:" + stats.processing +
                           " 完成:" + stats.completed +
                           " 活跃:" + activeCount;
 
-    if (currentStatsText !== previousStats) {{
-        LabelMgr.deleteLabel("统计");
-        LabelMgr.labelEquatorial("统计", "0.00000h", "+80.0", true, 12, "#cccccc");
-        previousStats = currentStatsText;
+    var totalFiles = fitTimeline.length;
+    var completionProgress = Math.floor((stats.completed / totalFiles) * 100);
+    var processingProgress = Math.floor(((stats.completed + stats.processing) / totalFiles) * 100);
+    var phaseProgressText = "阶段进度 - 完成:" + completionProgress + "% 进行中:" + processingProgress + "%";
+
+    // 输出所有信息到控制台（每10秒输出一次，避免刷屏）
+    if (currentTime % 10 === 0 || currentTime === 0) {{
+        core.output("=== 动态处理状态 (第" + currentTime + "秒) ===");
+        core.output(timeDisplay);
+        core.output(countdownText);
+        core.output(progressText);
+        core.output(currentStatsText);
+        core.output(phaseProgressText);
+        core.output("活跃天区数量: " + activeCount + "/" + totalFiles);
     }}
 
     // 保存当前状态用于下次比较
@@ -1239,7 +1255,7 @@ var fitData = [
 
         # 计算总时长
         max_time = max(entry['relative_time'] for entry in timeline_data) if timeline_data else 0
-        total_duration = max_time + 60  # 额外1分钟缓冲
+        total_duration = max_time  # 不需要额外缓冲
 
         script_content += f'''];
 
@@ -1254,12 +1270,18 @@ var displayedLabels = {{}};
 
 // 主时间循环
 for (var currentTime = 0; currentTime < {total_duration}; currentTime++) {{
-    // 显示当前时间信息
+    // 计算时间和进度信息
     var hours = Math.floor(currentTime / 6);  // 6秒 = 1小时 (因为1秒=10分钟)
     var minutes = Math.floor((currentTime % 6) * 10);  // 转换为分钟
     var timeDisplay = "观测时间: " + hours + ":" + String(minutes).padStart(2, '0');
-    LabelMgr.deleteLabel("时间");
-    LabelMgr.labelEquatorial("时间", "12.00000h", "+85.0", true, 16, "#ffffff");
+
+    var remainingTime = {total_duration} - currentTime;
+    var remainingHours = Math.floor(remainingTime / 6);
+    var remainingMinutes = Math.floor((remainingTime % 6) * 10);
+    var countdownText = "倒计时: " + remainingHours + ":" + String(remainingMinutes).padStart(2, '0');
+
+    var overallProgress = Math.floor((currentTime / {total_duration}) * 100);
+    var progressText = "总体进度: " + overallProgress + "% (" + currentTime + "/" + {total_duration} + "秒)";
 
     var activeCount = 0;
     var newLabelsThisSecond = 0;
@@ -1280,7 +1302,8 @@ for (var currentTime = 0; currentTime < {total_duration}; currentTime++) {{
                 entry.dec,
                 true,
                 12,
-                greenColor
+                greenColor,
+                labelText
             );
 
             displayedLabels[labelName] = true;
@@ -1293,18 +1316,29 @@ for (var currentTime = 0; currentTime < {total_duration}; currentTime++) {{
         }}
     }}
 
-    // 更新统计信息
-    var statsText = "UTC时间显示 - 已显示:" + activeCount + "/" + fitData.length + " 全部绿色";
-    LabelMgr.deleteLabel("统计");
-    LabelMgr.labelEquatorial("统计", "0.00000h", "+80.0", true, 12, "#cccccc");
+    // 显示标签出现进度（移到这里，在activeCount计算之后）
+    // 计算标签进度和统计信息
+    var labelProgress = Math.floor((activeCount / fitData.length) * 100);
+    var labelProgressText = "标签进度: " + labelProgress + "% (" + activeCount + "/" + fitData.length + "个)";
+    var currentStatsText = "UTC时间显示 - 已显示:" + activeCount + "/" + fitData.length + " 全部绿色";
 
-    // 如果有新标签出现，显示提示
+    // 输出信息到控制台
     if (newLabelsThisSecond > 0) {{
-        var newLabelText = "新增 " + newLabelsThisSecond + " 个标签";
-        LabelMgr.deleteLabel("新增提示");
-        LabelMgr.labelEquatorial("新增提示", "0.00000h", "+75.0", true, 10, "#ffff00");
-    }} else {{
-        LabelMgr.deleteLabel("新增提示");
+        // 有新标签出现时输出详细信息
+        core.output("=== UTC时间显示 (第" + currentTime + "秒) ===");
+        core.output(timeDisplay);
+        core.output(countdownText);
+        core.output(progressText);
+        core.output(labelProgressText);
+        core.output(currentStatsText);
+        core.output("新增 " + newLabelsThisSecond + " 个标签");
+    }} else if (currentTime % 5 === 0 || currentTime === 0) {{
+        // 每5秒输出一次基本信息
+        core.output("=== UTC时间显示 (第" + currentTime + "秒) ===");
+        core.output(timeDisplay);
+        core.output(countdownText);
+        core.output(progressText);
+        core.output(labelProgressText);
     }}
 
     // 等待1秒（代表10分钟实际时间）
