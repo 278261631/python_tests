@@ -14,7 +14,7 @@ import re
 import argparse
 import logging
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 
 try:
@@ -266,7 +266,91 @@ class FitsFileFinderRipgrep:
         
         # 如果有包含规则但都不匹配，则不包含此路径
         return False
-    
+
+    def extract_fits_info(self, file_path: str) -> Dict[str, Optional[str]]:
+        """
+        从FITS文件路径中提取天区索引、系统名称和时间信息
+
+        Args:
+            file_path: FITS文件路径
+
+        Returns:
+            Dict[str, Optional[str]]: 包含提取信息的字典
+                - sky_region: 天区索引 (如 K088-3)
+                - system_name: 系统名称 (如 GY2)
+                - timestamp: 时间戳 (如 UTC20250421_170640)
+                - original_path: 原始路径
+        """
+        result = {
+            'sky_region': None,
+            'system_name': None,
+            'timestamp': None,
+            'original_path': file_path
+        }
+
+        try:
+            # 获取文件名（不包含扩展名）
+            file_name = Path(file_path).stem
+
+            # 正则表达式模式匹配
+            # 匹配格式: GY2_K088-3_No Filter_60S_Bin2_UTC20250421_170640_-20C_
+            # 或者: 系统名称_天区索引_其他信息_UTC时间戳_其他信息
+            pattern = r'([A-Z0-9]+)_([K][0-9]+-[0-9]+)_.*_(UTC\d{8}_\d{6})_'
+
+            match = re.search(pattern, file_name)
+            if match:
+                result['system_name'] = match.group(1)  # GY2
+                result['sky_region'] = match.group(2)   # K088-3
+                result['timestamp'] = match.group(3)    # UTC20250421_170640
+
+                self.logger.debug(f"成功提取信息: {file_path} -> {result}")
+            else:
+                # 尝试更宽松的匹配模式
+                # 匹配天区索引 K数字-数字
+                sky_region_pattern = r'([K][0-9]+-[0-9]+)'
+                sky_match = re.search(sky_region_pattern, file_name)
+                if sky_match:
+                    result['sky_region'] = sky_match.group(1)
+
+                # 匹配UTC时间戳
+                timestamp_pattern = r'(UTC\d{8}_\d{6})'
+                time_match = re.search(timestamp_pattern, file_name)
+                if time_match:
+                    result['timestamp'] = time_match.group(1)
+
+                # 尝试提取系统名称（文件名开头的字母数字组合）
+                system_pattern = r'^([A-Z0-9]+)_'
+                system_match = re.search(system_pattern, file_name)
+                if system_match:
+                    result['system_name'] = system_match.group(1)
+
+                if any(result[key] for key in ['sky_region', 'system_name', 'timestamp']):
+                    self.logger.debug(f"部分提取信息: {file_path} -> {result}")
+                else:
+                    self.logger.debug(f"无法提取信息: {file_path}")
+
+        except Exception as e:
+            self.logger.error(f"提取文件信息时出错 {file_path}: {e}")
+
+        return result
+
+    def extract_batch_fits_info(self, file_paths: List[str]) -> List[Dict[str, Optional[str]]]:
+        """
+        批量提取FITS文件信息
+
+        Args:
+            file_paths: FITS文件路径列表
+
+        Returns:
+            List[Dict[str, Optional[str]]]: 提取信息的列表
+        """
+        results = []
+        for file_path in file_paths:
+            info = self.extract_fits_info(file_path)
+            results.append(info)
+
+        return results
+
     def find_files(self) -> List[str]:
         """
         使用ripgrep查找匹配的文件
@@ -358,34 +442,64 @@ class FitsFileFinderRipgrep:
         self.logger.info(f"搜索完成，共找到 {len(found_files)} 个匹配文件")
         return found_files
     
-    def save_results(self, files: List[str], output_file: str = None) -> bool:
+    def save_results(self, files: List[str], output_file: str = None, include_extracted_info: bool = True) -> bool:
         """
         保存搜索结果到文件
-        
+
         Args:
             files: 文件路径列表
             output_file: 输出文件路径，默认为None（自动生成）
-            
+            include_extracted_info: 是否包含提取的文件信息，默认为True
+
         Returns:
             bool: 保存成功返回True，否则返回False
         """
         if output_file is None:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             output_file = f"fits_search_results_ripgrep_{timestamp}.txt"
-        
+
         try:
             with open(output_file, 'w', encoding='utf-8') as f:
                 f.write(f"FITS文件搜索结果 (Ripgrep版本)\n")
                 f.write(f"搜索时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
                 f.write(f"找到文件数量: {len(files)}\n")
-                f.write("-" * 50 + "\n\n")
-                
+                f.write("=" * 80 + "\n\n")
+
+                if include_extracted_info and files:
+                    # 提取文件信息并以表格形式保存
+                    f.write("文件信息提取结果:\n")
+                    f.write("-" * 80 + "\n")
+                    f.write(f"{'序号':<4} {'天区索引':<12} {'系统名称':<12} {'时间戳':<20} {'文件路径'}\n")
+                    f.write("-" * 80 + "\n")
+
+                    extracted_info = self.extract_batch_fits_info(files)
+                    successful_extractions = 0
+
+                    for i, info in enumerate(extracted_info, 1):
+                        sky_region = info['sky_region'] or 'N/A'
+                        system_name = info['system_name'] or 'N/A'
+                        timestamp = info['timestamp'] or 'N/A'
+                        file_path = info['original_path']
+
+                        # 统计成功提取的数量
+                        if any(info[key] for key in ['sky_region', 'system_name', 'timestamp']):
+                            successful_extractions += 1
+
+                        f.write(f"{i:<4} {sky_region:<12} {system_name:<12} {timestamp:<20} {file_path}\n")
+
+                    f.write("-" * 80 + "\n")
+                    f.write(f"信息提取统计: 总文件数={len(files)}, 成功提取={successful_extractions}, 成功率={successful_extractions/len(files)*100:.1f}%\n")
+                    f.write("=" * 80 + "\n\n")
+
+                # 保存完整的文件路径列表
+                f.write("完整文件路径列表:\n")
+                f.write("-" * 50 + "\n")
                 for i, file_path in enumerate(files, 1):
                     f.write(f"{i:4d}. {file_path}\n")
-            
+
             self.logger.info(f"搜索结果已保存到: {output_file}")
             return True
-            
+
         except Exception as e:
             self.logger.error(f"保存结果失败: {e}")
             return False
@@ -399,7 +513,9 @@ def main():
     parser.add_argument('-o', '--output', help='输出文件路径')
     parser.add_argument('-v', '--verbose', action='store_true',
                        help='详细输出')
-    
+    parser.add_argument('--extract-info', action='store_true',
+                       help='提取并显示FITS文件的天区索引、系统名称和时间信息')
+
     args = parser.parse_args()
     
     # 创建查找器实例
@@ -419,10 +535,28 @@ def main():
     
     # 显示结果
     print(f"\n搜索完成！找到 {len(found_files)} 个匹配文件:")
-    for i, file_path in enumerate(found_files, 1):
-        print(f"{i:4d}. {file_path}")
-    
-    # 保存结果
+
+    if args.extract_info and found_files:
+        # 提取并显示文件信息
+        print("\n提取的文件信息:")
+        print("-" * 80)
+        print(f"{'序号':<4} {'天区索引':<10} {'系统名称':<10} {'时间戳':<20} {'文件路径'}")
+        print("-" * 80)
+
+        extracted_info = finder.extract_batch_fits_info(found_files)
+        for i, info in enumerate(extracted_info, 1):
+            sky_region = info['sky_region'] or 'N/A'
+            system_name = info['system_name'] or 'N/A'
+            timestamp = info['timestamp'] or 'N/A'
+            file_path = Path(info['original_path']).name  # 只显示文件名
+
+            print(f"{i:<4} {sky_region:<10} {system_name:<10} {timestamp:<20} {file_path}")
+    else:
+        # 普通显示模式
+        for i, file_path in enumerate(found_files, 1):
+            print(f"{i:4d}. {file_path}")
+
+    # 保存结果（默认包含提取信息）
     if found_files:
         finder.save_results(found_files, args.output)
 
