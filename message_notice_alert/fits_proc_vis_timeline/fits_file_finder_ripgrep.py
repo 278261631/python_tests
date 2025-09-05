@@ -15,7 +15,7 @@ import argparse
 import logging
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
-from datetime import datetime
+from datetime import datetime, timedelta
 
 try:
     import python_ripgrep as ripgrep
@@ -455,8 +455,13 @@ class FitsFileFinderRipgrep:
             bool: 保存成功返回True，否则返回False
         """
         if output_file is None:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            output_file = f"fits_search_results_ripgrep_{timestamp}.txt"
+            # 从配置文件获取输出路径，如果没有配置则使用默认路径
+            config_output = self.config.get('options', {}).get('output_files', {}).get('search_results')
+            if config_output:
+                output_file = config_output
+            else:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                output_file = f"fits_search_results_ripgrep_{timestamp}.txt"
 
         try:
             with open(output_file, 'w', encoding='utf-8') as f:
@@ -498,10 +503,154 @@ class FitsFileFinderRipgrep:
                     f.write(f"{i:4d}. {file_path}\n")
 
             self.logger.info(f"搜索结果已保存到: {output_file}")
+
+            # 同时生成Timeline格式的JSON文件
+            # 从配置文件获取Timeline JSON输出路径
+            config_timeline_output = self.config.get('options', {}).get('output_files', {}).get('timeline_json')
+            if config_timeline_output:
+                timeline_output = config_timeline_output
+                # 确保目录存在
+                timeline_dir = os.path.dirname(timeline_output)
+                if timeline_dir and not os.path.exists(timeline_dir):
+                    os.makedirs(timeline_dir, exist_ok=True)
+            else:
+                # 如果配置文件中没有指定，使用默认命名规则
+                timeline_output = output_file.replace('.txt', '_timeline.json')
+                if timeline_output == output_file:  # 如果没有.txt扩展名
+                    timeline_output = output_file + '_timeline.json'
+
+            self.save_timeline_json(files, timeline_output)
+
             return True
 
         except Exception as e:
             self.logger.error(f"保存结果失败: {e}")
+            return False
+
+    def convert_to_timeline_format(self, files: List[str]) -> List[Dict[str, Any]]:
+        """
+        将FITS文件信息转换为vis.js Timeline格式的JSON数据
+
+        Args:
+            files: 文件路径列表
+
+        Returns:
+            List[Dict[str, Any]]: Timeline格式的数据列表
+        """
+        timeline_data = []
+        extracted_info = self.extract_batch_fits_info(files)
+
+        for i, info in enumerate(extracted_info, 1):
+            # 构建显示内容
+            content_parts = []
+
+            # 添加系统名称
+            if info['system_name']:
+                content_parts.append(f"系统: {info['system_name']}")
+
+            # 添加天区索引
+            if info['sky_region']:
+                content_parts.append(f"天区: {info['sky_region']}")
+
+            # 如果没有提取到有效信息，使用文件名
+            if not content_parts:
+                file_name = Path(info['original_path']).name
+                content_parts.append(f"文件: {file_name}")
+
+            content = " | ".join(content_parts)
+
+            # 处理时间戳
+            start_time = None
+            if info['timestamp']:
+                try:
+                    # 解析UTC时间戳格式: UTC20250421_170640
+                    timestamp_str = info['timestamp'].replace('UTC', '')
+                    date_part = timestamp_str[:8]  # 20250421
+                    time_part = timestamp_str[9:]  # 170640
+
+                    # 构建ISO格式的日期时间字符串
+                    year = date_part[:4]
+                    month = date_part[4:6]
+                    day = date_part[6:8]
+                    hour = time_part[:2]
+                    minute = time_part[2:4]
+                    second = time_part[4:6]
+
+                    start_time = f"{year}-{month}-{day}T{hour}:{minute}:{second}"
+
+                except Exception as e:
+                    self.logger.debug(f"时间戳解析失败 {info['timestamp']}: {e}")
+                    start_time = None
+
+            # 如果没有时间戳，使用序号作为时间轴位置
+            if not start_time:
+                # 使用当前日期加上序号作为偏移
+                base_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+                offset_date = base_date + timedelta(days=i-1)
+                start_time = offset_date.strftime("%Y-%m-%d")
+
+            # 构建Timeline数据项
+            timeline_item = {
+                "id": i,
+                "content": content,
+                "start": start_time
+            }
+
+            # 添加额外信息作为自定义属性
+            if info['sky_region']:
+                timeline_item["sky_region"] = info['sky_region']
+            if info['system_name']:
+                timeline_item["system_name"] = info['system_name']
+            if info['timestamp']:
+                timeline_item["timestamp"] = info['timestamp']
+
+            # 添加文件路径信息
+            timeline_item["file_path"] = info['original_path']
+            timeline_item["file_name"] = Path(info['original_path']).name
+
+            # 根据系统名称设置不同的类型或样式
+            if info['system_name']:
+                timeline_item["className"] = f"system-{info['system_name'].lower()}"
+
+            timeline_data.append(timeline_item)
+
+        return timeline_data
+
+    def save_timeline_json(self, files: List[str], output_file: str = None) -> bool:
+        """
+        将搜索结果保存为vis.js Timeline格式的JSON文件
+
+        Args:
+            files: 文件路径列表
+            output_file: 输出文件路径，默认为None（自动生成）
+
+        Returns:
+            bool: 保存成功返回True，否则返回False
+        """
+        if output_file is None:
+            # 从配置文件获取Timeline JSON输出路径
+            config_timeline_output = self.config.get('options', {}).get('output_files', {}).get('timeline_json')
+            if config_timeline_output:
+                output_file = config_timeline_output
+                # 确保目录存在
+                timeline_dir = os.path.dirname(output_file)
+                if timeline_dir and not os.path.exists(timeline_dir):
+                    os.makedirs(timeline_dir, exist_ok=True)
+            else:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                output_file = f"fits_timeline_data_{timestamp}.json"
+
+        try:
+            timeline_data = self.convert_to_timeline_format(files)
+
+            with open(output_file, 'w', encoding='utf-8') as f:
+                json.dump(timeline_data, f, ensure_ascii=False, indent=2)
+
+            self.logger.info(f"Timeline格式数据已保存到: {output_file}")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"保存Timeline格式数据失败: {e}")
             return False
 
 
@@ -556,7 +705,7 @@ def main():
         for i, file_path in enumerate(found_files, 1):
             print(f"{i:4d}. {file_path}")
 
-    # 保存结果（默认包含提取信息）
+    # 保存结果（默认包含提取信息和Timeline格式）
     if found_files:
         finder.save_results(found_files, args.output)
 

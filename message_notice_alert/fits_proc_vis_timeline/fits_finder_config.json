@@ -45,6 +45,11 @@
                 "case_sensitive": false,
                 "description": "只搜索.fit文件"
             }
-        ]
+        ],
+        "output_files": {
+            "timeline_json": "vis_examples/examples/timeline/fits_data.json",
+            "search_results": "fits_search_results.txt",
+            "description": "输出文件路径配置"
+        }
     }
 }

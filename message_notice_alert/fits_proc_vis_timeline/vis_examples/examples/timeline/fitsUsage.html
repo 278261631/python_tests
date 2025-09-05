@@ -1,0 +1,143 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+  <title>Timeline | FITS Files Demo</title>
+
+  <style type="text/css">
+    body, html {
+      font-family: sans-serif;
+    }
+    
+    /* 为不同系统设置不同颜色 */
+    .vis-item.system-gy1 {
+      background-color: #e3f2fd;
+      border-color: #2196f3;
+    }
+    
+    .vis-item.system-gy2 {
+      background-color: #f3e5f5;
+      border-color: #9c27b0;
+    }
+    
+    .vis-item.system-gy3 {
+      background-color: #e8f5e8;
+      border-color: #4caf50;
+    }
+    
+    .info-panel {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: #f5f5f5;
+      border-radius: 5px;
+    }
+  </style>
+
+  <script src="../../dist/vis.js"></script>
+  <link href="../../dist/vis.css" rel="stylesheet" type="text/css" />
+  <script src="../googleAnalytics.js"></script>
+</head>
+<body>
+
+<h1>FITS文件时间线展示</h1>
+<p>
+  这是一个展示FITS文件信息的时间线。数据来自fits_file_finder_ripgrep.py的输出。
+  您可以移动和缩放时间线，选择项目查看详细信息。
+</p>
+
+<div id="visualization"></div>
+
+<div class="info-panel">
+  <h3>图例说明：</h3>
+  <div style="display: flex; gap: 20px;">
+    <div><span style="background-color: #e3f2fd; padding: 5px; border: 1px solid #2196f3;">GY1系统</span></div>
+    <div><span style="background-color: #f3e5f5; padding: 5px; border: 1px solid #9c27b0;">GY2系统</span></div>
+    <div><span style="background-color: #e8f5e8; padding: 5px; border: 1px solid #4caf50;">GY3系统</span></div>
+  </div>
+</div>
+
+<div id="info" class="info-panel" style="display: none;">
+  <h3>选中项目信息：</h3>
+  <div id="item-details"></div>
+</div>
+
+<script type="text/javascript">
+  // DOM element where the Timeline will be attached
+  var container = document.getElementById('visualization');
+  var infoDiv = document.getElementById('info');
+  var detailsDiv = document.getElementById('item-details');
+
+  // Load data from external JSON file
+  fetch('fits_data.json')
+    .then(response => response.json())
+    .then(data => {
+      // Create a DataSet (allows two way data-binding)
+      var items = new vis.DataSet(data);
+
+      // Configuration for the Timeline
+      var options = {
+        width: '100%',
+        height: '400px',
+        margin: {
+          item: 10,
+          axis: 20
+        },
+        orientation: 'top',
+        showCurrentTime: false,
+        zoomable: true,
+        moveable: true
+      };
+
+      // Create a Timeline
+      var timeline = new vis.Timeline(container, items, options);
+      
+      // Add event listener for selection
+      timeline.on('select', function (selection) {
+        if (selection.items.length > 0) {
+          var selectedId = selection.items[0];
+          var selectedItem = items.get(selectedId);
+          
+          // Display item details
+          var html = '<table style="width: 100%;">';
+          html += '<tr><td><strong>ID:</strong></td><td>' + selectedItem.id + '</td></tr>';
+          html += '<tr><td><strong>内容:</strong></td><td>' + selectedItem.content + '</td></tr>';
+          html += '<tr><td><strong>开始时间:</strong></td><td>' + selectedItem.start + '</td></tr>';
+          
+          if (selectedItem.sky_region) {
+            html += '<tr><td><strong>天区索引:</strong></td><td>' + selectedItem.sky_region + '</td></tr>';
+          }
+          
+          if (selectedItem.system_name) {
+            html += '<tr><td><strong>系统名称:</strong></td><td>' + selectedItem.system_name + '</td></tr>';
+          }
+          
+          if (selectedItem.timestamp) {
+            html += '<tr><td><strong>时间戳:</strong></td><td>' + selectedItem.timestamp + '</td></tr>';
+          }
+          
+          if (selectedItem.file_name) {
+            html += '<tr><td><strong>文件名:</strong></td><td>' + selectedItem.file_name + '</td></tr>';
+          }
+          
+          if (selectedItem.file_path) {
+            html += '<tr><td><strong>文件路径:</strong></td><td style="word-break: break-all;">' + selectedItem.file_path + '</td></tr>';
+          }
+          
+          html += '</table>';
+          
+          detailsDiv.innerHTML = html;
+          infoDiv.style.display = 'block';
+        } else {
+          infoDiv.style.display = 'none';
+        }
+      });
+      
+      console.log('Timeline loaded with ' + data.length + ' items');
+    })
+    .catch(error => {
+      console.error('Error loading data:', error);
+      // Show error message if data file cannot be loaded
+      container.innerHTML = '<p style="color: red;">Error: Could not load data file fits_data.json</p>';
+    });
+</script>
+</body>
+</html>
