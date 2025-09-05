@@ -41,7 +41,7 @@
         "path_includes": [
             {
                 "type": "regex",
-                "pattern": ".*\\.fit$",
+                "pattern": "\\d{8}/K\\d{3}/GY\\d_K\\d{3}-.*?\\.fit$",
                 "case_sensitive": false,
                 "description": "只搜索.fit文件"
             }
