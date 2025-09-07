@@ -504,22 +504,22 @@ class FitsFileFinderRipgrep:
 
             self.logger.info(f"搜索结果已保存到: {output_file}")
 
-            # 同时生成Timeline格式的JSON文件
-            # 从配置文件获取Timeline JSON输出路径
-            config_timeline_output = self.config.get('options', {}).get('output_files', {}).get('timeline_json')
-            if config_timeline_output:
-                timeline_output = config_timeline_output
+            # 默认生成Timeline格式的JavaScript文件（主要格式）
+            # 从配置文件获取Timeline JS输出路径
+            config_timeline_js_output = self.config.get('options', {}).get('output_files', {}).get('timeline_js')
+            if config_timeline_js_output:
+                timeline_js_output = config_timeline_js_output
                 # 确保目录存在
-                timeline_dir = os.path.dirname(timeline_output)
+                timeline_dir = os.path.dirname(timeline_js_output)
                 if timeline_dir and not os.path.exists(timeline_dir):
                     os.makedirs(timeline_dir, exist_ok=True)
             else:
                 # 如果配置文件中没有指定，使用默认命名规则
-                timeline_output = output_file.replace('.txt', '_timeline.json')
-                if timeline_output == output_file:  # 如果没有.txt扩展名
-                    timeline_output = output_file + '_timeline.json'
+                timeline_js_output = output_file.replace('.txt', '.js')
+                if timeline_js_output == output_file:  # 如果没有.txt扩展名
+                    timeline_js_output = output_file + '.js'
 
-            self.save_timeline_json(files, timeline_output)
+            self.save_timeline_js(files, timeline_js_output)
 
             return True
 
@@ -651,6 +651,63 @@ class FitsFileFinderRipgrep:
 
         except Exception as e:
             self.logger.error(f"保存Timeline格式数据失败: {e}")
+            return False
+
+    def save_timeline_js(self, files: List[str], output_file: str = None) -> bool:
+        """
+        将搜索结果保存为vis.js Timeline格式的JavaScript文件
+
+        Args:
+            files: 文件路径列表
+            output_file: 输出文件路径，默认为None（自动生成）
+
+        Returns:
+            bool: 保存成功返回True，否则返回False
+        """
+        if output_file is None:
+            # 从配置文件获取Timeline JS输出路径
+            config_timeline_output = self.config.get('options', {}).get('output_files', {}).get('timeline_js')
+            if config_timeline_output:
+                output_file = config_timeline_output
+                # 确保目录存在
+                timeline_dir = os.path.dirname(output_file)
+                if timeline_dir and not os.path.exists(timeline_dir):
+                    os.makedirs(timeline_dir, exist_ok=True)
+            else:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                output_file = f"fits_data_{timestamp}.js"
+
+        try:
+            timeline_data = self.convert_to_timeline_format(files)
+
+            # 生成JavaScript文件内容
+            js_content = f'''// FITS 数据 - 由 fits_file_finder_ripgrep.py 自动生成
+// 生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+// 记录数量: {len(timeline_data)}
+// 搜索目录: {', '.join(self.config.get('search_directories', []))}
+
+var fitsData = {json.dumps(timeline_data, ensure_ascii=False, indent=2)};
+
+// 数据统计信息
+console.log('FITS 数据已加载，共 ' + fitsData.length + ' 条记录');
+
+// 数据按系统分组统计
+var systemStats = {{}};
+fitsData.forEach(function(item) {{
+    var system = item.system_name || 'Unknown';
+    systemStats[system] = (systemStats[system] || 0) + 1;
+}});
+console.log('系统分布:', systemStats);
+'''
+
+            with open(output_file, 'w', encoding='utf-8') as f:
+                f.write(js_content)
+
+            self.logger.info(f"Timeline JavaScript格式数据已保存到: {output_file}")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"保存Timeline JavaScript格式数据失败: {e}")
             return False
 
 
