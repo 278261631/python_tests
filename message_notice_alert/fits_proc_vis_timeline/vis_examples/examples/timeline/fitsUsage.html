@@ -89,35 +89,45 @@
 
   // 直接使用从 fits_data.js 加载的数据
 
-  // 统计天区信息并创建分组
-  var regionStats = {};
+  // 统计天区前四个字符并创建分组
+  var regionGroupStats = {};
+  var regionToGroupMap = {};
+
   fitsData.forEach(function(item) {
     var region = item.sky_region || 'Unknown';
-    regionStats[region] = (regionStats[region] || 0) + 1;
+    var groupKey = region.length >= 4 ? region.substring(0, 4) : region;
+
+    regionGroupStats[groupKey] = regionGroupStats[groupKey] || { count: 0, regions: new Set() };
+    regionGroupStats[groupKey].count++;
+    regionGroupStats[groupKey].regions.add(region);
+    regionToGroupMap[region] = groupKey;
   });
 
   // 创建分组数据
   var groups = new vis.DataSet();
   var groupIndex = 0;
-  var regionToGroupId = {};
+  var groupKeyToGroupId = {};
 
-  // 按天区创建分组，并按天区名称排序
-  var sortedRegions = Object.keys(regionStats).sort();
-  sortedRegions.forEach(function(region) {
+  // 按分组键创建分组，并按分组键排序
+  var sortedGroupKeys = Object.keys(regionGroupStats).sort();
+  sortedGroupKeys.forEach(function(groupKey) {
     var groupId = 'group_' + groupIndex++;
-    regionToGroupId[region] = groupId;
+    groupKeyToGroupId[groupKey] = groupId;
+
+    var regionList = Array.from(regionGroupStats[groupKey].regions).sort().join(', ');
 
     groups.add({
       id: groupId,
-      content: region + ' (' + regionStats[region] + '个)',
-      title: '天区: ' + region + '\n文件数量: ' + regionStats[region]
+      content: groupKey + ' (' + regionGroupStats[groupKey].count + '个)',
+      title: '天区组: ' + groupKey + '\n包含天区: ' + regionList + '\n文件数量: ' + regionGroupStats[groupKey].count
     });
   });
 
   // 处理数据，设置为点类型、添加分组和tooltip
   var processedData = fitsData.map(function(item) {
     var region = item.sky_region || 'Unknown';
-    var groupId = regionToGroupId[region];
+    var groupKey = regionToGroupMap[region];
+    var groupId = groupKeyToGroupId[groupKey];
 
     return {
       ...item,
