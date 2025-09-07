@@ -18,8 +18,8 @@
     }
   </style>
 
-  <script src="dist/vis.js"></script>
-  <link href="dist/vis.css" rel="stylesheet" type="text/css" />
+  <script src="../../dist/vis.js"></script>
+  <link href="../../dist/vis.css" rel="stylesheet" type="text/css" />
   <!-- 直接引用 JavaScript 数据文件 -->
   <script src="fits_data.js"></script>
 
@@ -37,24 +37,54 @@
   var container = document.getElementById('visualization');
 
   // 直接使用从 fits_data.js 加载的数据 - 无需 fetch()
+
+  // 统计天区信息并创建分组
+  var regionStats = {};
+  fitsData.forEach(function(item) {
+    var region = item.sky_region || 'Unknown';
+    regionStats[region] = (regionStats[region] || 0) + 1;
+  });
+
+  // 创建分组数据
+  var groups = new vis.DataSet();
+  var groupIndex = 0;
+  var regionToGroupId = {};
+
+  // 按天区创建分组，并按天区名称排序
+  var sortedRegions = Object.keys(regionStats).sort();
+  sortedRegions.forEach(function(region) {
+    var groupId = 'group_' + groupIndex++;
+    regionToGroupId[region] = groupId;
+
+    groups.add({
+      id: groupId,
+      content: region,
+      title: '天区: ' + region + ' (' + regionStats[region] + '个文件)'
+    });
+  });
+
+  // 处理数据，添加分组信息
+  var processedData = fitsData.map(function(item) {
+    var region = item.sky_region || 'Unknown';
+    var groupId = regionToGroupId[region];
+
+    return {
+      ...item,
+      group: groupId  // 设置分组
+    };
+  });
+
   // Create a DataSet (allows two way data-binding)
-  var items = new vis.DataSet(fitsData);
+  var items = new vis.DataSet(processedData);
 
   // Configuration for the Timeline
   var options = {
-    margin: {
-      axis:  0,   // 时间轴与第一条轨道距离
-      item:  {
-        horizontal: 0,
-        vertical:   0   // 两条轨道之间 0 像素
-      }
-    }
+    groupOrder: 'content',  // 按分组内容排序
+    stack: false           // 不堆叠，每个分组独立一行
   };
-  options.stack = false;   // 允许同一行重叠
-  options.stackSubgroups = false;
 
-  // Create a Timeline
-  var timeline = new vis.Timeline(container, items, options);
+  // Create a Timeline with groups
+  var timeline = new vis.Timeline(container, items, groups, options);
 
   console.log('Timeline loaded with ' + fitsData.length + ' items (basicUsage - 直接引用方式)');
 </script>
