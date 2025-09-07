@@ -1,1 +1,4 @@
-python -m http.server 18080 --directory "E:\github\python_tests\message_notice_alert\fits_proc_vis_timeline\vis_examples\examples\timeline"
+@echo off
+cd /d "%~dp0"
+echo "%~dp0"
+python -m http.server 18080 --directory "%~dp0"
