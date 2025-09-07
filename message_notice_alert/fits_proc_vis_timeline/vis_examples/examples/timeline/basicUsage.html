@@ -16,6 +16,62 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
+
+    .filter-tag {
+      display: inline-block;
+      margin: 2px 5px 2px 0;
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: 2px solid transparent;
+    }
+
+    .filter-tag:hover {
+      transform: scale(1.05);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .filter-tag.unselected {
+      background-color: #e9ecef;
+      color: #6c757d;
+    }
+
+    .filter-tag.selected {
+      background-color: #007bff;
+      color: white;
+      border-color: #0056b3;
+    }
+
+    .filter-tag.system-selected {
+      background-color: #28a745;
+      color: white;
+      border-color: #1e7e34;
+    }
+
+    .filter-tag.region-selected {
+      background-color: #17a2b8;
+      color: white;
+      border-color: #117a8b;
+    }
+
+    .filter-controls {
+      margin-bottom: 10px;
+    }
+
+    .filter-controls button {
+      margin-right: 10px;
+      padding: 5px 10px;
+      border: 1px solid #ddd;
+      background-color: #f8f9fa;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .filter-controls button:hover {
+      background-color: #e9ecef;
+    }
   </style>
 
   <script src="../../dist/vis.js"></script>
@@ -31,16 +87,22 @@
 </p>
 
 <div id="data-summary" style="background-color: white; border: 1px solid #ddd; border-radius: 4px; padding: 15px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-  <h3>数据概览</h3>
+  <h3>数据过滤器</h3>
+  <div class="filter-controls">
+    <button onclick="clearAllFilters()">清除所有过滤</button>
+    <button onclick="selectAllSystems()">选择所有系统</button>
+    <button onclick="selectAllRegions()">选择所有天区</button>
+    <span id="filter-status" style="margin-left: 20px; color: #666; font-size: 14px;">显示: <span id="visible-count">0</span> / <span id="total-count">0</span> 条记录</span>
+  </div>
   <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
     <div>
-      <h4>系统列表 (System Names)</h4>
+      <h4>系统列表 (System Names) - 点击选择</h4>
       <div id="system-list" style="background-color: #f8f9fa; padding: 10px; border-radius: 4px; min-height: 50px;">
         加载中...
       </div>
     </div>
     <div>
-      <h4>天区前缀列表 (Sky Region Prefixes)</h4>
+      <h4>天区前缀列表 (Sky Region Prefixes) - 点击选择</h4>
       <div id="region-prefix-list" style="background-color: #f8f9fa; padding: 10px; border-radius: 4px; min-height: 50px;">
         加载中...
       </div>
@@ -51,15 +113,18 @@
 <div id="visualization"></div>
 
 <script type="text/javascript">
-  // DOM element where the Timeline will be attached
+  // 全局变量
   var container = document.getElementById('visualization');
+  var regionGroupStats = {};
+  var regionToGroupMap = {};
+  var systemStats = {};
+  var selectedSystems = new Set();
+  var selectedRegions = new Set();
+  var items, processedData;
 
   // 直接使用从 fits_data.js 加载的数据 - 无需 fetch()
 
   // 统计天区前四个字符并创建分组
-  var regionGroupStats = {};
-  var regionToGroupMap = {};
-  var systemStats = {};
 
   fitsData.forEach(function(item) {
     var region = item.sky_region || 'Unknown';
@@ -96,7 +161,7 @@
   });
 
   // 处理数据，添加分组信息
-  var processedData = fitsData.map(function(item) {
+  processedData = fitsData.map(function(item) {
     var region = item.sky_region || 'Unknown';
     var groupKey = regionToGroupMap[region];
     var groupId = groupKeyToGroupId[groupKey];
@@ -108,7 +173,7 @@
   });
 
   // Create a DataSet (allows two way data-binding)
-  var items = new vis.DataSet(processedData);
+  items = new vis.DataSet(processedData);
 
   // Configuration for the Timeline
   var options = {
@@ -119,31 +184,146 @@
   // Create a Timeline with groups
   var timeline = new vis.Timeline(container, items, groups, options);
 
-  // 显示系统列表
-  var systemListHtml = '';
-  var sortedSystems = Object.keys(systemStats).sort();
-  sortedSystems.forEach(function(system, index) {
-    var count = systemStats[system];
-    systemListHtml += '<span style="display: inline-block; margin: 2px 5px 2px 0; padding: 4px 8px; background-color: #e9ecef; border-radius: 12px; font-size: 12px;">';
-    systemListHtml += system + ' (' + count + '个)';
-    systemListHtml += '</span>';
-  });
-  document.getElementById('system-list').innerHTML = systemListHtml;
+  // 过滤状态已在全局变量中定义
 
-  // 显示天区前缀列表
-  var regionPrefixHtml = '';
-  var sortedGroupKeys = Object.keys(regionGroupStats).sort();
-  sortedGroupKeys.forEach(function(groupKey, index) {
-    var count = regionGroupStats[groupKey].count;
-    var regionList = Array.from(regionGroupStats[groupKey].regions).sort();
-    regionPrefixHtml += '<span style="display: inline-block; margin: 2px 5px 2px 0; padding: 4px 8px; background-color: #e3f2fd; border-radius: 12px; font-size: 12px;" ';
-    regionPrefixHtml += 'title="包含天区: ' + regionList.join(', ') + '">';
-    regionPrefixHtml += groupKey + ' (' + count + '个)';
-    regionPrefixHtml += '</span>';
-  });
-  document.getElementById('region-prefix-list').innerHTML = regionPrefixHtml;
+  // 更新过滤状态显示
+  function updateFilterStatus() {
+    var visibleItems = items.get({
+      filter: function(item) {
+        var systemMatch = selectedSystems.size === 0 || selectedSystems.has(item.system_name);
+        var regionMatch = selectedRegions.size === 0 || selectedRegions.has(regionToGroupMap[item.sky_region]);
+        return systemMatch && regionMatch;
+      }
+    });
+
+    document.getElementById('visible-count').textContent = visibleItems.length;
+    document.getElementById('total-count').textContent = fitsData.length;
+  }
+
+  // 应用过滤器
+  function applyFilters() {
+    var filteredData = processedData.filter(function(item) {
+      var systemMatch = selectedSystems.size === 0 || selectedSystems.has(item.system_name);
+      var regionMatch = selectedRegions.size === 0 || selectedRegions.has(regionToGroupMap[item.sky_region]);
+      return systemMatch && regionMatch;
+    });
+
+    items.clear();
+    items.add(filteredData);
+    updateFilterStatus();
+  }
+
+  // 切换系统选择
+  function toggleSystem(system) {
+    if (selectedSystems.has(system)) {
+      selectedSystems.delete(system);
+    } else {
+      selectedSystems.add(system);
+    }
+    updateSystemDisplay();
+    applyFilters();
+  }
+
+  // 切换天区选择
+  function toggleRegion(region) {
+    if (selectedRegions.has(region)) {
+      selectedRegions.delete(region);
+    } else {
+      selectedRegions.add(region);
+    }
+    updateRegionDisplay();
+    applyFilters();
+  }
+
+  // 更新系统显示
+  function updateSystemDisplay() {
+    var systemListHtml = '';
+    var sortedSystems = Object.keys(systemStats).sort();
+    sortedSystems.forEach(function(system, index) {
+      var count = systemStats[system];
+      var isSelected = selectedSystems.has(system);
+      var className = isSelected ? 'filter-tag system-selected' : 'filter-tag unselected';
+      systemListHtml += '<span class="' + className + '" onclick="toggleSystem(\'' + system + '\')">';
+      systemListHtml += system + ' (' + count + '个)';
+      systemListHtml += '</span>';
+    });
+    document.getElementById('system-list').innerHTML = systemListHtml;
+  }
+
+  // 更新天区显示
+  function updateRegionDisplay() {
+    var regionPrefixHtml = '';
+    var sortedGroupKeys = Object.keys(regionGroupStats).sort();
+    sortedGroupKeys.forEach(function(groupKey, index) {
+      var count = regionGroupStats[groupKey].count;
+      var regionList = Array.from(regionGroupStats[groupKey].regions).sort();
+      var isSelected = selectedRegions.has(groupKey);
+      var className = isSelected ? 'filter-tag region-selected' : 'filter-tag unselected';
+      regionPrefixHtml += '<span class="' + className + '" onclick="toggleRegion(\'' + groupKey + '\')" ';
+      regionPrefixHtml += 'title="包含天区: ' + regionList.join(', ') + '">';
+      regionPrefixHtml += groupKey + ' (' + count + '个)';
+      regionPrefixHtml += '</span>';
+    });
+    document.getElementById('region-prefix-list').innerHTML = regionPrefixHtml;
+  }
+
+  // 这些函数已移到全局作用域
+
+  // 初始化显示
+  updateSystemDisplay();
+  updateRegionDisplay();
+  updateFilterStatus();
 
   console.log('Timeline loaded with ' + fitsData.length + ' items (basicUsage - 直接引用方式)');
+</script>
+
+<script>
+  // 全局函数，供 HTML onclick 调用
+  function clearAllFilters() {
+    selectedSystems.clear();
+    selectedRegions.clear();
+    updateSystemDisplay();
+    updateRegionDisplay();
+    applyFilters();
+  }
+
+  function selectAllSystems() {
+    selectedSystems.clear();
+    Object.keys(systemStats).forEach(function(system) {
+      selectedSystems.add(system);
+    });
+    updateSystemDisplay();
+    applyFilters();
+  }
+
+  function selectAllRegions() {
+    selectedRegions.clear();
+    Object.keys(regionGroupStats).forEach(function(region) {
+      selectedRegions.add(region);
+    });
+    updateRegionDisplay();
+    applyFilters();
+  }
+
+  function toggleSystem(system) {
+    if (selectedSystems.has(system)) {
+      selectedSystems.delete(system);
+    } else {
+      selectedSystems.add(system);
+    }
+    updateSystemDisplay();
+    applyFilters();
+  }
+
+  function toggleRegion(region) {
+    if (selectedRegions.has(region)) {
+      selectedRegions.delete(region);
+    } else {
+      selectedRegions.add(region);
+    }
+    updateRegionDisplay();
+    applyFilters();
+  }
 </script>
 </body>
 </html>
