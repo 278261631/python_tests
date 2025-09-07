@@ -53,6 +53,24 @@
   您可以移动和缩放时间线，选择项目查看详细信息。
 </p>
 
+<div id="data-summary" style="background-color: white; border: 1px solid #ddd; border-radius: 4px; padding: 15px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+  <h3>数据概览</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+    <div>
+      <h4>系统列表 (System Names)</h4>
+      <div id="system-list" style="background-color: #f8f9fa; padding: 10px; border-radius: 4px; min-height: 50px;">
+        加载中...
+      </div>
+    </div>
+    <div>
+      <h4>天区前缀列表 (Sky Region Prefixes)</h4>
+      <div id="region-prefix-list" style="background-color: #f8f9fa; padding: 10px; border-radius: 4px; min-height: 50px;">
+        加载中...
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="visualization"></div>
 
 <div class="info-panel">
@@ -92,6 +110,7 @@
   // 统计天区前四个字符并创建分组
   var regionGroupStats = {};
   var regionToGroupMap = {};
+  var systemStats = {};
 
   fitsData.forEach(function(item) {
     var region = item.sky_region || 'Unknown';
@@ -101,6 +120,10 @@
     regionGroupStats[groupKey].count++;
     regionGroupStats[groupKey].regions.add(region);
     regionToGroupMap[region] = groupKey;
+
+    // 统计系统
+    var system = item.system_name || 'Unknown';
+    systemStats[system] = (systemStats[system] || 0) + 1;
   });
 
   // 创建分组数据
@@ -160,7 +183,32 @@
 
   // Create a Timeline with groups
   var timeline = new vis.Timeline(container, items, groups, options);
-      
+
+  // 显示系统列表
+  var systemListHtml = '';
+  var sortedSystems = Object.keys(systemStats).sort();
+  sortedSystems.forEach(function(system, index) {
+    var count = systemStats[system];
+    var colorClass = 'system-' + system.toLowerCase();
+    systemListHtml += '<span style="display: inline-block; margin: 2px 5px 2px 0; padding: 4px 8px; background-color: #e9ecef; border-radius: 12px; font-size: 12px;" class="' + colorClass + '">';
+    systemListHtml += system + ' (' + count + '个)';
+    systemListHtml += '</span>';
+  });
+  document.getElementById('system-list').innerHTML = systemListHtml;
+
+  // 显示天区前缀列表
+  var regionPrefixHtml = '';
+  var sortedGroupKeys = Object.keys(regionGroupStats).sort();
+  sortedGroupKeys.forEach(function(groupKey, index) {
+    var count = regionGroupStats[groupKey].count;
+    var regionList = Array.from(regionGroupStats[groupKey].regions).sort();
+    regionPrefixHtml += '<span style="display: inline-block; margin: 2px 5px 2px 0; padding: 4px 8px; background-color: #e3f2fd; border-radius: 12px; font-size: 12px;" ';
+    regionPrefixHtml += 'title="包含天区: ' + regionList.join(', ') + '">';
+    regionPrefixHtml += groupKey + ' (' + count + '个)';
+    regionPrefixHtml += '</span>';
+  });
+  document.getElementById('region-prefix-list').innerHTML = regionPrefixHtml;
+
       // Add event listener for selection
       timeline.on('select', function (selection) {
         if (selection.items.length > 0) {
