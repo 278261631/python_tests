@@ -7,6 +7,15 @@
     body, html {
       font-family: sans-serif;
     }
+    .vis-item {
+      line-height: 1;      /* 文字行高 1 */
+      padding: 0 2px;      /* 左右只留 2px，上下 0 */
+      border-width: 0;     /* 不要边框 */
+      font-size: 11px;     /* 字号缩到最小可读尺寸 */
+      white-space: nowrap; /* 不换行 */
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
   </style>
 
   <script src="dist/vis.js"></script>
@@ -32,7 +41,17 @@
   var items = new vis.DataSet(fitsData);
 
   // Configuration for the Timeline
-  var options = {};
+  var options = {
+    margin: {
+      axis:  0,   // 时间轴与第一条轨道距离
+      item:  {
+        horizontal: 0,
+        vertical:   0   // 两条轨道之间 0 像素
+      }
+    }
+  };
+  options.stack = false;   // 允许同一行重叠
+  options.stackSubgroups = false;
 
   // Create a Timeline
   var timeline = new vis.Timeline(container, items, options);
