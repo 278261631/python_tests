@@ -125,8 +125,8 @@
       </div>
     </div>
     <div>
-      <h4>天区前缀列表 (Sky Region Prefixes) - 点击选择</h4>
-      <div id="region-prefix-list" style="background-color: #f8f9fa; padding: 10px; border-radius: 4px; min-height: 50px;">
+      <h4>天区列表 (Sky Regions) - 点击选择</h4>
+      <div id="region-list" style="background-color: #f8f9fa; padding: 10px; border-radius: 4px; min-height: 50px;">
         加载中...
       </div>
     </div>
@@ -169,14 +169,14 @@
 
   // 直接使用从 fits_data.js 加载的数据
 
-  // 统计天区前四个字符并创建分组
+  // 统计完整天区并创建分组
   var regionGroupStats = {};
   var regionToGroupMap = {};
   var systemStats = {};
 
   fitsData.forEach(function(item) {
     var region = item.sky_region || 'Unknown';
-    var groupKey = region.length >= 4 ? region.substring(0, 4) : region;
+    var groupKey = region; // 使用完整的sky_region作为分组键
 
     regionGroupStats[groupKey] = regionGroupStats[groupKey] || { count: 0, regions: new Set() };
     regionGroupStats[groupKey].count++;
@@ -199,12 +199,10 @@
     var groupId = 'group_' + groupIndex++;
     groupKeyToGroupId[groupKey] = groupId;
 
-    var regionList = Array.from(regionGroupStats[groupKey].regions).sort().join(', ');
-
     groups.add({
       id: groupId,
       content: groupKey + ' (' + regionGroupStats[groupKey].count + '个)',
-      title: '天区组: ' + groupKey + '\n包含天区: ' + regionList + '\n文件数量: ' + regionGroupStats[groupKey].count
+      title: '天区: ' + groupKey + '\n文件数量: ' + regionGroupStats[groupKey].count
     });
   });
 
@@ -258,18 +256,17 @@
   });
   document.getElementById('system-list').innerHTML = systemListHtml;
 
-  // 显示天区前缀列表
-  var regionPrefixHtml = '';
+  // 显示天区列表
+  var regionHtml = '';
   var sortedGroupKeys = Object.keys(regionGroupStats).sort();
   sortedGroupKeys.forEach(function(groupKey, index) {
     var count = regionGroupStats[groupKey].count;
-    var regionList = Array.from(regionGroupStats[groupKey].regions).sort();
-    regionPrefixHtml += '<span style="display: inline-block; margin: 2px 5px 2px 0; padding: 4px 8px; background-color: #e3f2fd; border-radius: 12px; font-size: 12px;" ';
-    regionPrefixHtml += 'title="包含天区: ' + regionList.join(', ') + '">';
-    regionPrefixHtml += groupKey + ' (' + count + '个)';
-    regionPrefixHtml += '</span>';
+    regionHtml += '<span style="display: inline-block; margin: 2px 5px 2px 0; padding: 4px 8px; background-color: #e3f2fd; border-radius: 12px; font-size: 12px;" ';
+    regionHtml += 'title="天区: ' + groupKey + ', 文件数量: ' + count + '">';
+    regionHtml += groupKey + ' (' + count + '个)';
+    regionHtml += '</span>';
   });
-  document.getElementById('region-prefix-list').innerHTML = regionPrefixHtml;
+  document.getElementById('region-list').innerHTML = regionHtml;
 
       // Add event listener for selection
       timeline.on('select', function (selection) {
