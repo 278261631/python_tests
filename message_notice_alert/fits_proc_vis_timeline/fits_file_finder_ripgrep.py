@@ -28,16 +28,18 @@ except ImportError:
 class FitsFileFinderRipgrep:
     """基于Ripgrep的FITS文件查找器类"""
     
-    def __init__(self, config_file: str = "fits_finder_config.json", date_suffix: str = None):
+    def __init__(self, config_file: str = "fits_finder_config.json", date_suffix: str = None, ignore_date: bool = False):
         """
         初始化文件查找器
 
         Args:
             config_file: 配置文件路径
             date_suffix: 日期后缀，格式为yyyymmdd，默认为当前日期
+            ignore_date: 是否忽略日期后缀，直接搜索基础目录
         """
         self.config_file = config_file
         self.config = {}
+        self.ignore_date = ignore_date
         self.date_suffix = date_suffix or datetime.now().strftime("%Y%m%d")
         self.logger = self._setup_logger()
         
@@ -134,14 +136,19 @@ class FitsFileFinderRipgrep:
 
     def _get_search_directories_with_date(self) -> List[str]:
         """
-        获取带日期后缀的搜索目录列表
+        获取搜索目录列表，根据ignore_date参数决定是否添加日期后缀
 
         Returns:
-            List[str]: 带日期后缀的搜索目录列表
+            List[str]: 搜索目录列表
         """
         base_directories = self.config.get('search_directories', [])
-        directories_with_date = []
 
+        if self.ignore_date:
+            # 如果忽略日期，直接返回基础目录
+            self.logger.debug("忽略日期后缀，使用基础目录")
+            return base_directories
+
+        directories_with_date = []
         for base_dir in base_directories:
             # 在每个搜索目录后添加日期后缀
             dir_with_date = os.path.join(base_dir, self.date_suffix)
@@ -391,7 +398,10 @@ class FitsFileFinderRipgrep:
             return []
 
         self.logger.info(f"开始搜索，目录数量: {len(search_directories)}, 模式数量: {len(patterns)}")
-        self.logger.info(f"使用日期后缀: {self.date_suffix}")
+        if self.ignore_date:
+            self.logger.info("忽略日期后缀，搜索所有基础目录")
+        else:
+            self.logger.info(f"使用日期后缀: {self.date_suffix}")
 
         for directory in search_directories:
             normalized_dir = self._normalize_path(directory)
@@ -743,11 +753,13 @@ def main():
     parser.add_argument('--extract-info', action='store_true',
                        help='提取并显示FITS文件的天区索引、系统名称和时间信息')
     parser.add_argument('-d', '--date', help='日期后缀，格式为yyyymmdd (默认: 当前日期)')
+    parser.add_argument('-all', '--all', action='store_true',
+                       help='忽略指定的日期，搜索所有基础目录')
 
     args = parser.parse_args()
 
     # 创建查找器实例
-    finder = FitsFileFinderRipgrep(args.config, args.date)
+    finder = FitsFileFinderRipgrep(args.config, args.date, args.all)
     
     # 设置日志级别
     if args.verbose:
