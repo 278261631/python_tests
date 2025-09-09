@@ -407,24 +407,21 @@
     totalSubgroups += systemsInRegion.size;
   });
 
-  // 每个子分组大约需要 50px 高度，加上轴和边距
-  var calculatedHeight = Math.max(400, totalSubgroups * 50 + 100);
-
   // Configuration for the Timeline
   var options = {
-    width: '100%',
-    height: calculatedHeight + 'px',  // 根据子分组数量动态计算高度
     margin: {
-      item: 10,
+      item: 8,     // 减小项目间距
       axis: 20
     },
     orientation: 'top',
     groupOrder: 'content',     // 按分组内容排序
     stack: false,              // 不堆叠主分组
-    stackSubgroups: true,      // 启用子分组堆叠
+    stackSubgroups: false,     // 禁用子分组堆叠，让每个子分组独占一行
     showCurrentTime: false,
     zoomable: true,
-    moveable: true
+    moveable: true,
+    groupHeightMode: 'fitItems',  // 让分组高度适应内容
+    verticalScroll: true          // 如果内容超过高度，启用垂直滚动
   };
 
   // Create a Timeline with groups
@@ -613,7 +610,10 @@
   var totalItems = isClusteredData ?
     fitsData.reduce(function(sum, group) { return sum + (group.item_count || 1); }, 0) :
     fitsData.length;
+
   console.log('Timeline loaded with ' + fitsData.length + ' groups (' + totalItems + ' total items) - ' + dataTypeInfo + ' (fitsUsage - 带过滤功能和子分组)');
+  console.log('主分组数量: ' + Object.keys(regionGroupStats).length + ', 子分组数量: ' + totalSubgroups + ', 计算高度: ' + calculatedHeight + 'px');
+  console.log('处理后的数据项数量: ' + processedData.length);
 </script>
 
 <script>
