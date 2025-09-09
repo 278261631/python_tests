@@ -1,8 +1,11 @@
 {
     "search_directories": [
-        "E:/kats_process",
-        "D:/KATS_DATA",
-        "D:/kats"
+        "E:/kats_process/gy1",
+        "E:/kats_process/gy2",
+        "E:/kats_process/gy3",
+        "E:/kats_process/gy4",
+        "E:/kats_process/gy5",
+        "E:/kats_process/gy6"
     ],
     "file_patterns": [
         {
