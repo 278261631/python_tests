@@ -115,6 +115,29 @@
     .filter-controls button:hover {
       background-color: #e9ecef;
     }
+
+    /* 聚类数据项目样式 */
+    .vis-item.clustered {
+      border-width: 2px !important;
+      font-weight: bold;
+    }
+
+    /* 为不同天区设置不同的边框样式 */
+    .vis-item.region-k088 {
+      border-left: 4px solid #ff9800 !important;
+    }
+
+    .vis-item.region-k089 {
+      border-left: 4px solid #e91e63 !important;
+    }
+
+    .vis-item.region-k090 {
+      border-left: 4px solid #3f51b5 !important;
+    }
+
+    .vis-item.region-unknown {
+      border-left: 4px solid #9e9e9e !important;
+    }
   </style>
 
   <script src="../../dist/vis.js"></script>
@@ -176,6 +199,8 @@
   var detailsDiv = document.getElementById('item-details');
 
   // 直接使用从 fits_data.js 加载的数据
+  // 检测数据格式：聚类数据 vs 单文件数据
+  var isClusteredData = fitsData.length > 0 && fitsData[0].hasOwnProperty('group_id');
 
   // 全局变量
   var regionGroupStats = {};
@@ -185,19 +210,41 @@
   var selectedRegions = new Set();
   var items, processedData;
 
-  fitsData.forEach(function(item) {
-    var region = item.sky_region || 'Unknown';
-    var groupKey = region; // 使用完整的sky_region作为分组键
+  if (isClusteredData) {
+    // 处理聚类数据格式
+    fitsData.forEach(function(group) {
+      var groupKey = group.sky_region_name || 'Unknown';
 
-    regionGroupStats[groupKey] = regionGroupStats[groupKey] || { count: 0, regions: new Set() };
-    regionGroupStats[groupKey].count++;
-    regionGroupStats[groupKey].regions.add(region);
-    regionToGroupMap[region] = groupKey;
+      regionGroupStats[groupKey] = regionGroupStats[groupKey] || { count: 0, regions: new Set() };
+      regionGroupStats[groupKey].count += group.item_count || 1;
+      regionGroupStats[groupKey].regions.add(groupKey);
+      regionToGroupMap[groupKey] = groupKey;
 
-    // 统计系统
-    var system = item.system_name || 'Unknown';
-    systemStats[system] = (systemStats[system] || 0) + 1;
-  });
+      // 统计系统（从系统名称数组）
+      if (group.system_names && group.system_names.length > 0) {
+        group.system_names.forEach(function(system) {
+          systemStats[system] = (systemStats[system] || 0) + (group.item_count || 1);
+        });
+      } else {
+        systemStats['Unknown'] = (systemStats['Unknown'] || 0) + (group.item_count || 1);
+      }
+    });
+  } else {
+    // 处理单文件数据格式（原有逻辑）
+    fitsData.forEach(function(item) {
+      var region = item.sky_region || 'Unknown';
+      var groupKey = region; // 使用完整的sky_region作为分组键
+
+      regionGroupStats[groupKey] = regionGroupStats[groupKey] || { count: 0, regions: new Set() };
+      regionGroupStats[groupKey].count++;
+      regionGroupStats[groupKey].regions.add(region);
+      regionToGroupMap[region] = groupKey;
+
+      // 统计系统
+      var system = item.system_name || 'Unknown';
+      systemStats[system] = (systemStats[system] || 0) + 1;
+    });
+  }
 
   // 创建分组数据（主分组按天区，子分组按系统）
   var groups = new vis.DataSet();
@@ -212,11 +259,28 @@
 
     // 为每个天区创建系统子分组
     var systemsInRegion = new Set();
-    fitsData.forEach(function(item) {
-      if ((item.sky_region || 'Unknown') === groupKey) {
-        systemsInRegion.add(item.system_name || 'Unknown');
-      }
-    });
+
+    if (isClusteredData) {
+      // 聚类数据：从分组中获取系统信息
+      fitsData.forEach(function(group) {
+        if ((group.sky_region_name || 'Unknown') === groupKey) {
+          if (group.system_names && group.system_names.length > 0) {
+            group.system_names.forEach(function(sys) {
+              systemsInRegion.add(sys);
+            });
+          } else {
+            systemsInRegion.add('Unknown');
+          }
+        }
+      });
+    } else {
+      // 单文件数据：从单个项目中获取系统信息
+      fitsData.forEach(function(item) {
+        if ((item.sky_region || 'Unknown') === groupKey) {
+          systemsInRegion.add(item.system_name || 'Unknown');
+        }
+      });
+    }
 
     // 创建子分组堆叠配置
     var subgroupStack = {};
@@ -238,42 +302,99 @@
   });
 
   // 处理数据，设置为点类型、添加分组和子分组
-  processedData = fitsData.map(function(item, index) {
-    var region = item.sky_region || 'Unknown';
-    var systemName = item.system_name || 'Unknown';
-    var groupKey = regionToGroupMap[region];
-    var groupId = groupKeyToGroupId[groupKey];
+  if (isClusteredData) {
+    // 聚类数据处理
+    processedData = [];
+    fitsData.forEach(function(group, index) {
+      var groupKey = group.sky_region_name || 'Unknown';
+      var groupId = groupKeyToGroupId[groupKey];
+      var systemNames = group.system_names || ['Unknown'];
 
-    // 为不同系统设置不同的CSS类
-    var systemClass = 'system-' + systemName.toLowerCase();
+      // 为每个系统创建一个子项目
+      systemNames.forEach(function(systemName, sysIndex) {
+        var systemClass = 'system-' + systemName.toLowerCase();
+        var regionClass = 'region-' + groupKey.toLowerCase();
+        var clusterClass = 'clustered';
 
-    // 获取系统在该天区中的排序索引
-    var systemsInRegion = [];
-    fitsData.forEach(function(dataItem) {
-      if ((dataItem.sky_region || 'Unknown') === groupKey) {
-        var sys = dataItem.system_name || 'Unknown';
-        if (systemsInRegion.indexOf(sys) === -1) {
-          systemsInRegion.push(sys);
-        }
-      }
+        // 获取系统在该天区中的排序索引
+        var systemsInRegion = [];
+        fitsData.forEach(function(dataGroup) {
+          if ((dataGroup.sky_region_name || 'Unknown') === groupKey) {
+            if (dataGroup.system_names && dataGroup.system_names.length > 0) {
+              dataGroup.system_names.forEach(function(sys) {
+                if (systemsInRegion.indexOf(sys) === -1) {
+                  systemsInRegion.push(sys);
+                }
+              });
+            }
+          }
+        });
+        systemsInRegion.sort();
+        var subgroupOrder = systemsInRegion.indexOf(systemName);
+
+        var itemContent = systemName + ' | ' + groupKey + ' (' + (group.item_count || 1) + '个文件)';
+
+        processedData.push({
+          id: group.group_id + '_' + sysIndex,
+          content: itemContent,
+          start: group.start,
+          end: group.end,
+          group: groupId,
+          subgroup: systemName,
+          subgroupOrder: subgroupOrder,
+          type: group.type || 'point',
+          className: [systemClass, regionClass, clusterClass].join(' '),
+          sky_region_name: group.sky_region_name,
+          system_names: [systemName],
+          item_count: group.item_count,
+          file_details: group.file_details,
+          title: itemContent + '<br/>' +
+                 '时间: ' + group.start + '<br/>' +
+                 '系统: ' + systemName + '<br/>' +
+                 '天区: ' + groupKey + '<br/>' +
+                 '文件数量: ' + (group.item_count || 1)
+        });
+      });
     });
-    systemsInRegion.sort();
-    var subgroupOrder = systemsInRegion.indexOf(systemName);
+  } else {
+    // 单文件数据处理（原有逻辑）
+    processedData = fitsData.map(function(item, index) {
+      var region = item.sky_region || 'Unknown';
+      var systemName = item.system_name || 'Unknown';
+      var groupKey = regionToGroupMap[region];
+      var groupId = groupKeyToGroupId[groupKey];
 
-    return {
-      ...item,
-      group: groupId,      // 分配到主分组（天区）
-      subgroup: systemName, // 子分组使用系统名称
-      subgroupOrder: subgroupOrder, // 子分组排序
-      type: 'point',       // 设置为点类型
-      className: systemClass, // 添加系统相关的CSS类
-      title: item.content + '<br/>' +
-             '时间: ' + item.start + '<br/>' +
-             '系统: ' + systemName + '<br/>' +
-             '天区: ' + region + '<br/>' +
-             '文件: ' + item.file_name  // 使用 title 属性作为 tooltip
-    };
-  });
+      // 为不同系统设置不同的CSS类
+      var systemClass = 'system-' + systemName.toLowerCase();
+
+      // 获取系统在该天区中的排序索引
+      var systemsInRegion = [];
+      fitsData.forEach(function(dataItem) {
+        if ((dataItem.sky_region || 'Unknown') === groupKey) {
+          var sys = dataItem.system_name || 'Unknown';
+          if (systemsInRegion.indexOf(sys) === -1) {
+            systemsInRegion.push(sys);
+          }
+        }
+      });
+      systemsInRegion.sort();
+      var subgroupOrder = systemsInRegion.indexOf(systemName);
+
+      return {
+        ...item,
+        group: groupId,      // 分配到主分组（天区）
+        subgroup: systemName, // 子分组使用系统名称
+        subgroupOrder: subgroupOrder, // 子分组排序
+        type: 'point',       // 设置为点类型
+        className: systemClass, // 添加系统相关的CSS类
+        title: item.content + '<br/>' +
+               '时间: ' + item.start + '<br/>' +
+               '系统: ' + systemName + '<br/>' +
+               '天区: ' + region + '<br/>' +
+               '文件: ' + item.file_name  // 使用 title 属性作为 tooltip
+      };
+    });
+  }
 
   // Create a DataSet (allows two way data-binding)
   items = new vis.DataSet(processedData);
@@ -317,22 +438,50 @@
   function updateFilterStatus() {
     var visibleItems = items.get({
       filter: function(item) {
-        var systemMatch = selectedSystems.size === 0 || selectedSystems.has(item.system_name);
-        var regionMatch = selectedRegions.size === 0 || selectedRegions.has(regionToGroupMap[item.sky_region]);
-        return systemMatch && regionMatch;
+        if (isClusteredData) {
+          // 聚类数据过滤逻辑
+          var systemMatch = selectedSystems.size === 0 ||
+            (item.system_names && item.system_names.some(function(sys) { return selectedSystems.has(sys); })) ||
+            selectedSystems.has(item.subgroup);
+          var regionMatch = selectedRegions.size === 0 || selectedRegions.has(item.sky_region_name);
+          return systemMatch && regionMatch;
+        } else {
+          // 单文件数据过滤逻辑
+          var systemMatch = selectedSystems.size === 0 || selectedSystems.has(item.system_name);
+          var regionMatch = selectedRegions.size === 0 || selectedRegions.has(regionToGroupMap[item.sky_region]);
+          return systemMatch && regionMatch;
+        }
       }
     });
 
-    document.getElementById('visible-count').textContent = visibleItems.length;
-    document.getElementById('total-count').textContent = fitsData.length;
+    var totalCount = isClusteredData ?
+      fitsData.reduce(function(sum, group) { return sum + (group.item_count || 1); }, 0) :
+      fitsData.length;
+
+    var visibleCount = isClusteredData ?
+      visibleItems.reduce(function(sum, item) { return sum + (item.item_count || 1); }, 0) :
+      visibleItems.length;
+
+    document.getElementById('visible-count').textContent = visibleCount;
+    document.getElementById('total-count').textContent = totalCount;
   }
 
   // 应用过滤器
   function applyFilters() {
     var filteredData = processedData.filter(function(item) {
-      var systemMatch = selectedSystems.size === 0 || selectedSystems.has(item.system_name);
-      var regionMatch = selectedRegions.size === 0 || selectedRegions.has(regionToGroupMap[item.sky_region]);
-      return systemMatch && regionMatch;
+      if (isClusteredData) {
+        // 聚类数据过滤逻辑
+        var systemMatch = selectedSystems.size === 0 ||
+          (item.system_names && item.system_names.some(function(sys) { return selectedSystems.has(sys); })) ||
+          selectedSystems.has(item.subgroup);
+        var regionMatch = selectedRegions.size === 0 || selectedRegions.has(item.sky_region_name);
+        return systemMatch && regionMatch;
+      } else {
+        // 单文件数据过滤逻辑
+        var systemMatch = selectedSystems.size === 0 || selectedSystems.has(item.system_name);
+        var regionMatch = selectedRegions.size === 0 || selectedRegions.has(regionToGroupMap[item.sky_region]);
+        return systemMatch && regionMatch;
+      }
     });
 
     items.clear();
@@ -410,24 +559,49 @@
       html += '<tr><td><strong>内容:</strong></td><td>' + selectedItem.content + '</td></tr>';
       html += '<tr><td><strong>开始时间:</strong></td><td>' + selectedItem.start + '</td></tr>';
 
-      if (selectedItem.sky_region) {
-        html += '<tr><td><strong>天区索引:</strong></td><td>' + selectedItem.sky_region + '</td></tr>';
-      }
+      if (isClusteredData) {
+        // 聚类数据显示
+        if (selectedItem.sky_region_name) {
+          html += '<tr><td><strong>天区名称:</strong></td><td>' + selectedItem.sky_region_name + '</td></tr>';
+        }
 
-      if (selectedItem.system_name) {
-        html += '<tr><td><strong>系统名称:</strong></td><td>' + selectedItem.system_name + '</td></tr>';
-      }
+        if (selectedItem.system_names && selectedItem.system_names.length > 0) {
+          html += '<tr><td><strong>系统名称:</strong></td><td>' + selectedItem.system_names.join(', ') + '</td></tr>';
+        }
 
-      if (selectedItem.timestamp) {
-        html += '<tr><td><strong>时间戳:</strong></td><td>' + selectedItem.timestamp + '</td></tr>';
-      }
+        if (selectedItem.item_count) {
+          html += '<tr><td><strong>文件数量:</strong></td><td>' + selectedItem.item_count + '</td></tr>';
+        }
 
-      if (selectedItem.file_name) {
-        html += '<tr><td><strong>文件名:</strong></td><td>' + selectedItem.file_name + '</td></tr>';
-      }
+        if (selectedItem.file_details && selectedItem.file_details.length > 0) {
+          html += '<tr><td><strong>包含文件:</strong></td><td>';
+          selectedItem.file_details.forEach(function(file, index) {
+            if (index > 0) html += '<br/>';
+            html += file.file_name || file.file_path;
+          });
+          html += '</td></tr>';
+        }
+      } else {
+        // 单文件数据显示
+        if (selectedItem.sky_region) {
+          html += '<tr><td><strong>天区索引:</strong></td><td>' + selectedItem.sky_region + '</td></tr>';
+        }
 
-      if (selectedItem.file_path) {
-        html += '<tr><td><strong>文件路径:</strong></td><td style="word-break: break-all;">' + selectedItem.file_path + '</td></tr>';
+        if (selectedItem.system_name) {
+          html += '<tr><td><strong>系统名称:</strong></td><td>' + selectedItem.system_name + '</td></tr>';
+        }
+
+        if (selectedItem.timestamp) {
+          html += '<tr><td><strong>时间戳:</strong></td><td>' + selectedItem.timestamp + '</td></tr>';
+        }
+
+        if (selectedItem.file_name) {
+          html += '<tr><td><strong>文件名:</strong></td><td>' + selectedItem.file_name + '</td></tr>';
+        }
+
+        if (selectedItem.file_path) {
+          html += '<tr><td><strong>文件路径:</strong></td><td style="word-break: break-all;">' + selectedItem.file_path + '</td></tr>';
+        }
       }
 
       html += '</table>';
@@ -439,7 +613,11 @@
     }
   });
 
-  console.log('Timeline loaded with ' + fitsData.length + ' items (fitsUsage - 带过滤功能和子分组)');
+  var dataTypeInfo = isClusteredData ? '聚类数据' : '单文件数据';
+  var totalItems = isClusteredData ?
+    fitsData.reduce(function(sum, group) { return sum + (group.item_count || 1); }, 0) :
+    fitsData.length;
+  console.log('Timeline loaded with ' + fitsData.length + ' groups (' + totalItems + ' total items) - ' + dataTypeInfo + ' (fitsUsage - 带过滤功能和子分组)');
 </script>
 
 <script>
