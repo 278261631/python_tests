@@ -17,30 +17,7 @@
       text-overflow: ellipsis;
     }
 
-    /* 为不同系统设置不同颜色 */
-    .vis-item.system-gy1 {
-      background-color: #2196f3 !important;
-      border-color: #1976d2 !important;
-      color: white !important;
-    }
 
-    .vis-item.system-gy2 {
-      background-color: #9c27b0 !important;
-      border-color: #7b1fa2 !important;
-      color: white !important;
-    }
-
-    .vis-item.system-gy3 {
-      background-color: #4caf50 !important;
-      border-color: #388e3c !important;
-      color: white !important;
-    }
-
-    .vis-item.system-unknown {
-      background-color: #757575 !important;
-      border-color: #424242 !important;
-      color: white !important;
-    }
 
     /* 子分组样式 */
     .vis-group .vis-label .vis-inner {
@@ -171,18 +148,7 @@
 
 <div class="info-panel">
   <div style="display: flex; gap: 20px; align-items: center;">
-    <div style="display: flex; align-items: center; gap: 5px;">
-      <span style="display: inline-block; width: 12px; height: 12px; background-color: #2196f3; border: 2px solid #1976d2; border-radius: 50%;"></span>
-      <span>GY1系统</span>
-    </div>
-    <div style="display: flex; align-items: center; gap: 5px;">
-      <span style="display: inline-block; width: 12px; height: 12px; background-color: #9c27b0; border: 2px solid #7b1fa2; border-radius: 50%;"></span>
-      <span>GY2系统</span>
-    </div>
-    <div style="display: flex; align-items: center; gap: 5px;">
-      <span style="display: inline-block; width: 12px; height: 12px; background-color: #4caf50; border: 2px solid #388e3c; border-radius: 50%;"></span>
-      <span>GY3系统</span>
-    </div>
+    <span>FITS文件时间线可视化</span>
   </div>
 
 </div>
@@ -312,7 +278,6 @@
 
       // 为每个系统创建一个子项目
       systemNames.forEach(function(systemName, sysIndex) {
-        var systemClass = 'system-' + systemName.toLowerCase();
         var regionClass = 'region-' + groupKey.toLowerCase();
         var clusterClass = 'clustered';
 
@@ -343,7 +308,7 @@
           subgroup: systemName,
           subgroupOrder: subgroupOrder,
           type: group.type || 'point',
-          className: [systemClass, regionClass, clusterClass].join(' '),
+          className: [regionClass, clusterClass].join(' '),
           sky_region_name: group.sky_region_name,
           system_names: [systemName],
           item_count: group.item_count,
@@ -364,8 +329,7 @@
       var groupKey = regionToGroupMap[region];
       var groupId = groupKeyToGroupId[groupKey];
 
-      // 为不同系统设置不同的CSS类
-      var systemClass = 'system-' + systemName.toLowerCase();
+
 
       // 获取系统在该天区中的排序索引
       var systemsInRegion = [];
@@ -386,7 +350,6 @@
         subgroup: systemName, // 子分组使用系统名称
         subgroupOrder: subgroupOrder, // 子分组排序
         type: 'point',       // 设置为点类型
-        className: systemClass, // 添加系统相关的CSS类
         title: item.content + '<br/>' +
                '时间: ' + item.start + '<br/>' +
                '系统: ' + systemName + '<br/>' +
