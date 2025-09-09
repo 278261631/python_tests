@@ -28,15 +28,17 @@ except ImportError:
 class FitsFileFinderRipgrep:
     """基于Ripgrep的FITS文件查找器类"""
     
-    def __init__(self, config_file: str = "fits_finder_config.json"):
+    def __init__(self, config_file: str = "fits_finder_config.json", date_suffix: str = None):
         """
         初始化文件查找器
-        
+
         Args:
             config_file: 配置文件路径
+            date_suffix: 日期后缀，格式为yyyymmdd，默认为当前日期
         """
         self.config_file = config_file
         self.config = {}
+        self.date_suffix = date_suffix or datetime.now().strftime("%Y%m%d")
         self.logger = self._setup_logger()
         
     def _setup_logger(self) -> logging.Logger:
@@ -121,14 +123,32 @@ class FitsFileFinderRipgrep:
     def _normalize_path(self, path: str) -> str:
         """
         标准化路径，兼容Windows和Linux
-        
+
         Args:
             path: 原始路径
-            
+
         Returns:
             str: 标准化后的路径
         """
         return str(Path(path).resolve())
+
+    def _get_search_directories_with_date(self) -> List[str]:
+        """
+        获取带日期后缀的搜索目录列表
+
+        Returns:
+            List[str]: 带日期后缀的搜索目录列表
+        """
+        base_directories = self.config.get('search_directories', [])
+        directories_with_date = []
+
+        for base_dir in base_directories:
+            # 在每个搜索目录后添加日期后缀
+            dir_with_date = os.path.join(base_dir, self.date_suffix)
+            directories_with_date.append(dir_with_date)
+            self.logger.debug(f"添加日期后缀: {base_dir} -> {dir_with_date}")
+
+        return directories_with_date
     
     def _build_ripgrep_patterns(self) -> List[str]:
         """
@@ -354,33 +374,34 @@ class FitsFileFinderRipgrep:
     def find_files(self) -> List[str]:
         """
         使用ripgrep查找匹配的文件
-        
+
         Returns:
             List[str]: 匹配的文件路径列表
         """
         if not self.config:
             self.logger.error("配置未加载，请先调用load_config()")
             return []
-        
+
         found_files = []
-        search_directories = self.config['search_directories']
+        search_directories = self._get_search_directories_with_date()
         patterns = self._build_ripgrep_patterns()
-        
+
         if not patterns:
             self.logger.warning("没有找到有效的搜索模式")
             return []
-        
+
         self.logger.info(f"开始搜索，目录数量: {len(search_directories)}, 模式数量: {len(patterns)}")
-        
+        self.logger.info(f"使用日期后缀: {self.date_suffix}")
+
         for directory in search_directories:
             normalized_dir = self._normalize_path(directory)
-            
+
             if not os.path.isdir(normalized_dir):
                 self.logger.warning(f"目录不存在: {normalized_dir}")
                 continue
-            
+
             self.logger.info(f"搜索目录: {normalized_dir}")
-            
+
             try:
                 # 使用ripgrep搜索文件
                 file_patterns = self.config.get('file_patterns', [])
@@ -721,11 +742,12 @@ def main():
                        help='详细输出')
     parser.add_argument('--extract-info', action='store_true',
                        help='提取并显示FITS文件的天区索引、系统名称和时间信息')
+    parser.add_argument('-d', '--date', help='日期后缀，格式为yyyymmdd (默认: 当前日期)')
 
     args = parser.parse_args()
-    
+
     # 创建查找器实例
-    finder = FitsFileFinderRipgrep(args.config)
+    finder = FitsFileFinderRipgrep(args.config, args.date)
     
     # 设置日志级别
     if args.verbose:
