@@ -121,7 +121,7 @@
 
   fitsData.forEach(function(item) {
     var region = item.sky_region || 'Unknown';
-    var groupKey = region; // 使用完整的sky_region作为分组键
+    var groupKey = region.substring(0, 4); // 使用sky_region的前四位作为分组键
 
     regionGroupStats[groupKey] = regionGroupStats[groupKey] || { count: 0, regions: new Set() };
     regionGroupStats[groupKey].count++;
@@ -159,7 +159,8 @@
 
     return {
       ...item,
-      group: groupId  // 设置分组
+      group: groupId,  // 设置分组
+      type: 'point'    // 设置为点类型
     };
   });
 
