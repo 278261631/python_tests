@@ -297,7 +297,22 @@
         systemsInRegion.sort();
         var subgroupOrder = systemsInRegion.indexOf(systemName);
 
-        var itemContent = systemName + ' | ' + groupKey + ' (' + (group.item_count || 1) + '个文件)';
+        // 只获取属于当前系统的文件
+        var systemFileDetails = [];
+        var systemFileCount = 0;
+        if (group.file_details && group.file_details.length > 0) {
+          systemFileDetails = group.file_details.filter(function(file) {
+            return file.system_name === systemName;
+          });
+          systemFileCount = systemFileDetails.length;
+        }
+
+        // 如果没有找到该系统的文件，跳过这个系统
+        if (systemFileCount === 0) {
+          return;
+        }
+
+        var itemContent = systemName + ' | ' + groupKey + ' (' + systemFileCount + '个文件)';
 
         processedData.push({
           id: group.group_id + '_' + sysIndex,
@@ -311,13 +326,13 @@
           className: [regionClass, clusterClass].join(' '),
           sky_region_name: group.sky_region_name,
           system_names: [systemName],
-          item_count: group.item_count,
-          file_details: group.file_details,
+          item_count: systemFileCount,
+          file_details: systemFileDetails,
           title: itemContent + '<br/>' +
                  '时间: ' + group.start + '<br/>' +
                  '系统: ' + systemName + '<br/>' +
                  '天区: ' + groupKey + '<br/>' +
-                 '文件数量: ' + (group.item_count || 1)
+                 '文件数量: ' + systemFileCount
         });
       });
     });
@@ -366,11 +381,29 @@
   var totalSubgroups = 0;
   Object.keys(regionGroupStats).forEach(function(groupKey) {
     var systemsInRegion = new Set();
-    fitsData.forEach(function(item) {
-      if ((item.sky_region || 'Unknown') === groupKey) {
-        systemsInRegion.add(item.system_name || 'Unknown');
-      }
-    });
+
+    if (isClusteredData) {
+      // 聚类数据：从分组中获取系统信息
+      fitsData.forEach(function(group) {
+        if ((group.sky_region_name || 'Unknown') === groupKey) {
+          if (group.system_names && group.system_names.length > 0) {
+            group.system_names.forEach(function(sys) {
+              systemsInRegion.add(sys);
+            });
+          } else {
+            systemsInRegion.add('Unknown');
+          }
+        }
+      });
+    } else {
+      // 单文件数据：从单个项目中获取系统信息
+      fitsData.forEach(function(item) {
+        if ((item.sky_region || 'Unknown') === groupKey) {
+          systemsInRegion.add(item.system_name || 'Unknown');
+        }
+      });
+    }
+
     totalSubgroups += systemsInRegion.size;
   });
 
