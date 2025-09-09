@@ -157,10 +157,13 @@
 
   // 直接使用从 fits_data.js 加载的数据
 
-  // 统计完整天区并创建分组
+  // 全局变量
   var regionGroupStats = {};
   var regionToGroupMap = {};
   var systemStats = {};
+  var selectedSystems = new Set();
+  var selectedRegions = new Set();
+  var items, processedData;
 
   fitsData.forEach(function(item) {
     var region = item.sky_region || 'Unknown';
@@ -195,7 +198,7 @@
   });
 
   // 处理数据，设置为点类型、添加分组和tooltip
-  var processedData = fitsData.map(function(item) {
+  processedData = fitsData.map(function(item) {
     var region = item.sky_region || 'Unknown';
     var groupKey = regionToGroupMap[region];
     var groupId = groupKeyToGroupId[groupKey];
@@ -211,7 +214,7 @@
   });
 
   // Create a DataSet (allows two way data-binding)
-  var items = new vis.DataSet(processedData);
+  items = new vis.DataSet(processedData);
 
   // Configuration for the Timeline
   var options = {
@@ -232,72 +235,182 @@
   // Create a Timeline with groups
   var timeline = new vis.Timeline(container, items, groups, options);
 
-  // 显示系统列表
-  var systemListHtml = '';
-  var sortedSystems = Object.keys(systemStats).sort();
-  sortedSystems.forEach(function(system, index) {
-    var count = systemStats[system];
-    var colorClass = 'system-' + system.toLowerCase();
-    systemListHtml += '<span style="display: inline-block; margin: 2px 5px 2px 0; padding: 4px 8px; background-color: #e9ecef; border-radius: 12px; font-size: 12px;" class="' + colorClass + '">';
-    systemListHtml += system + ' (' + count + '个)';
-    systemListHtml += '</span>';
-  });
-  document.getElementById('system-list').innerHTML = systemListHtml;
+  // 更新过滤状态显示
+  function updateFilterStatus() {
+    var visibleItems = items.get({
+      filter: function(item) {
+        var systemMatch = selectedSystems.size === 0 || selectedSystems.has(item.system_name);
+        var regionMatch = selectedRegions.size === 0 || selectedRegions.has(regionToGroupMap[item.sky_region]);
+        return systemMatch && regionMatch;
+      }
+    });
 
-  // 显示天区列表
-  var regionHtml = '';
-  var sortedGroupKeys = Object.keys(regionGroupStats).sort();
-  sortedGroupKeys.forEach(function(groupKey, index) {
-    var count = regionGroupStats[groupKey].count;
-    regionHtml += '<span style="display: inline-block; margin: 2px 5px 2px 0; padding: 4px 8px; background-color: #e3f2fd; border-radius: 12px; font-size: 12px;" ';
-    regionHtml += 'title="天区: ' + groupKey + ', 文件数量: ' + count + '">';
-    regionHtml += groupKey + ' (' + count + '个)';
-    regionHtml += '</span>';
-  });
-  document.getElementById('region-list').innerHTML = regionHtml;
+    document.getElementById('visible-count').textContent = visibleItems.length;
+    document.getElementById('total-count').textContent = fitsData.length;
+  }
 
-      // Add event listener for selection
-      timeline.on('select', function (selection) {
-        if (selection.items.length > 0) {
-          var selectedId = selection.items[0];
-          var selectedItem = items.get(selectedId);
-          
-          // Display item details
-          var html = '<table style="width: 100%;">';
-          html += '<tr><td><strong>ID:</strong></td><td>' + selectedItem.id + '</td></tr>';
-          html += '<tr><td><strong>内容:</strong></td><td>' + selectedItem.content + '</td></tr>';
-          html += '<tr><td><strong>开始时间:</strong></td><td>' + selectedItem.start + '</td></tr>';
-          
-          if (selectedItem.sky_region) {
-            html += '<tr><td><strong>天区索引:</strong></td><td>' + selectedItem.sky_region + '</td></tr>';
-          }
-          
-          if (selectedItem.system_name) {
-            html += '<tr><td><strong>系统名称:</strong></td><td>' + selectedItem.system_name + '</td></tr>';
-          }
-          
-          if (selectedItem.timestamp) {
-            html += '<tr><td><strong>时间戳:</strong></td><td>' + selectedItem.timestamp + '</td></tr>';
-          }
-          
-          if (selectedItem.file_name) {
-            html += '<tr><td><strong>文件名:</strong></td><td>' + selectedItem.file_name + '</td></tr>';
-          }
-          
-          if (selectedItem.file_path) {
-            html += '<tr><td><strong>文件路径:</strong></td><td style="word-break: break-all;">' + selectedItem.file_path + '</td></tr>';
-          }
-          
-          html += '</table>';
-          
-          detailsDiv.innerHTML = html;
-          infoDiv.style.display = 'block';
-        } else {
-          infoDiv.style.display = 'none';
-        }
+  // 应用过滤器
+  function applyFilters() {
+    var filteredData = processedData.filter(function(item) {
+      var systemMatch = selectedSystems.size === 0 || selectedSystems.has(item.system_name);
+      var regionMatch = selectedRegions.size === 0 || selectedRegions.has(regionToGroupMap[item.sky_region]);
+      return systemMatch && regionMatch;
+    });
+
+    items.clear();
+    items.add(filteredData);
+    updateFilterStatus();
+  }
+
+  // 切换系统选择
+  function toggleSystem(system) {
+    if (selectedSystems.has(system)) {
+      selectedSystems.delete(system);
+    } else {
+      selectedSystems.add(system);
+    }
+    updateSystemDisplay();
+    applyFilters();
+  }
+
+  // 切换天区选择
+  function toggleRegion(region) {
+    if (selectedRegions.has(region)) {
+      selectedRegions.delete(region);
+    } else {
+      selectedRegions.add(region);
+    }
+    updateRegionDisplay();
+    applyFilters();
+  }
+
+  // 更新系统显示
+  function updateSystemDisplay() {
+    var systemListHtml = '';
+    var sortedSystems = Object.keys(systemStats).sort();
+    sortedSystems.forEach(function(system, index) {
+      var count = systemStats[system];
+      var isSelected = selectedSystems.has(system);
+      var className = isSelected ? 'filter-tag system-selected' : 'filter-tag unselected';
+      systemListHtml += '<span class="' + className + '" onclick="toggleSystem(\'' + system + '\')">';
+      systemListHtml += system + ' (' + count + '个)';
+      systemListHtml += '</span>';
+    });
+    document.getElementById('system-list').innerHTML = systemListHtml;
+  }
+
+  // 更新天区显示
+  function updateRegionDisplay() {
+    var regionHtml = '';
+    var sortedGroupKeys = Object.keys(regionGroupStats).sort();
+    sortedGroupKeys.forEach(function(groupKey, index) {
+      var count = regionGroupStats[groupKey].count;
+      var isSelected = selectedRegions.has(groupKey);
+      var className = isSelected ? 'filter-tag region-selected' : 'filter-tag unselected';
+      regionHtml += '<span class="' + className + '" onclick="toggleRegion(\'' + groupKey + '\')" ';
+      regionHtml += 'title="天区: ' + groupKey + ', 文件数量: ' + count + '">';
+      regionHtml += groupKey + ' (' + count + '个)';
+      regionHtml += '</span>';
+    });
+    document.getElementById('region-list').innerHTML = regionHtml;
+  }
+
+  // 初始化显示
+  updateSystemDisplay();
+  updateRegionDisplay();
+  updateFilterStatus();
+
+  // Add event listener for selection
+  timeline.on('select', function (selection) {
+    if (selection.items.length > 0) {
+      var selectedId = selection.items[0];
+      var selectedItem = items.get(selectedId);
+
+      // Display item details
+      var html = '<table style="width: 100%;">';
+      html += '<tr><td><strong>ID:</strong></td><td>' + selectedItem.id + '</td></tr>';
+      html += '<tr><td><strong>内容:</strong></td><td>' + selectedItem.content + '</td></tr>';
+      html += '<tr><td><strong>开始时间:</strong></td><td>' + selectedItem.start + '</td></tr>';
+
+      if (selectedItem.sky_region) {
+        html += '<tr><td><strong>天区索引:</strong></td><td>' + selectedItem.sky_region + '</td></tr>';
+      }
+
+      if (selectedItem.system_name) {
+        html += '<tr><td><strong>系统名称:</strong></td><td>' + selectedItem.system_name + '</td></tr>';
+      }
+
+      if (selectedItem.timestamp) {
+        html += '<tr><td><strong>时间戳:</strong></td><td>' + selectedItem.timestamp + '</td></tr>';
+      }
+
+      if (selectedItem.file_name) {
+        html += '<tr><td><strong>文件名:</strong></td><td>' + selectedItem.file_name + '</td></tr>';
+      }
+
+      if (selectedItem.file_path) {
+        html += '<tr><td><strong>文件路径:</strong></td><td style="word-break: break-all;">' + selectedItem.file_path + '</td></tr>';
+      }
+
+      html += '</table>';
+
+      detailsDiv.innerHTML = html;
+      infoDiv.style.display = 'block';
+    } else {
+      infoDiv.style.display = 'none';
+    }
   });
 
-  console.log('Timeline loaded with ' + fitsData.length + ' items');
+  console.log('Timeline loaded with ' + fitsData.length + ' items (fitsUsage - 带过滤功能)');
+</script>
+
+<script>
+  // 全局函数，供 HTML onclick 调用
+  function clearAllFilters() {
+    selectedSystems.clear();
+    selectedRegions.clear();
+    updateSystemDisplay();
+    updateRegionDisplay();
+    applyFilters();
+  }
+
+  function selectAllSystems() {
+    selectedSystems.clear();
+    Object.keys(systemStats).forEach(function(system) {
+      selectedSystems.add(system);
+    });
+    updateSystemDisplay();
+    applyFilters();
+  }
+
+  function selectAllRegions() {
+    selectedRegions.clear();
+    Object.keys(regionGroupStats).forEach(function(region) {
+      selectedRegions.add(region);
+    });
+    updateRegionDisplay();
+    applyFilters();
+  }
+
+  function toggleSystem(system) {
+    if (selectedSystems.has(system)) {
+      selectedSystems.delete(system);
+    } else {
+      selectedSystems.add(system);
+    }
+    updateSystemDisplay();
+    applyFilters();
+  }
+
+  function toggleRegion(region) {
+    if (selectedRegions.has(region)) {
+      selectedRegions.delete(region);
+    } else {
+      selectedRegions.add(region);
+    }
+    updateRegionDisplay();
+    applyFilters();
+  }
 </script>
 </body>
 </html>
