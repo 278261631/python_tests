@@ -546,18 +546,18 @@ class FitsFileFinderRipgrep:
 
             # 添加系统名称
             if info['system_name']:
-                content_parts.append(f"系统: {info['system_name']}")
+                content_parts.append(f"{info['system_name']}")
 
             # 添加天区索引
             if info['sky_region']:
-                content_parts.append(f"天区: {info['sky_region']}")
+                content_parts.append(f"{info['sky_region']}")
 
             # 如果没有提取到有效信息，使用文件名
             if not content_parts:
                 file_name = Path(info['original_path']).name
                 content_parts.append(f"文件: {file_name}")
 
-            content = " | ".join(content_parts)
+            content = "|".join(content_parts)
 
             # 处理时间戳
             start_time = None
