@@ -115,6 +115,19 @@
     .vis-item.region-unknown {
       border-left: 4px solid #9e9e9e !important;
     }
+
+    /* 文件图标样式 */
+    .file-icon-primary {
+      color: #4CAF50 !important;
+      font-weight: bold;
+      margin-right: 2px;
+    }
+
+    .file-icon-secondary {
+      color: #FFC107 !important;
+      font-weight: bold;
+      margin-right: 4px;
+    }
   </style>
 
   <script src="../../dist/vis.js"></script>
@@ -332,7 +345,8 @@
                  '时间: ' + group.start + '<br/>' +
                  '系统: ' + systemName + '<br/>' +
                  '天区: ' + groupKey + '<br/>' +
-                 '文件数量: ' + systemFileCount
+                 '文件数量: ' + systemFileCount + '<br/>' +
+                 '图标说明: ⓕ(绿色-主要) ⓟⓒⓓⓧ(黄色-辅助)'
         });
       });
     });
@@ -369,7 +383,8 @@
                '时间: ' + item.start + '<br/>' +
                '系统: ' + systemName + '<br/>' +
                '天区: ' + region + '<br/>' +
-               '文件: ' + item.file_name  // 使用 title 属性作为 tooltip
+               '文件: ' + item.file_name + '<br/>' +
+               '图标说明: ⓕ(绿色-主要) ⓟⓒⓓⓧ(黄色-辅助)'  // 使用 title 属性作为 tooltip
       };
     });
   }
@@ -570,7 +585,11 @@
           html += '<tr><td><strong>包含文件:</strong></td><td>';
           selectedItem.file_details.forEach(function(file, index) {
             if (index > 0) html += '<br/>';
-            html += file.file_name || file.file_path;
+            var fileName = file.file_name || file.file_path;
+            // 添加文字图标
+            var icons = '<span class="file-icon-primary">ⓕ</span>' +
+                       '<span class="file-icon-secondary">ⓟⓒⓓⓧ</span>';
+            html += icons + fileName;
           });
           html += '</td></tr>';
         }
@@ -589,7 +608,10 @@
         }
 
         if (selectedItem.file_name) {
-          html += '<tr><td><strong>文件名:</strong></td><td>' + selectedItem.file_name + '</td></tr>';
+          // 添加文字图标
+          var icons = '<span class="file-icon-primary">ⓕ</span>' +
+                     '<span class="file-icon-secondary">ⓟⓒⓓⓧ</span>';
+          html += '<tr><td><strong>文件名:</strong></td><td>' + icons + selectedItem.file_name + '</td></tr>';
         }
 
         if (selectedItem.file_path) {
