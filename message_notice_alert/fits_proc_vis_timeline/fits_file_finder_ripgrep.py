@@ -361,6 +361,144 @@ class FitsFileFinderRipgrep:
 
         return result
 
+    def cluster_data_by_region_and_time(self, extracted_info: List[Dict[str, Optional[str]]], time_threshold_minutes: int = 30) -> List[Dict[str, Any]]:
+        """
+        对数据进行类聚分组，依据时间和sky_region的前四位
+
+        Args:
+            extracted_info: 提取的文件信息列表
+            time_threshold_minutes: 时间阈值（分钟），相邻不超过此时间的归为一组
+
+        Returns:
+            List[Dict[str, Any]]: 分组结果列表，每个分组包含：
+                - group_id: 分组ID
+                - sky_region_name: 天区名称（前四位）
+                - start_time: 分组开始时间
+                - end_time: 分组结束时间
+                - items: 分组内的数据项列表（按时间排序）
+                - count: 分组内项目数量
+        """
+        from collections import defaultdict
+
+        # 首先按sky_region的前四位分组
+        region_groups = defaultdict(list)
+
+        for info in extracted_info:
+            sky_region = info.get('sky_region', '')
+            if sky_region:
+                sky_region_name = sky_region[:4]  # 取前四位
+            else:
+                sky_region_name = 'Unknown'
+
+            # 解析时间戳
+            parsed_time = None
+            if info.get('timestamp'):
+                try:
+                    timestamp_str = info['timestamp'].replace('UTC', '')
+                    date_part = timestamp_str[:8]  # 20250421
+                    time_part = timestamp_str[9:]  # 170640
+
+                    year = int(date_part[:4])
+                    month = int(date_part[4:6])
+                    day = int(date_part[6:8])
+                    hour = int(time_part[:2])
+                    minute = int(time_part[2:4])
+                    second = int(time_part[4:6])
+
+                    parsed_time = datetime(year, month, day, hour, minute, second)
+                except Exception as e:
+                    self.logger.debug(f"时间解析失败 {info['timestamp']}: {e}")
+                    parsed_time = None
+
+            # 添加解析后的时间到信息中
+            info_with_time = info.copy()
+            info_with_time['parsed_time'] = parsed_time
+
+            region_groups[sky_region_name].append(info_with_time)
+
+        # 对每个天区组内的数据按时间进行二级分组
+        final_groups = []
+        group_id = 1
+
+        for sky_region_name, items in region_groups.items():
+            # 按时间排序（没有时间的放在最后）
+            items_with_time = [item for item in items if item['parsed_time'] is not None]
+            items_without_time = [item for item in items if item['parsed_time'] is None]
+
+            items_with_time.sort(key=lambda x: x['parsed_time'])
+
+            # 对有时间的项目进行时间聚类
+            if items_with_time:
+                current_group = [items_with_time[0]]
+
+                for item in items_with_time[1:]:
+                    # 计算与当前组最后一个项目的时间差
+                    time_diff = abs((item['parsed_time'] - current_group[-1]['parsed_time']).total_seconds() / 60)
+
+                    if time_diff <= time_threshold_minutes:
+                        # 时间差在阈值内，加入当前组
+                        current_group.append(item)
+                    else:
+                        # 时间差超过阈值，创建新组
+                        # 先保存当前组
+                        group_start_time = current_group[0]['parsed_time']
+                        group_end_time = current_group[-1]['parsed_time']
+
+                        final_groups.append({
+                            'group_id': group_id,
+                            'sky_region_name': sky_region_name,
+                            'start_time': group_start_time,
+                            'end_time': group_end_time,
+                            'items': current_group,
+                            'count': len(current_group)
+                        })
+                        group_id += 1
+
+                        # 开始新组
+                        current_group = [item]
+
+                # 保存最后一个组
+                if current_group:
+                    group_start_time = current_group[0]['parsed_time']
+                    group_end_time = current_group[-1]['parsed_time']
+
+                    final_groups.append({
+                        'group_id': group_id,
+                        'sky_region_name': sky_region_name,
+                        'start_time': group_start_time,
+                        'end_time': group_end_time,
+                        'items': current_group,
+                        'count': len(current_group)
+                    })
+                    group_id += 1
+
+            # 处理没有时间的项目，单独成组
+            if items_without_time:
+                final_groups.append({
+                    'group_id': group_id,
+                    'sky_region_name': sky_region_name,
+                    'start_time': None,
+                    'end_time': None,
+                    'items': items_without_time,
+                    'count': len(items_without_time)
+                })
+                group_id += 1
+
+        # 按天区名称和开始时间排序
+        final_groups.sort(key=lambda x: (x['sky_region_name'], x['start_time'] if x['start_time'] else datetime.min))
+
+        self.logger.info(f"数据聚类完成: 共 {len(final_groups)} 个分组")
+        for group in final_groups:
+            if group['start_time'] and group['end_time']:
+                duration = (group['end_time'] - group['start_time']).total_seconds() / 60
+                self.logger.debug(f"分组 {group['group_id']}: {group['sky_region_name']}, "
+                                f"{group['count']} 项, 时长 {duration:.1f} 分钟")
+            else:
+                self.logger.debug(f"分组 {group['group_id']}: {group['sky_region_name']}, "
+                                f"{group['count']} 项, 无时间信息")
+
+        return final_groups
+
     def extract_batch_fits_info(self, file_paths: List[str]) -> List[Dict[str, Optional[str]]]:
         """
         批量提取FITS文件信息
@@ -473,7 +611,7 @@ class FitsFileFinderRipgrep:
         self.logger.info(f"搜索完成，共找到 {len(found_files)} 个匹配文件")
         return found_files
     
-    def save_results(self, files: List[str], output_file: str = None, include_extracted_info: bool = True) -> bool:
+    def save_results(self, files: List[str], output_file: str = None, include_extracted_info: bool = True, use_clustering: bool = True, time_threshold_minutes: int = 30) -> bool:
         """
         保存搜索结果到文件
 
@@ -481,6 +619,8 @@ class FitsFileFinderRipgrep:
             files: 文件路径列表
             output_file: 输出文件路径，默认为None（自动生成）
             include_extracted_info: 是否包含提取的文件信息，默认为True
+            use_clustering: 是否使用聚类分组
+            time_threshold_minutes: 时间阈值（分钟）
 
         Returns:
             bool: 保存成功返回True，否则返回False
@@ -550,7 +690,7 @@ class FitsFileFinderRipgrep:
                 if timeline_js_output == output_file:  # 如果没有.txt扩展名
                     timeline_js_output = output_file + '.js'
 
-            self.save_timeline_js(files, timeline_js_output)
+            self.save_timeline_js(files, timeline_js_output, use_clustering, time_threshold_minutes)
 
             return True
 
@@ -647,6 +787,113 @@ class FitsFileFinderRipgrep:
 
         return timeline_data
 
+    def convert_clustered_data_to_timeline_format(self, files: List[str], use_clustering: bool = True, time_threshold_minutes: int = 30) -> List[Dict[str, Any]]:
+        """
+        将FITS文件信息转换为vis.js Timeline格式的JSON数据，支持聚类分组
+
+        Args:
+            files: 文件路径列表
+            use_clustering: 是否使用聚类分组
+            time_threshold_minutes: 时间阈值（分钟）
+
+        Returns:
+            List[Dict[str, Any]]: Timeline格式的数据列表
+        """
+        extracted_info = self.extract_batch_fits_info(files)
+
+        if not use_clustering:
+            # 不使用聚类，调用原来的方法
+            return self.convert_to_timeline_format(files)
+
+        # 使用聚类分组
+        clustered_groups = self.cluster_data_by_region_and_time(extracted_info, time_threshold_minutes)
+        timeline_data = []
+
+        for group in clustered_groups:
+            # 为每个分组创建一个Timeline项目
+            group_id = group['group_id']
+            sky_region_name = group['sky_region_name']
+            items = group['items']
+            count = group['count']
+            start_time = group['start_time']
+            end_time = group['end_time']
+
+            # 构建分组的显示内容
+            content_parts = [f"{sky_region_name}"]
+
+            # 添加系统名称统计
+            system_names = set()
+            for item in items:
+                if item.get('system_name'):
+                    system_names.add(item['system_name'])
+
+            if system_names:
+                content_parts.append(f"系统: {', '.join(sorted(system_names))}")
+
+            content_parts.append(f"({count}个文件)")
+            content = " | ".join(content_parts)
+
+            # 处理时间
+            if start_time and end_time:
+                start_time_str = start_time.strftime("%Y-%m-%dT%H:%M:%S")
+                end_time_str = end_time.strftime("%Y-%m-%dT%H:%M:%S")
+
+                # 如果开始和结束时间相同，使用点类型；否则使用范围类型
+                if start_time == end_time:
+                    timeline_item = {
+                        "id": group_id,
+                        "content": content,
+                        "start": start_time_str,
+                        "type": "point"
+                    }
+                else:
+                    timeline_item = {
+                        "id": group_id,
+                        "content": content,
+                        "start": start_time_str,
+                        "end": end_time_str,
+                        "type": "range"
+                    }
+            else:
+                # 没有时间信息，使用序号作为时间轴位置
+                base_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+                offset_date = base_date + timedelta(days=group_id-1)
+                start_time_str = offset_date.strftime("%Y-%m-%d")
+
+                timeline_item = {
+                    "id": group_id,
+                    "content": content,
+                    "start": start_time_str,
+                    "type": "point"
+                }
+
+            # 添加分组信息
+            timeline_item["sky_region_name"] = sky_region_name
+            timeline_item["group_id"] = group_id
+            timeline_item["item_count"] = count
+            timeline_item["system_names"] = list(system_names)
+
+            # 添加分组内的详细文件信息
+            file_details = []
+            for item in items:
+                file_detail = {
+                    "file_path": item['original_path'],
+                    "file_name": Path(item['original_path']).name,
+                    "sky_region": item.get('sky_region'),
+                    "system_name": item.get('system_name'),
+                    "timestamp": item.get('timestamp')
+                }
+                file_details.append(file_detail)
+
+            timeline_item["file_details"] = file_details
+
+            # 根据天区名称设置样式类
+            timeline_item["className"] = f"region-{sky_region_name.lower()}"
+
+            timeline_data.append(timeline_item)
+
+        return timeline_data
+
     def save_timeline_json(self, files: List[str], output_file: str = None) -> bool:
         """
         将搜索结果保存为vis.js Timeline格式的JSON文件
@@ -684,13 +931,15 @@ class FitsFileFinderRipgrep:
             self.logger.error(f"保存Timeline格式数据失败: {e}")
             return False
 
-    def save_timeline_js(self, files: List[str], output_file: str = None) -> bool:
+    def save_timeline_js(self, files: List[str], output_file: str = None, use_clustering: bool = True, time_threshold_minutes: int = 30) -> bool:
         """
         将搜索结果保存为vis.js Timeline格式的JavaScript文件
 
         Args:
             files: 文件路径列表
             output_file: 输出文件路径，默认为None（自动生成）
+            use_clustering: 是否使用聚类分组
+            time_threshold_minutes: 时间阈值（分钟）
 
         Returns:
             bool: 保存成功返回True，否则返回False
@@ -709,13 +958,16 @@ class FitsFileFinderRipgrep:
                 output_file = f"fits_data_{timestamp}.js"
 
         try:
-            timeline_data = self.convert_to_timeline_format(files)
+            timeline_data = self.convert_clustered_data_to_timeline_format(files, use_clustering, time_threshold_minutes)
 
             # 生成JavaScript文件内容
+            clustering_info = "启用聚类分组" if use_clustering else "禁用聚类分组"
             js_content = f'''// FITS 数据 - 由 fits_file_finder_ripgrep.py 自动生成
 // 生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 // 记录数量: {len(timeline_data)}
 // 搜索目录: {', '.join(self.config.get('search_directories', []))}
+// 聚类设置: {clustering_info}
+// 时间阈值: {time_threshold_minutes} 分钟
 
 var fitsData = {json.dumps(timeline_data, ensure_ascii=False, indent=2)};
 
@@ -725,8 +977,16 @@ console.log('FITS 数据已加载，共 ' + fitsData.length + ' 条记录');
 // 数据按系统分组统计
 var systemStats = {{}};
 fitsData.forEach(function(item) {{
-    var system = item.system_name || 'Unknown';
-    systemStats[system] = (systemStats[system] || 0) + 1;
+    if (item.system_names && item.system_names.length > 0) {{
+        // 聚类模式：统计系统名称数组
+        item.system_names.forEach(function(system) {{
+            systemStats[system] = (systemStats[system] || 0) + (item.item_count || 1);
+        }});
+    }} else {{
+        // 单文件模式：统计单个系统名称
+        var system = item.system_name || 'Unknown';
+        systemStats[system] = (systemStats[system] || 0) + 1;
+    }}
 }});
 console.log('系统分布:', systemStats);
 '''
@@ -755,6 +1015,10 @@ def main():
     parser.add_argument('-d', '--date', help='日期后缀，格式为yyyymmdd (默认: 当前日期)')
     parser.add_argument('-all', '--all', action='store_true',
                        help='忽略指定的日期，搜索所有基础目录')
+    parser.add_argument('--no-clustering', action='store_true',
+                       help='禁用数据聚类分组，使用原始的单个文件模式')
+    parser.add_argument('--time-threshold', type=int, default=30,
+                       help='时间聚类阈值（分钟），默认30分钟')
 
     args = parser.parse_args()
 
@@ -798,7 +1062,8 @@ def main():
 
     # 保存结果（默认包含提取信息和Timeline格式）
     if found_files:
-        finder.save_results(found_files, args.output)
+        use_clustering = not args.no_clustering
+        finder.save_results(found_files, args.output, True, use_clustering, args.time_threshold)
 
 
 if __name__ == "__main__":
