@@ -103,14 +103,7 @@
 </head>
 <body>
 
-<h1>FITS文件时间线展示</h1>
-<p>
-  这是一个展示FITS文件信息的时间线。数据来自fits_file_finder_ripgrep.py的输出。
-  您可以移动和缩放时间线，选择项目查看详细信息。
-</p>
-
 <div id="data-summary" style="background-color: white; border: 1px solid #ddd; border-radius: 4px; padding: 15px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-  <h3>数据过滤器</h3>
   <div class="filter-controls">
     <button onclick="clearAllFilters()">清除所有过滤</button>
     <button onclick="selectAllSystems()">选择所有系统</button>
@@ -136,7 +129,6 @@
 <div id="visualization"></div>
 
 <div class="info-panel">
-  <h3>图例说明：</h3>
   <div style="display: flex; gap: 20px; align-items: center;">
     <div style="display: flex; align-items: center; gap: 5px;">
       <span style="display: inline-block; width: 12px; height: 12px; background-color: #2196f3; border: 2px solid #1976d2; border-radius: 50%;"></span>
@@ -151,9 +143,7 @@
       <span>GY3系统</span>
     </div>
   </div>
-  <p style="margin-top: 10px; font-size: 14px; color: #666;">
-    <strong>使用说明：</strong>每个点代表一个FITS文件，将鼠标悬停在点上可查看详细信息，点击可查看完整详情。
-  </p>
+
 </div>
 
 <div id="info" class="info-panel" style="display: none;">
