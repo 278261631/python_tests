@@ -240,6 +240,53 @@ class FitsFileFinderRipgrep:
         
         return False
     
+    def _get_file_type_from_path(self, path: str) -> str:
+        """
+        根据路径确定文件类型
+
+        Args:
+            path: 文件路径
+
+        Returns:
+            str: 文件类型标识
+        """
+        path_includes = self.config.get('options', {}).get('path_includes', [])
+
+        # 标准化路径用于匹配
+        normalized_path = path.replace('\\', '/')
+
+        for include_config in path_includes:
+            include_type = include_config.get('type', 'regex')
+            include_pattern = include_config.get('pattern', '')
+            case_sensitive = include_config.get('case_sensitive', False)
+            file_type = include_config.get('file_type', 'unknown')
+
+            if not case_sensitive:
+                normalized_path_check = normalized_path.lower()
+                include_pattern_check = include_pattern.lower()
+            else:
+                normalized_path_check = normalized_path
+                include_pattern_check = include_pattern
+
+            try:
+                if include_type == 'regex':
+                    flags = 0 if case_sensitive else re.IGNORECASE
+                    if re.search(include_pattern_check, normalized_path_check, flags):
+                        return file_type
+                elif include_type == 'contains':
+                    if include_pattern_check in normalized_path_check:
+                        return file_type
+                elif include_type == 'glob':
+                    import fnmatch
+                    if fnmatch.fnmatch(normalized_path_check, include_pattern_check):
+                        return file_type
+
+            except Exception as e:
+                self.logger.error(f"文件类型判断规则错误: {e}")
+                continue
+
+        return 'unknown'
+
     def _should_include_path(self, path: str) -> bool:
         """
         检查路径是否应该被包含（正向过滤）
@@ -499,6 +546,29 @@ class FitsFileFinderRipgrep:
 
         return final_groups
 
+    def get_file_lists_for_processing(self) -> Dict[str, List[str]]:
+        """
+        获取用于后续处理的文件分类列表
+
+        Returns:
+            Dict[str, List[str]]: 包含以下键的字典
+                - 'axy_files': .fits.axy 文件列表
+                - 'diff1_files': .diff1.fits 文件列表
+                - 'fixedsrc_files': .fixedsrc.cat 文件列表
+                - 'mo_files': .mo.cat 文件列表
+        """
+        files_by_type = self.get_files_by_type()
+
+        # 重新组织为更明确的命名
+        file_lists = {
+            'axy_files': files_by_type.get('axy', []),
+            'diff1_files': files_by_type.get('diff1', []),
+            'fixedsrc_files': files_by_type.get('fixedsrc', []),
+            'mo_files': files_by_type.get('mo', [])
+        }
+
+        return file_lists
+
     def extract_batch_fits_info(self, file_paths: List[str]) -> List[Dict[str, Optional[str]]]:
         """
         批量提取FITS文件信息
@@ -516,24 +586,24 @@ class FitsFileFinderRipgrep:
 
         return results
 
-    def find_files(self) -> List[str]:
+    def find_files_by_type(self) -> Dict[str, List[str]]:
         """
-        使用ripgrep查找匹配的文件
+        使用ripgrep查找匹配的文件，按文件类型分类返回
 
         Returns:
-            List[str]: 匹配的文件路径列表
+            Dict[str, List[str]]: 按文件类型分类的文件路径字典
         """
         if not self.config:
             self.logger.error("配置未加载，请先调用load_config()")
-            return []
+            return {}
 
-        found_files = []
+        files_by_type = {}
         search_directories = self._get_search_directories_with_date()
         patterns = self._build_ripgrep_patterns()
 
         if not patterns:
             self.logger.warning("没有找到有效的搜索模式")
-            return []
+            return {}
 
         self.logger.info(f"开始搜索，目录数量: {len(search_directories)}, 模式数量: {len(patterns)}")
         if self.ignore_date:
@@ -563,15 +633,13 @@ class FitsFileFinderRipgrep:
 
                     try:
                         # 使用python-ripgrep的files函数搜索文件
-                        # 对于所有模式类型，都使用files函数搜索文件名
                         files_result = ripgrep.files(
-                            patterns=[pattern],  # 注意这里是patterns列表
-                            paths=[normalized_dir],  # 搜索路径列表
-                            globs=[pattern] if pattern_type == 'glob' else None  # glob模式
+                            patterns=[pattern],
+                            paths=[normalized_dir],
+                            globs=[pattern] if pattern_type == 'glob' else None
                         )
 
                         for file_info in files_result:
-                            # files函数返回的可能是字符串或字典
                             if isinstance(file_info, str):
                                 file_path = file_info
                             elif isinstance(file_info, dict):
@@ -590,26 +658,75 @@ class FitsFileFinderRipgrep:
                             if not self._should_include_path(file_path):
                                 continue
 
-                            if file_path not in found_files:
-                                found_files.append(file_path)
-                                self.logger.debug(f"找到匹配文件: {file_path}")
+                            # 确定文件类型
+                            file_type = self._get_file_type_from_path(file_path)
+
+                            # 按类型分类存储
+                            if file_type not in files_by_type:
+                                files_by_type[file_type] = []
+
+                            if file_path not in files_by_type[file_type]:
+                                files_by_type[file_type].append(file_path)
+                                self.logger.debug(f"找到匹配文件 ({file_type}): {file_path}")
 
                     except Exception as e:
                         self.logger.error(f"执行ripgrep时出错: {e}")
                         continue
-                        
+
             except Exception as e:
                 self.logger.error(f"搜索目录时出错 {normalized_dir}: {e}")
                 continue
-        
+
         # 应用最大结果数限制
         max_results = self.config.get('options', {}).get('max_results', 10000)
-        if len(found_files) > max_results:
-            self.logger.warning(f"结果数量 ({len(found_files)}) 超过限制 ({max_results})，截取前 {max_results} 个结果")
-            found_files = found_files[:max_results]
-        
-        self.logger.info(f"搜索完成，共找到 {len(found_files)} 个匹配文件")
-        return found_files
+        total_files = sum(len(files) for files in files_by_type.values())
+
+        if total_files > max_results:
+            self.logger.warning(f"结果数量 ({total_files}) 超过限制 ({max_results})，按类型截取结果")
+            # 按比例截取每种类型的文件
+            for file_type in files_by_type:
+                current_count = len(files_by_type[file_type])
+                if current_count > 0:
+                    ratio = current_count / total_files
+                    type_limit = int(max_results * ratio)
+                    if type_limit > 0:
+                        files_by_type[file_type] = files_by_type[file_type][:type_limit]
+
+        # 统计结果
+        for file_type, files in files_by_type.items():
+            self.logger.info(f"搜索完成，{file_type} 类型找到 {len(files)} 个文件")
+
+        total_found = sum(len(files) for files in files_by_type.values())
+        self.logger.info(f"搜索完成，总共找到 {total_found} 个匹配文件")
+
+        return files_by_type
+
+    def find_files(self) -> List[str]:
+        """
+        使用ripgrep查找匹配的文件（兼容性方法）
+
+        Returns:
+            List[str]: 匹配的文件路径列表
+        """
+        files_by_type = self.find_files_by_type()
+        # 合并所有类型的文件
+        all_files = []
+        for files in files_by_type.values():
+            all_files.extend(files)
+        return all_files
+
+    def get_files_by_type(self) -> Dict[str, List[str]]:
+        """
+        获取按类型分类的文件列表（主要接口）
+
+        Returns:
+            Dict[str, List[str]]: 按文件类型分类的文件路径字典
+                - 'axy': .fits.axy 文件列表
+                - 'diff1': .diff1.fits 文件列表
+                - 'fixedsrc': .fixedsrc.cat 文件列表
+                - 'mo': .mo.cat 文件列表
+        """
+        return self.find_files_by_type()
     
     def save_results(self, files: List[str], output_file: str = None, include_extracted_info: bool = True, use_clustering: bool = True, time_threshold_minutes: int = 30) -> bool:
         """
@@ -696,6 +813,102 @@ class FitsFileFinderRipgrep:
 
         except Exception as e:
             self.logger.error(f"保存结果失败: {e}")
+            return False
+
+    def save_results_by_type(self, files_by_type: Dict[str, List[str]], output_file: str = None, include_extracted_info: bool = True, use_clustering: bool = True, time_threshold_minutes: int = 30) -> bool:
+        """
+        保存按类型分类的搜索结果到文件
+
+        Args:
+            files_by_type: 按文件类型分类的文件路径字典
+            output_file: 输出文件路径，默认为None（自动生成）
+            include_extracted_info: 是否包含提取的文件信息，默认为True
+            use_clustering: 是否使用聚类分组
+            time_threshold_minutes: 时间阈值（分钟）
+
+        Returns:
+            bool: 保存成功返回True，否则返回False
+        """
+        if output_file is None:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            output_file = f"fits_search_results_by_type_{timestamp}.txt"
+
+        try:
+            total_files = sum(len(files) for files in files_by_type.values())
+
+            with open(output_file, 'w', encoding='utf-8') as f:
+                f.write(f"FITS文件搜索结果 (按类型分类)\n")
+                f.write(f"搜索时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write(f"文件类型数量: {len(files_by_type)}\n")
+                f.write(f"总文件数量: {total_files}\n")
+                f.write("=" * 80 + "\n\n")
+
+                # 按文件类型分别处理
+                for file_type, files in files_by_type.items():
+                    if not files:
+                        continue
+
+                    f.write(f"文件类型: {file_type.upper()}\n")
+                    f.write(f"文件数量: {len(files)}\n")
+                    f.write("-" * 60 + "\n")
+
+                    if include_extracted_info:
+                        # 提取文件信息并以表格形式保存
+                        f.write("文件信息提取结果:\n")
+                        f.write(f"{'序号':<4} {'天区索引':<12} {'系统名称':<12} {'时间戳':<20} {'文件路径'}\n")
+                        f.write("-" * 80 + "\n")
+
+                        extracted_info = self.extract_batch_fits_info(files)
+                        successful_extractions = 0
+
+                        for i, info in enumerate(extracted_info, 1):
+                            sky_region = info['sky_region'] or 'N/A'
+                            system_name = info['system_name'] or 'N/A'
+                            timestamp = info['timestamp'] or 'N/A'
+                            file_path = info['original_path']
+
+                            # 统计成功提取的数量
+                            if any(info[key] for key in ['sky_region', 'system_name', 'timestamp']):
+                                successful_extractions += 1
+
+                            f.write(f"{i:<4} {sky_region:<12} {system_name:<12} {timestamp:<20} {file_path}\n")
+
+                        f.write("-" * 80 + "\n")
+                        f.write(f"信息提取统计: 总文件数={len(files)}, 成功提取={successful_extractions}, 成功率={successful_extractions/len(files)*100:.1f}%\n")
+
+                    # 保存完整的文件路径列表
+                    f.write("\n完整文件路径列表:\n")
+                    f.write("-" * 50 + "\n")
+                    for i, file_path in enumerate(files, 1):
+                        f.write(f"{i:4d}. {file_path}\n")
+
+                    f.write("\n" + "=" * 80 + "\n\n")
+
+            self.logger.info(f"分类搜索结果已保存到: {output_file}")
+
+            # 生成Timeline格式的JavaScript文件（合并所有类型）
+            all_files = []
+            for files in files_by_type.values():
+                all_files.extend(files)
+
+            if all_files:
+                config_timeline_js_output = self.config.get('options', {}).get('output_files', {}).get('timeline_js')
+                if config_timeline_js_output:
+                    timeline_js_output = config_timeline_js_output
+                    timeline_dir = os.path.dirname(timeline_js_output)
+                    if timeline_dir and not os.path.exists(timeline_dir):
+                        os.makedirs(timeline_dir, exist_ok=True)
+                else:
+                    timeline_js_output = output_file.replace('.txt', '.js')
+                    if timeline_js_output == output_file:
+                        timeline_js_output = output_file + '.js'
+
+                self.save_timeline_js(all_files, timeline_js_output, use_clustering, time_threshold_minutes)
+
+            return True
+
+        except Exception as e:
+            self.logger.error(f"保存分类结果失败: {e}")
             return False
 
     def convert_to_timeline_format(self, files: List[str]) -> List[Dict[str, Any]]:
@@ -1034,36 +1247,58 @@ def main():
         print(f"错误: 无法加载配置文件 {args.config}")
         sys.exit(1)
     
-    # 查找文件
-    found_files = finder.find_files()
-    
+    # 默认按类型分类搜索
+    files_by_type = finder.get_files_by_type()
+
     # 显示结果
-    print(f"\n搜索完成！找到 {len(found_files)} 个匹配文件:")
+    total_files = sum(len(files) for files in files_by_type.values())
+    print(f"\n搜索完成！按类型找到 {total_files} 个匹配文件:")
 
-    if args.extract_info and found_files:
-        # 提取并显示文件信息
-        print("\n提取的文件信息:")
-        print("-" * 80)
-        print(f"{'序号':<4} {'天区索引':<10} {'系统名称':<10} {'时间戳':<20} {'文件路径'}")
-        print("-" * 80)
+    for file_type, files in files_by_type.items():
+        print(f"  {file_type.upper()}: {len(files)} 个文件")
 
-        extracted_info = finder.extract_batch_fits_info(found_files)
-        for i, info in enumerate(extracted_info, 1):
-            sky_region = info['sky_region'] or 'N/A'
-            system_name = info['system_name'] or 'N/A'
-            timestamp = info['timestamp'] or 'N/A'
-            file_path = Path(info['original_path']).name  # 只显示文件名
+    if args.extract_info:
+        # 按类型显示文件信息
+        for file_type, files in files_by_type.items():
+            if not files:
+                continue
 
-            print(f"{i:<4} {sky_region:<10} {system_name:<10} {timestamp:<20} {file_path}")
+            print(f"\n{file_type.upper()} 类型文件信息:")
+            print("-" * 80)
+            print(f"{'序号':<4} {'天区索引':<10} {'系统名称':<10} {'时间戳':<20} {'文件路径'}")
+            print("-" * 80)
+
+            extracted_info = finder.extract_batch_fits_info(files)
+            for i, info in enumerate(extracted_info, 1):
+                sky_region = info['sky_region'] or 'N/A'
+                system_name = info['system_name'] or 'N/A'
+                timestamp = info['timestamp'] or 'N/A'
+                file_path = Path(info['original_path']).name
+
+                print(f"{i:<4} {sky_region:<10} {system_name:<10} {timestamp:<20} {file_path}")
     else:
-        # 普通显示模式
-        for i, file_path in enumerate(found_files, 1):
-            print(f"{i:4d}. {file_path}")
+        # 按类型显示文件路径（简化显示，只显示前5个）
+        for file_type, files in files_by_type.items():
+            if not files:
+                continue
+            print(f"\n{file_type.upper()} 类型文件（显示前5个）:")
+            for i, file_path in enumerate(files[:5], 1):
+                print(f"{i:4d}. {Path(file_path).name}")
+            if len(files) > 5:
+                print(f"     ... 还有 {len(files) - 5} 个文件")
 
-    # 保存结果（默认包含提取信息和Timeline格式）
-    if found_files:
+    # 保存分类结果
+    if files_by_type:
         use_clustering = not args.no_clustering
-        finder.save_results(found_files, args.output, True, use_clustering, args.time_threshold)
+        finder.save_results_by_type(files_by_type, args.output, True, use_clustering, args.time_threshold)
+
+        # 输出分类列表信息供后续使用
+        print(f"\n文件分类列表已准备完成:")
+        print(f"  axy_files: {len(files_by_type.get('axy', []))} 个 .fits.axy 文件")
+        print(f"  diff1_files: {len(files_by_type.get('diff1', []))} 个 .diff1.fits 文件")
+        print(f"  fixedsrc_files: {len(files_by_type.get('fixedsrc', []))} 个 .fixedsrc.cat 文件")
+        print(f"  mo_files: {len(files_by_type.get('mo', []))} 个 .mo.cat 文件")
+        print(f"  可通过 finder.get_files_by_type() 获取所有分类列表")
 
 
 if __name__ == "__main__":

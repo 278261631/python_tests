@@ -9,10 +9,10 @@
     ],
     "file_patterns": [
         {
-            "type": "glob",
-            "pattern": "*.fit",
+            "type": "regex",
+            "pattern": ".*\\.(fits\\.axy|diff1\\.fits|fixedsrc\\.cat|mo\\.cat)$",
             "case_sensitive": false,
-            "description": "所有.fit文件"
+            "description": "所有目标文件类型"
         }
     ],
     "options": {
@@ -44,9 +44,31 @@
         "path_includes": [
             {
                 "type": "regex",
-                "pattern": "\\d{8}/K\\d{3}/GY\\d_K\\d{3}-.*?\\.fit$",
+                "pattern": "\\d{8}/K\\d{3}/redux/GY\\d_K\\d{3}-.*?\\.fits\\.axy$",
                 "case_sensitive": false,
-                "description": "只搜索.fit文件"
+                "description": "搜索.fits.axy文件",
+                "file_type": "axy"
+            },
+            {
+                "type": "regex",
+                "pattern": "\\d{8}/K\\d{3}/redux/GY\\d_K\\d{3}-.*?\\.diff1\\.fits$",
+                "case_sensitive": false,
+                "description": "搜索.diff1.fits文件",
+                "file_type": "diff1"
+            },
+            {
+                "type": "regex",
+                "pattern": "\\d{8}/K\\d{3}/redux/GY\\d_K\\d{3}-.*?\\.fixedsrc\\.cat$",
+                "case_sensitive": false,
+                "description": "搜索.fixedsrc.cat文件",
+                "file_type": "fixedsrc"
+            },
+            {
+                "type": "regex",
+                "pattern": "\\d{8}/K\\d{3}/redux/GY\\d_K\\d{3}-.*?\\.mo\\.cat$",
+                "case_sensitive": false,
+                "description": "搜索.mo.cat文件",
+                "file_type": "mo"
             }
         ],
         "output_files": {
