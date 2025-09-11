@@ -13,6 +13,7 @@ import json
 import re
 import argparse
 import logging
+import shutil
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime, timedelta
@@ -28,7 +29,7 @@ except ImportError:
 class FitsFileFinderRipgrep:
     """基于Ripgrep的FITS文件查找器类"""
     
-    def __init__(self, config_file: str = "fits_finder_config.json", date_suffix: str = None, ignore_date: bool = False):
+    def __init__(self, config_file: str = "fits_finder_config.json", date_suffix: str = None, ignore_date: bool = False, output_dir: str = None):
         """
         初始化文件查找器
 
@@ -36,11 +37,14 @@ class FitsFileFinderRipgrep:
             config_file: 配置文件路径
             date_suffix: 日期后缀，格式为yyyymmdd，默认为当前日期
             ignore_date: 是否忽略日期后缀，直接搜索基础目录
+            output_dir: 输出目录路径，如果为None则默认使用"dest"目录
         """
         self.config_file = config_file
         self.config = {}
         self.ignore_date = ignore_date
         self.date_suffix = date_suffix or datetime.now().strftime("%Y%m%d")
+        # 如果没有指定输出目录，默认使用"dest"目录
+        self.output_dir = output_dir or "dest"
         self.logger = self._setup_logger()
         
     def _setup_logger(self) -> logging.Logger:
@@ -68,7 +72,74 @@ class FitsFileFinderRipgrep:
         logger.addHandler(file_handler)
         
         return logger
-    
+
+    def copy_html_template_files(self, dest_dir: str = None) -> bool:
+        """
+        拷贝HTML模板文件到指定目录
+
+        Args:
+            dest_dir: 目标目录，如果为None则使用self.output_dir
+
+        Returns:
+            bool: 拷贝成功返回True，失败返回False
+        """
+        if dest_dir is None:
+            dest_dir = self.output_dir
+
+        if not dest_dir:
+            self.logger.warning("未指定输出目录，跳过HTML模板文件拷贝")
+            return False
+
+        try:
+            # 获取当前脚本所在目录
+            script_dir = Path(__file__).parent
+            template_dir = script_dir / "html_template"
+
+            if not template_dir.exists():
+                self.logger.error(f"HTML模板目录不存在: {template_dir}")
+                return False
+
+            # 确保目标目录存在
+            dest_path = Path(dest_dir)
+            dest_path.mkdir(parents=True, exist_ok=True)
+
+            # 拷贝模板文件
+            template_files = ["fitsUsage.html", "vis.css", "vis.js"]
+            copied_files = []
+            skipped_files = []
+
+            for template_file in template_files:
+                src_file = template_dir / template_file
+                dest_file = dest_path / template_file
+
+                if not src_file.exists():
+                    self.logger.warning(f"模板文件不存在: {src_file}")
+                    continue
+
+                if dest_file.exists():
+                    self.logger.info(f"文件已存在，跳过: {dest_file}")
+                    skipped_files.append(template_file)
+                    continue
+
+                try:
+                    shutil.copy2(src_file, dest_file)
+                    copied_files.append(template_file)
+                    self.logger.info(f"已拷贝: {src_file} -> {dest_file}")
+                except Exception as e:
+                    self.logger.error(f"拷贝文件失败 {src_file} -> {dest_file}: {e}")
+
+            self.logger.info(f"HTML模板文件拷贝完成: 拷贝 {len(copied_files)} 个文件，跳过 {len(skipped_files)} 个文件")
+            if copied_files:
+                self.logger.info(f"已拷贝的文件: {', '.join(copied_files)}")
+            if skipped_files:
+                self.logger.info(f"已跳过的文件: {', '.join(skipped_files)}")
+
+            return True
+
+        except Exception as e:
+            self.logger.error(f"拷贝HTML模板文件失败: {e}")
+            return False
+
     def load_config(self) -> bool:
         """
         加载配置文件
@@ -754,6 +825,12 @@ class FitsFileFinderRipgrep:
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 output_file = f"fits_search_results_ripgrep_{timestamp}.txt"
 
+        # 如果指定了输出目录，将文件放到输出目录中
+        if self.output_dir:
+            output_path = Path(self.output_dir)
+            output_path.mkdir(parents=True, exist_ok=True)
+            output_file = output_path / Path(output_file).name
+
         try:
             with open(output_file, 'w', encoding='utf-8') as f:
                 f.write(f"FITS文件搜索结果 (Ripgrep版本)\n")
@@ -796,19 +873,8 @@ class FitsFileFinderRipgrep:
             self.logger.info(f"搜索结果已保存到: {output_file}")
 
             # 默认生成Timeline格式的JavaScript文件（主要格式）
-            # 从配置文件获取Timeline JS输出路径
-            config_timeline_js_output = self.config.get('options', {}).get('output_files', {}).get('timeline_js')
-            if config_timeline_js_output:
-                timeline_js_output = config_timeline_js_output
-                # 确保目录存在
-                timeline_dir = os.path.dirname(timeline_js_output)
-                if timeline_dir and not os.path.exists(timeline_dir):
-                    os.makedirs(timeline_dir, exist_ok=True)
-            else:
-                # 如果配置文件中没有指定，使用默认命名规则
-                timeline_js_output = output_file.replace('.txt', '.js')
-                if timeline_js_output == output_file:  # 如果没有.txt扩展名
-                    timeline_js_output = output_file + '.js'
+            # 数据文件输出到输出目录（默认为dest目录）
+            timeline_js_output = Path(self.output_dir) / "fits_data.js"
 
             self.save_timeline_js(files, timeline_js_output, use_clustering, time_threshold_minutes)
 
@@ -835,6 +901,12 @@ class FitsFileFinderRipgrep:
         if output_file is None:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             output_file = f"fits_search_results_by_type_{timestamp}.txt"
+
+        # 如果指定了输出目录，将文件放到输出目录中
+        if self.output_dir:
+            output_path = Path(self.output_dir)
+            output_path.mkdir(parents=True, exist_ok=True)
+            output_file = output_path / Path(output_file).name
 
         try:
             total_files = sum(len(files) for files in files_by_type.values())
@@ -897,16 +969,8 @@ class FitsFileFinderRipgrep:
                 other_files = {k: v for k, v in files_by_type.items() if k != 'fit'}
                 fit_matches = self.match_related_files_to_fit(fit_files, other_files)
 
-                config_timeline_js_output = self.config.get('options', {}).get('output_files', {}).get('timeline_js')
-                if config_timeline_js_output:
-                    timeline_js_output = config_timeline_js_output
-                    timeline_dir = os.path.dirname(timeline_js_output)
-                    if timeline_dir and not os.path.exists(timeline_dir):
-                        os.makedirs(timeline_dir, exist_ok=True)
-                else:
-                    timeline_js_output = output_file.replace('.txt', '.js')
-                    if timeline_js_output == output_file:
-                        timeline_js_output = output_file + '.js'
+                # 数据文件输出到输出目录（默认为dest目录）
+                timeline_js_output = Path(self.output_dir) / "fits_data.js"
 
                 self.save_timeline_js_with_related_files(fit_files, fit_matches, timeline_js_output, use_clustering, time_threshold_minutes)
 
@@ -1637,6 +1701,7 @@ def main():
     parser.add_argument('-c', '--config', default='fits_finder_config.json',
                        help='配置文件路径 (默认: fits_finder_config.json)')
     parser.add_argument('-o', '--output', help='输出文件路径')
+    parser.add_argument('--output-dir', help='输出目录路径，会自动拷贝HTML模板文件')
     parser.add_argument('-v', '--verbose', action='store_true',
                        help='详细输出')
     parser.add_argument('--extract-info', action='store_true',
@@ -1652,7 +1717,7 @@ def main():
     args = parser.parse_args()
 
     # 创建查找器实例
-    finder = FitsFileFinderRipgrep(args.config, args.date, args.all)
+    finder = FitsFileFinderRipgrep(args.config, args.date, args.all, args.output_dir)
     
     # 设置日志级别
     if args.verbose:
@@ -1663,6 +1728,14 @@ def main():
         print(f"错误: 无法加载配置文件 {args.config}")
         sys.exit(1)
     
+    # 拷贝HTML模板文件到输出目录
+    output_dir_display = args.output_dir or "dest (默认)"
+    print(f"\n拷贝HTML模板文件到输出目录: {output_dir_display}")
+    if finder.copy_html_template_files():
+        print("HTML模板文件拷贝完成")
+    else:
+        print("HTML模板文件拷贝失败")
+
     # 默认按类型分类搜索
     files_by_type = finder.get_files_by_type()
 
@@ -1718,6 +1791,12 @@ def main():
         print(f"  pp_fits_files: {len(files_by_type.get('pp_fits', []))} 个 _pp.fits 文件 (处理后的FITS文件)")
         print(f"  可通过 finder.get_files_by_type() 获取所有分类列表")
         print(f"\n注意: 只有.fit文件会被聚合并导出到Timeline主列表，其他文件类型作为关联文件显示")
+
+        output_dir_display = args.output_dir or "dest (默认)"
+        print(f"\n输出目录: {output_dir_display}")
+        print("  - 搜索结果文件和Timeline JS文件已保存到输出目录")
+        print("  - HTML模板文件已拷贝到输出目录（如果不存在）")
+        print("  - 可以直接在输出目录中打开fitsUsage.html查看Timeline可视化")
 
 
 if __name__ == "__main__":

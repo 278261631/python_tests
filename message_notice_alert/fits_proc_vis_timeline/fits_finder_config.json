@@ -87,7 +87,6 @@
             }
         ],
         "output_files": {
-            "timeline_js": "vis_examples/examples/timeline/fits_data.js",
             "timeline_json": "vis_examples/examples/timeline/fits_data.json",
             "search_results": "fits_search_results.txt",
             "description": "输出文件路径配置"

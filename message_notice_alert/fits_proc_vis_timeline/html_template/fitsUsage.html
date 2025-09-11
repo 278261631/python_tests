@@ -1,0 +1,814 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+  <title>Timeline | FITS Files Demo</title>
+
+  <style type="text/css">
+    body, html {
+      font-family: sans-serif;
+    }
+    .vis-item {
+      line-height: 1;      /* 文字行高 1 */
+      padding: 0 2px;      /* 左右只留 2px，上下 0 */
+      border-width: 0;     /* 不要边框 */
+      font-size: 11px;     /* 字号缩到最小可读尺寸 */
+      white-space: nowrap; /* 不换行 */
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+
+
+    /* 子分组样式 */
+    .vis-group .vis-label .vis-inner {
+      padding: 5px 10px;
+    }
+
+    .vis-group.vis-subgroup .vis-label .vis-inner {
+      padding-left: 25px;
+      font-size: 12px;
+      color: #666;
+    }
+
+    .info-panel {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: #f5f5f5;
+      border-radius: 5px;
+    }
+
+    .filter-tag {
+      display: inline-block;
+      margin: 2px 5px 2px 0;
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: 2px solid transparent;
+    }
+
+    .filter-tag:hover {
+      transform: scale(1.05);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .filter-tag.unselected {
+      background-color: #e9ecef;
+      color: #6c757d;
+    }
+
+    .filter-tag.selected {
+      background-color: #007bff;
+      color: white;
+      border-color: #0056b3;
+    }
+
+    .filter-tag.system-selected {
+      background-color: #28a745;
+      color: white;
+      border-color: #1e7e34;
+    }
+
+    .filter-tag.region-selected {
+      background-color: #17a2b8;
+      color: white;
+      border-color: #117a8b;
+    }
+
+    .filter-controls {
+      margin-bottom: 10px;
+    }
+
+    .filter-controls button {
+      margin-right: 10px;
+      padding: 5px 10px;
+      border: 1px solid #ddd;
+      background-color: #f8f9fa;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .filter-controls button:hover {
+      background-color: #e9ecef;
+    }
+
+    /* 聚类数据项目样式 */
+    .vis-item.clustered {
+      border-width: 2px !important;
+      font-weight: bold;
+    }
+
+    /* 完整检测项目样式（同时存在MO和FIXEDSRC文件） */
+    .vis-item.complete-detection {
+      background-color: #d4edda !important;
+      border-color: #28a745 !important;
+    }
+
+    /* 悬停状态：保持绿色背景 */
+    .vis-item.complete-detection:hover {
+      background-color: #c3e6cb !important;
+      border-color: #1e7e34 !important;
+    }
+
+    /* 选中状态：黄色背景 + 绿色边框 (优先级最高) */
+    .vis-item.complete-detection.vis-selected {
+      background-color: #fff3cd !important;
+      border-color: #28a745 !important;
+    }
+
+    /* 选中且悬停状态：黄色背景 + 绿色边框 */
+    .vis-item.complete-detection.vis-selected:hover {
+      background-color: #fff3cd !important;
+      border-color: #28a745 !important;
+    }
+
+    /* 为不同天区设置不同的边框样式 */
+    .vis-item.region-k088 {
+      border-left: 4px solid #ff9800 !important;
+    }
+
+    .vis-item.region-k089 {
+      border-left: 4px solid #e91e63 !important;
+    }
+
+    .vis-item.region-k090 {
+      border-left: 4px solid #3f51b5 !important;
+    }
+
+    .vis-item.region-unknown {
+      border-left: 4px solid #9e9e9e !important;
+    }
+
+    /* 文件图标样式 */
+    .file-icon-primary {
+      color: #4CAF50 !important;
+      font-weight: bold;
+      margin-right: 2px;
+    }
+
+    .file-icon-secondary {
+      color: #FFC107 !important;
+      font-weight: bold;
+      margin-right: 4px;
+    }
+  </style>
+
+  <script src="vis.js"></script>
+  <link href="vis.css" rel="stylesheet" type="text/css" />
+  <script src="fits_data.js"></script>
+</head>
+<body>
+
+<div id="data-summary" style="background-color: white; border: 1px solid #ddd; border-radius: 4px; padding: 15px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+  <div class="filter-controls">
+    <button onclick="clearAllFilters()">清除所有过滤</button>
+    <button onclick="selectAllSystems()">选择所有系统</button>
+    <button onclick="selectAllRegions()">选择所有天区</button>
+    <span id="filter-status" style="margin-left: 20px; color: #666; font-size: 14px;">显示: <span id="visible-count">0</span> / <span id="total-count">0</span> 条记录</span>
+  </div>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+    <div>
+      <div id="system-list" style="background-color: #f8f9fa; padding: 10px; border-radius: 4px; min-height: 50px;">
+        加载中...
+      </div>
+    </div>
+    <div>
+      <div id="region-list" style="background-color: #f8f9fa; padding: 10px; border-radius: 4px; min-height: 50px;">
+        加载中...
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="visualization"></div>
+
+
+
+<div id="info" class="info-panel" style="display: none;">
+  <h3>选中项目信息：</h3>
+  <div id="item-details"></div>
+</div>
+
+<script type="text/javascript">
+  // DOM element where the Timeline will be attached
+  var container = document.getElementById('visualization');
+  var infoDiv = document.getElementById('info');
+  var detailsDiv = document.getElementById('item-details');
+
+  // 直接使用从 fits_data.js 加载的数据
+  // 检测数据格式：聚类数据 vs 单文件数据
+  var isClusteredData = fitsData.length > 0 && fitsData[0].hasOwnProperty('group_id');
+
+  // 全局变量
+  var regionGroupStats = {};
+  var regionToGroupMap = {};
+  var systemStats = {};
+  var selectedSystems = new Set();
+  var selectedRegions = new Set();
+  var items, processedData;
+
+  if (isClusteredData) {
+    // 处理聚类数据格式
+    fitsData.forEach(function(group) {
+      var groupKey = group.sky_region_name || 'Unknown';
+
+      regionGroupStats[groupKey] = regionGroupStats[groupKey] || { count: 0, regions: new Set() };
+      regionGroupStats[groupKey].count += group.item_count || 1;
+      regionGroupStats[groupKey].regions.add(groupKey);
+      regionToGroupMap[groupKey] = groupKey;
+
+      // 统计系统（从系统名称数组）
+      if (group.system_names && group.system_names.length > 0) {
+        group.system_names.forEach(function(system) {
+          systemStats[system] = (systemStats[system] || 0) + (group.item_count || 1);
+        });
+      } else {
+        systemStats['Unknown'] = (systemStats['Unknown'] || 0) + (group.item_count || 1);
+      }
+    });
+  } else {
+    // 处理单文件数据格式（原有逻辑）
+    fitsData.forEach(function(item) {
+      var region = item.sky_region || 'Unknown';
+      var groupKey = region; // 使用完整的sky_region作为分组键
+
+      regionGroupStats[groupKey] = regionGroupStats[groupKey] || { count: 0, regions: new Set() };
+      regionGroupStats[groupKey].count++;
+      regionGroupStats[groupKey].regions.add(region);
+      regionToGroupMap[region] = groupKey;
+
+      // 统计系统
+      var system = item.system_name || 'Unknown';
+      systemStats[system] = (systemStats[system] || 0) + 1;
+    });
+  }
+
+  // 创建分组数据（主分组按天区，子分组按系统）
+  var groups = new vis.DataSet();
+  var groupIndex = 0;
+  var groupKeyToGroupId = {};
+
+  // 按分组键创建分组，并按分组键排序
+  var sortedGroupKeys = Object.keys(regionGroupStats).sort();
+  sortedGroupKeys.forEach(function(groupKey) {
+    var groupId = 'group_' + groupIndex++;
+    groupKeyToGroupId[groupKey] = groupId;
+
+    // 为每个天区创建系统子分组
+    var systemsInRegion = new Set();
+
+    if (isClusteredData) {
+      // 聚类数据：从分组中获取系统信息
+      fitsData.forEach(function(group) {
+        if ((group.sky_region_name || 'Unknown') === groupKey) {
+          if (group.system_names && group.system_names.length > 0) {
+            group.system_names.forEach(function(sys) {
+              systemsInRegion.add(sys);
+            });
+          } else {
+            systemsInRegion.add('Unknown');
+          }
+        }
+      });
+    } else {
+      // 单文件数据：从单个项目中获取系统信息
+      fitsData.forEach(function(item) {
+        if ((item.sky_region || 'Unknown') === groupKey) {
+          systemsInRegion.add(item.system_name || 'Unknown');
+        }
+      });
+    }
+
+    // 创建子分组堆叠配置
+    var subgroupStack = {};
+    var sortedSystems = Array.from(systemsInRegion).sort();
+    sortedSystems.forEach(function(systemName) {
+      subgroupStack[systemName] = false; // 不堆叠子分组内的项目
+    });
+
+    // 创建主分组（天区）
+    groups.add({
+      id: groupId,
+      content: groupKey + ' (' + regionGroupStats[groupKey].count + '个)',
+      title: '天区: ' + groupKey + '\n文件数量: ' + regionGroupStats[groupKey].count,
+      subgroupOrder: function(a, b) {
+        return a.subgroupOrder - b.subgroupOrder;
+      },
+      subgroupStack: subgroupStack
+    });
+  });
+
+  // 处理数据，设置为点类型、添加分组和子分组
+  if (isClusteredData) {
+    // 聚类数据处理
+    processedData = [];
+    fitsData.forEach(function(group, index) {
+      var groupKey = group.sky_region_name || 'Unknown';
+      var groupId = groupKeyToGroupId[groupKey];
+      var systemNames = group.system_names || ['Unknown'];
+
+      // 为每个系统创建一个子项目
+      systemNames.forEach(function(systemName, sysIndex) {
+        var regionClass = 'region-' + groupKey.toLowerCase();
+        var clusterClass = 'clustered';
+
+        // 获取系统在该天区中的排序索引
+        var systemsInRegion = [];
+        fitsData.forEach(function(dataGroup) {
+          if ((dataGroup.sky_region_name || 'Unknown') === groupKey) {
+            if (dataGroup.system_names && dataGroup.system_names.length > 0) {
+              dataGroup.system_names.forEach(function(sys) {
+                if (systemsInRegion.indexOf(sys) === -1) {
+                  systemsInRegion.push(sys);
+                }
+              });
+            }
+          }
+        });
+        systemsInRegion.sort();
+        var subgroupOrder = systemsInRegion.indexOf(systemName);
+
+        // 只获取属于当前系统的文件
+        var systemFileDetails = [];
+        var systemFileCount = 0;
+        if (group.file_details && group.file_details.length > 0) {
+          systemFileDetails = group.file_details.filter(function(file) {
+            return file.system_name === systemName;
+          });
+          systemFileCount = systemFileDetails.length;
+        }
+
+        // 如果没有找到该系统的文件，跳过这个系统
+        if (systemFileCount === 0) {
+          return;
+        }
+
+        var itemContent = systemName + ' | ' + groupKey + ' (' + systemFileCount + '个文件)';
+
+        processedData.push({
+          id: group.group_id + '_' + sysIndex,
+          content: itemContent,
+          start: group.start,
+          end: group.end,
+          group: groupId,
+          subgroup: systemName,
+          subgroupOrder: subgroupOrder,
+          type: group.type || 'point',
+          className: [regionClass, clusterClass].join(' '),
+          sky_region_name: group.sky_region_name,
+          system_names: [systemName],
+          item_count: systemFileCount,
+          file_details: systemFileDetails,
+          title: itemContent + '<br/>' +
+                 '时间: ' + group.start + '<br/>' +
+                 '系统: ' + systemName + '<br/>' +
+                 '天区: ' + groupKey + '<br/>' +
+                 '文件数量: ' + systemFileCount + '<br/>' +
+                 '图标说明: ⓕ(绿色-主要) ⓟⓒⓓⓧ(黄色-辅助)'
+        });
+      });
+    });
+  } else {
+    // 单文件数据处理（原有逻辑）
+    processedData = fitsData.map(function(item, index) {
+      var region = item.sky_region || 'Unknown';
+      var systemName = item.system_name || 'Unknown';
+      var groupKey = regionToGroupMap[region];
+      var groupId = groupKeyToGroupId[groupKey];
+
+
+
+      // 获取系统在该天区中的排序索引
+      var systemsInRegion = [];
+      fitsData.forEach(function(dataItem) {
+        if ((dataItem.sky_region || 'Unknown') === groupKey) {
+          var sys = dataItem.system_name || 'Unknown';
+          if (systemsInRegion.indexOf(sys) === -1) {
+            systemsInRegion.push(sys);
+          }
+        }
+      });
+      systemsInRegion.sort();
+      var subgroupOrder = systemsInRegion.indexOf(systemName);
+
+      return {
+        ...item,
+        group: groupId,      // 分配到主分组（天区）
+        subgroup: systemName, // 子分组使用系统名称
+        subgroupOrder: subgroupOrder, // 子分组排序
+        type: 'point',       // 设置为点类型
+        title: item.content + '<br/>' +
+               '时间: ' + item.start + '<br/>' +
+               '系统: ' + systemName + '<br/>' +
+               '天区: ' + region + '<br/>' +
+               '文件: ' + item.file_name + '<br/>' +
+               '图标说明: ⓕ(绿色-主要) ⓟⓒⓓⓧ(黄色-辅助)'  // 使用 title 属性作为 tooltip
+      };
+    });
+  }
+
+  // 检测并标记完整检测的项目（同时存在MO和FIXEDSRC文件）
+  processedData.forEach(function(item) {
+    if (isClusteredData && item.file_details) {
+      // 检查聚类数据中是否有文件同时存在MO和FIXEDSRC
+      var hasMO = false;
+      var hasFixedSrc = false;
+
+      item.file_details.forEach(function(file) {
+        if (file.related_file_paths) {
+          file.related_file_paths.forEach(function(relatedFile) {
+            if (relatedFile.type === 'mo') {
+              hasMO = true;
+            }
+            if (relatedFile.type === 'fixedsrc') {
+              hasFixedSrc = true;
+            }
+          });
+        }
+      });
+
+      // 如果同时存在MO和FIXEDSRC，添加完整检测的CSS类
+      if (hasMO && hasFixedSrc) {
+        item.className = (item.className || '') + ' complete-detection';
+      }
+    }
+  });
+
+  // Create a DataSet (allows two way data-binding)
+  items = new vis.DataSet(processedData);
+
+  // 计算总的子分组数量来动态设置高度
+  var totalSubgroups = 0;
+  Object.keys(regionGroupStats).forEach(function(groupKey) {
+    var systemsInRegion = new Set();
+
+    if (isClusteredData) {
+      // 聚类数据：从分组中获取系统信息
+      fitsData.forEach(function(group) {
+        if ((group.sky_region_name || 'Unknown') === groupKey) {
+          if (group.system_names && group.system_names.length > 0) {
+            group.system_names.forEach(function(sys) {
+              systemsInRegion.add(sys);
+            });
+          } else {
+            systemsInRegion.add('Unknown');
+          }
+        }
+      });
+    } else {
+      // 单文件数据：从单个项目中获取系统信息
+      fitsData.forEach(function(item) {
+        if ((item.sky_region || 'Unknown') === groupKey) {
+          systemsInRegion.add(item.system_name || 'Unknown');
+        }
+      });
+    }
+
+    totalSubgroups += systemsInRegion.size;
+  });
+
+  // Configuration for the Timeline
+  var options = {
+    margin: {
+      item: 8,     // 减小项目间距
+      axis: 20
+    },
+    orientation: 'top',
+    groupOrder: 'content',     // 按分组内容排序
+    stack: false,              // 不堆叠主分组
+    stackSubgroups: false,     // 禁用子分组堆叠，让每个子分组独占一行
+    showCurrentTime: false,
+    zoomable: true,
+    moveable: true,
+    groupHeightMode: 'fitItems',  // 让分组高度适应内容
+    verticalScroll: true          // 如果内容超过高度，启用垂直滚动
+  };
+
+  // Create a Timeline with groups
+  var timeline = new vis.Timeline(container, items, groups, options);
+
+  // 更新过滤状态显示
+  function updateFilterStatus() {
+    var visibleItems = items.get({
+      filter: function(item) {
+        if (isClusteredData) {
+          // 聚类数据过滤逻辑
+          var systemMatch = selectedSystems.size === 0 ||
+            (item.system_names && item.system_names.some(function(sys) { return selectedSystems.has(sys); })) ||
+            selectedSystems.has(item.subgroup);
+          var regionMatch = selectedRegions.size === 0 || selectedRegions.has(item.sky_region_name);
+          return systemMatch && regionMatch;
+        } else {
+          // 单文件数据过滤逻辑
+          var systemMatch = selectedSystems.size === 0 || selectedSystems.has(item.system_name);
+          var regionMatch = selectedRegions.size === 0 || selectedRegions.has(regionToGroupMap[item.sky_region]);
+          return systemMatch && regionMatch;
+        }
+      }
+    });
+
+    var totalCount = isClusteredData ?
+      fitsData.reduce(function(sum, group) { return sum + (group.item_count || 1); }, 0) :
+      fitsData.length;
+
+    var visibleCount = isClusteredData ?
+      visibleItems.reduce(function(sum, item) { return sum + (item.item_count || 1); }, 0) :
+      visibleItems.length;
+
+    document.getElementById('visible-count').textContent = visibleCount;
+    document.getElementById('total-count').textContent = totalCount;
+  }
+
+  // 应用过滤器
+  function applyFilters() {
+    var filteredData = processedData.filter(function(item) {
+      if (isClusteredData) {
+        // 聚类数据过滤逻辑
+        var systemMatch = selectedSystems.size === 0 ||
+          (item.system_names && item.system_names.some(function(sys) { return selectedSystems.has(sys); })) ||
+          selectedSystems.has(item.subgroup);
+        var regionMatch = selectedRegions.size === 0 || selectedRegions.has(item.sky_region_name);
+        return systemMatch && regionMatch;
+      } else {
+        // 单文件数据过滤逻辑
+        var systemMatch = selectedSystems.size === 0 || selectedSystems.has(item.system_name);
+        var regionMatch = selectedRegions.size === 0 || selectedRegions.has(regionToGroupMap[item.sky_region]);
+        return systemMatch && regionMatch;
+      }
+    });
+
+    items.clear();
+    items.add(filteredData);
+    updateFilterStatus();
+  }
+
+  // 切换系统选择
+  function toggleSystem(system) {
+    if (selectedSystems.has(system)) {
+      selectedSystems.delete(system);
+    } else {
+      selectedSystems.add(system);
+    }
+    updateSystemDisplay();
+    applyFilters();
+  }
+
+  // 切换天区选择
+  function toggleRegion(region) {
+    if (selectedRegions.has(region)) {
+      selectedRegions.delete(region);
+    } else {
+      selectedRegions.add(region);
+    }
+    updateRegionDisplay();
+    applyFilters();
+  }
+
+  // 更新系统显示
+  function updateSystemDisplay() {
+    var systemListHtml = '';
+    var sortedSystems = Object.keys(systemStats).sort();
+    sortedSystems.forEach(function(system, index) {
+      var count = systemStats[system];
+      var isSelected = selectedSystems.has(system);
+      var className = isSelected ? 'filter-tag system-selected' : 'filter-tag unselected';
+      systemListHtml += '<span class="' + className + '" onclick="toggleSystem(\'' + system + '\')">';
+      systemListHtml += system + ' (' + count + '个)';
+      systemListHtml += '</span>';
+    });
+    document.getElementById('system-list').innerHTML = systemListHtml;
+  }
+
+  // 更新天区显示
+  function updateRegionDisplay() {
+    var regionHtml = '';
+    var sortedGroupKeys = Object.keys(regionGroupStats).sort();
+    sortedGroupKeys.forEach(function(groupKey, index) {
+      var count = regionGroupStats[groupKey].count;
+      var isSelected = selectedRegions.has(groupKey);
+      var className = isSelected ? 'filter-tag region-selected' : 'filter-tag unselected';
+      regionHtml += '<span class="' + className + '" onclick="toggleRegion(\'' + groupKey + '\')" ';
+      regionHtml += 'title="天区: ' + groupKey + ', 文件数量: ' + count + '">';
+      regionHtml += groupKey + ' (' + count + '个)';
+      regionHtml += '</span>';
+    });
+    document.getElementById('region-list').innerHTML = regionHtml;
+  }
+
+  // 初始化显示
+  updateSystemDisplay();
+  updateRegionDisplay();
+  updateFilterStatus();
+
+  // Add event listener for selection
+  timeline.on('select', function (selection) {
+    if (selection.items.length > 0) {
+      var selectedId = selection.items[0];
+      var selectedItem = items.get(selectedId);
+
+      // Display item details
+      var html = '<table style="width: 100%;">';
+      html += '<tr><td><strong>ID:</strong></td><td>' + selectedItem.id + '</td></tr>';
+      html += '<tr><td><strong>内容:</strong></td><td>' + selectedItem.content + '</td></tr>';
+      html += '<tr><td><strong>开始时间:</strong></td><td>' + selectedItem.start + '</td></tr>';
+
+      if (isClusteredData) {
+        // 聚类数据显示
+        if (selectedItem.sky_region_name) {
+          html += '<tr><td><strong>天区名称:</strong></td><td>' + selectedItem.sky_region_name + '</td></tr>';
+        }
+
+        if (selectedItem.system_names && selectedItem.system_names.length > 0) {
+          html += '<tr><td><strong>系统名称:</strong></td><td>' + selectedItem.system_names.join(', ') + '</td></tr>';
+        }
+
+        if (selectedItem.item_count) {
+          html += '<tr><td><strong>文件数量:</strong></td><td>' + selectedItem.item_count + '</td></tr>';
+        }
+
+        if (selectedItem.file_details && selectedItem.file_details.length > 0) {
+          html += '<tr><td><strong>FIT文件:</strong></td><td>';
+          selectedItem.file_details.forEach(function(file, index) {
+            if (index > 0) html += '<br/><br/>';
+            var fileName = file.original_path ? file.original_path.split(/[/\\]/).pop() : '未知文件';
+            // 添加文字图标
+            var icons = '<span class="file-icon-primary">ⓕ</span>';
+            html += '<div style="margin-bottom: 8px;"><strong>' + icons + fileName + '</strong>';
+
+            // 显示该.fit文件的关联文件（直接整合显示）
+            var relatedIcons = {
+              'axy': '<span class="file-icon-primary">ⓐ</span>',
+              'diff1': '<span class="file-icon-primary">ⓓ</span>',
+              'fixedsrc': '<span class="file-icon-primary">ⓕ</span>',
+              'mo': '<span class="file-icon-primary">ⓜ</span>',
+              'pp_fits': '<span class="file-icon-primary">ⓟ</span>'
+            };
+
+            var relatedIconsDefault = {
+              'axy': '<span class="file-icon-secondary">ⓐ</span>',
+              'diff1': '<span class="file-icon-secondary">ⓓ</span>',
+              'fixedsrc': '<span class="file-icon-secondary">ⓕ</span>',
+              'mo': '<span class="file-icon-secondary">ⓜ</span>',
+              'pp_fits': '<span class="file-icon-secondary">ⓟ</span>'
+            };
+
+            // 显示所有可能的关联文件类型
+            html += '<br/><small style="margin-left: 20px; color: #666;">关联文件:</small>';
+
+            // 创建已找到文件的映射
+            var foundFiles = {};
+            if (file.related_file_paths && file.related_file_paths.length > 0) {
+              file.related_file_paths.forEach(function(relatedFile) {
+                var fileType = relatedFile.type || 'unknown';
+                if (!foundFiles[fileType]) {
+                  foundFiles[fileType] = [];
+                }
+                foundFiles[fileType].push(relatedFile);
+              });
+            }
+
+            // 显示所有类型的关联文件
+            var allTypes = ['axy', 'diff1', 'fixedsrc', 'mo', 'pp_fits'];
+            allTypes.forEach(function(fileType) {
+              if (foundFiles[fileType] && foundFiles[fileType].length > 0) {
+                // 找到了文件，显示绿色图标和文件名
+                foundFiles[fileType].forEach(function(relatedFile) {
+                  var relatedFileName = relatedFile.path ? relatedFile.path.split(/[/\\]/).pop() : '未知文件';
+                  var icon = relatedIcons[fileType] || '<span class="file-icon-primary">ⓧ</span>';
+                  html += '<br/><small style="margin-left: 20px;">' + icon + ' ' + relatedFileName + '</small>';
+                });
+              } else {
+                // 没找到文件，显示黄色图标
+                var icon = relatedIconsDefault[fileType] || '<span class="file-icon-secondary">ⓧ</span>';
+                html += '<br/><small style="margin-left: 20px; color: #999;">' + icon + ' (未找到)</small>';
+              }
+            });
+            html += '</div>';
+          });
+          html += '</td></tr>';
+        }
+
+        // 显示关联文件
+        if (selectedItem.related_files) {
+          var relatedTypes = ['axy', 'diff1', 'fixedsrc', 'mo'];
+          var relatedTypeNames = {
+            'axy': 'AXY文件 (天体测量)',
+            'diff1': 'DIFF1文件 (差分图像)',
+            'fixedsrc': 'FIXEDSRC文件 (固定源)',
+            'mo': 'MO文件 (移动目标)'
+          };
+
+          for (var k = 0; k < relatedTypes.length; k++) {
+            var relatedType = relatedTypes[k];
+            var relatedFiles = selectedItem.related_files[relatedType] || [];
+
+            if (relatedFiles.length > 0) {
+              html += '<tr><td><strong>' + relatedTypeNames[relatedType] + ':</strong></td><td>';
+              relatedFiles.forEach(function(relatedFile, index) {
+                if (index > 0) html += '<br/>';
+                var fileName = relatedFile.file_path ? relatedFile.file_path.split('/').pop() : '未知文件';
+                var matchScore = relatedFile.match_score || 0;
+                html += fileName + ' <small>(匹配度: ' + matchScore + ')</small>';
+              });
+              html += '</td></tr>';
+            }
+          }
+        }
+      } else {
+        // 单文件数据显示
+        if (selectedItem.sky_region) {
+          html += '<tr><td><strong>天区索引:</strong></td><td>' + selectedItem.sky_region + '</td></tr>';
+        }
+
+        if (selectedItem.system_name) {
+          html += '<tr><td><strong>系统名称:</strong></td><td>' + selectedItem.system_name + '</td></tr>';
+        }
+
+        if (selectedItem.timestamp) {
+          html += '<tr><td><strong>时间戳:</strong></td><td>' + selectedItem.timestamp + '</td></tr>';
+        }
+
+        if (selectedItem.file_name) {
+          // 添加文字图标
+          var icons = '<span class="file-icon-primary">ⓕ</span>' +
+                     '<span class="file-icon-secondary">ⓟⓒⓓⓧ</span>';
+          html += '<tr><td><strong>文件名:</strong></td><td>' + icons + selectedItem.file_name + '</td></tr>';
+        }
+
+        if (selectedItem.file_path) {
+          html += '<tr><td><strong>文件路径:</strong></td><td style="word-break: break-all;">' + selectedItem.file_path + '</td></tr>';
+        }
+
+        // 单文件模式下的关联文件已经整合到文件名显示中，不需要单独显示
+      }
+
+      html += '</table>';
+
+      detailsDiv.innerHTML = html;
+      infoDiv.style.display = 'block';
+    } else {
+      infoDiv.style.display = 'none';
+    }
+  });
+
+  var dataTypeInfo = isClusteredData ? '聚类数据' : '单文件数据';
+  var totalItems = isClusteredData ?
+    fitsData.reduce(function(sum, group) { return sum + (group.item_count || 1); }, 0) :
+    fitsData.length;
+
+  console.log('Timeline loaded with ' + fitsData.length + ' groups (' + totalItems + ' total items) - ' + dataTypeInfo + ' (fitsUsage - 带过滤功能和子分组)');
+  console.log('主分组数量: ' + Object.keys(regionGroupStats).length + ', 子分组数量: ' + totalSubgroups + ', 计算高度: ' + calculatedHeight + 'px');
+  console.log('处理后的数据项数量: ' + processedData.length);
+</script>
+
+<script>
+  // 全局函数，供 HTML onclick 调用
+  function clearAllFilters() {
+    selectedSystems.clear();
+    selectedRegions.clear();
+    updateSystemDisplay();
+    updateRegionDisplay();
+    applyFilters();
+  }
+
+  function selectAllSystems() {
+    selectedSystems.clear();
+    Object.keys(systemStats).forEach(function(system) {
+      selectedSystems.add(system);
+    });
+    updateSystemDisplay();
+    applyFilters();
+  }
+
+  function selectAllRegions() {
+    selectedRegions.clear();
+    Object.keys(regionGroupStats).forEach(function(region) {
+      selectedRegions.add(region);
+    });
+    updateRegionDisplay();
+    applyFilters();
+  }
+
+  function toggleSystem(system) {
+    if (selectedSystems.has(system)) {
+      selectedSystems.delete(system);
+    } else {
+      selectedSystems.add(system);
+    }
+    updateSystemDisplay();
+    applyFilters();
+  }
+
+  function toggleRegion(region) {
+    if (selectedRegions.has(region)) {
+      selectedRegions.delete(region);
+    } else {
+      selectedRegions.add(region);
+    }
+    updateRegionDisplay();
+    applyFilters();
+  }
+</script>
+</body>
+</html>
