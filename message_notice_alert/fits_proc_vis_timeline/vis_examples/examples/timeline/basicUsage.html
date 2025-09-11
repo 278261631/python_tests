@@ -157,35 +157,46 @@
 
   // 创建分组数据
   var groups = new vis.DataSet();
-  var groupIndex = 0;
   var groupKeyToGroupId = {};
 
-  // 按分组键创建分组，并按分组键排序
-  var sortedGroupKeys = Object.keys(regionGroupStats).sort();
-  sortedGroupKeys.forEach(function(groupKey) {
-    var groupId = 'group_' + groupIndex++;
-    groupKeyToGroupId[groupKey] = groupId;
+  if (isClusteredData) {
+    // 聚类数据：直接使用数据中的group字段作为分组ID
+    var sortedGroupKeys = Object.keys(regionGroupStats).sort();
+    sortedGroupKeys.forEach(function(groupKey) {
+      groupKeyToGroupId[groupKey] = groupKey;  // 直接使用groupKey作为groupId
 
-    groups.add({
-      id: groupId,
-      content: groupKey + ' (' + regionGroupStats[groupKey].count + '个)',
-      title: '天区: ' + groupKey + '\n文件数量: ' + regionGroupStats[groupKey].count
+      groups.add({
+        id: groupKey,
+        content: groupKey + ' (' + regionGroupStats[groupKey].count + '个)',
+        title: '天区: ' + groupKey + '\n文件数量: ' + regionGroupStats[groupKey].count
+      });
     });
-  });
+  } else {
+    // 单文件数据：使用原有的分组创建逻辑
+    var groupIndex = 0;
+    var sortedGroupKeys = Object.keys(regionGroupStats).sort();
+    sortedGroupKeys.forEach(function(groupKey) {
+      var groupId = 'group_' + groupIndex++;
+      groupKeyToGroupId[groupKey] = groupId;
+
+      groups.add({
+        id: groupId,
+        content: groupKey + ' (' + regionGroupStats[groupKey].count + '个)',
+        title: '天区: ' + groupKey + '\n文件数量: ' + regionGroupStats[groupKey].count
+      });
+    });
+  }
 
   // 处理数据，添加分组信息
   if (isClusteredData) {
-    // 聚类数据：直接使用分组数据
+    // 聚类数据：直接使用原始数据，保持原有的group字段
     processedData = fitsData.map(function(group) {
-      var groupKey = group.sky_region_name || 'Unknown';
-      var groupId = groupKeyToGroupId[groupKey];
-
       return {
         id: group.group_id,
-        content: group.content || (groupKey + ' (' + (group.item_count || 1) + '个文件)'),
+        content: group.content,
         start: group.start,
         end: group.end,
-        group: groupId,
+        group: group.group,  // 直接使用原始数据中的group字段
         type: group.type || 'point',
         sky_region_name: group.sky_region_name,
         system_names: group.system_names || [],

@@ -1245,6 +1245,7 @@ class FitsFileFinderRipgrep:
                 if start_time_str == end_time_str:
                     timeline_item = {
                         'id': group_id,
+                        'group_id': group_id,  # 添加group_id字段用于basicUsage.html识别聚类数据
                         'content': content,
                         'start': start_time_str,
                         'type': 'point'
@@ -1252,6 +1253,7 @@ class FitsFileFinderRipgrep:
                 else:
                     timeline_item = {
                         'id': group_id,
+                        'group_id': group_id,  # 添加group_id字段用于basicUsage.html识别聚类数据
                         'content': content,
                         'start': start_time_str,
                         'end': end_time_str,
@@ -1260,6 +1262,7 @@ class FitsFileFinderRipgrep:
             else:
                 timeline_item = {
                     'id': group_id,
+                    'group_id': group_id,  # 添加group_id字段用于basicUsage.html识别聚类数据
                     'content': content,
                     'start': "1970-01-01T00:00:00",
                     'type': 'point'
