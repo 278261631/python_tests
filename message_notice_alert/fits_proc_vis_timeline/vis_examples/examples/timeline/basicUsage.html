@@ -17,6 +17,30 @@
       text-overflow: ellipsis;
     }
 
+    /* 完整检测项目样式（同时存在MO和FIXEDSRC文件） */
+    .vis-item.complete-detection {
+      background-color: #d4edda !important;
+      border-color: #28a745 !important;
+    }
+
+    /* 悬停状态：保持绿色背景 */
+    .vis-item.complete-detection:hover {
+      background-color: #c3e6cb !important;
+      border-color: #1e7e34 !important;
+    }
+
+    /* 选中状态：黄色背景 + 绿色边框 (优先级最高) */
+    .vis-item.complete-detection.vis-selected {
+      background-color: #fff3cd !important;
+      border-color: #28a745 !important;
+    }
+
+    /* 选中且悬停状态：黄色背景 + 绿色边框 */
+    .vis-item.complete-detection.vis-selected:hover {
+      background-color: #fff3cd !important;
+      border-color: #28a745 !important;
+    }
+
     .filter-tag {
       display: inline-block;
       margin: 2px 5px 2px 0;
@@ -218,6 +242,33 @@
       };
     });
   }
+
+  // 检测并标记完整检测的项目（同时存在MO和FIXEDSRC文件）
+  processedData.forEach(function(item) {
+    if (isClusteredData && item.file_details) {
+      // 检查聚类数据中是否有文件同时存在MO和FIXEDSRC
+      var hasMO = false;
+      var hasFixedSrc = false;
+
+      item.file_details.forEach(function(file) {
+        if (file.related_file_paths) {
+          file.related_file_paths.forEach(function(relatedFile) {
+            if (relatedFile.type === 'mo') {
+              hasMO = true;
+            }
+            if (relatedFile.type === 'fixedsrc') {
+              hasFixedSrc = true;
+            }
+          });
+        }
+      });
+
+      // 如果同时存在MO和FIXEDSRC，添加完整检测的CSS类
+      if (hasMO && hasFixedSrc) {
+        item.className = (item.className || '') + ' complete-detection';
+      }
+    }
+  });
 
   // Create a DataSet (allows two way data-binding)
   items = new vis.DataSet(processedData);
