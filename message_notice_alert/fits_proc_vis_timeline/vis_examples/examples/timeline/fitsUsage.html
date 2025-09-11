@@ -586,23 +586,53 @@
             html += '<div style="margin-bottom: 8px;"><strong>' + icons + fileName + '</strong>';
 
             // 显示该.fit文件的关联文件（直接整合显示）
-            if (file.related_file_paths && file.related_file_paths.length > 0) {
-              var relatedIcons = {
-                'axy': '<span class="file-icon-secondary">ⓐ</span>',
-                'diff1': '<span class="file-icon-secondary">ⓓ</span>',
-                'fixedsrc': '<span class="file-icon-secondary">ⓕ</span>',
-                'mo': '<span class="file-icon-secondary">ⓜ</span>',
-                'pp_fits': '<span class="file-icon-secondary">ⓟ</span>'
-              };
+            var relatedIcons = {
+              'axy': '<span class="file-icon-primary">ⓐ</span>',
+              'diff1': '<span class="file-icon-primary">ⓓ</span>',
+              'fixedsrc': '<span class="file-icon-primary">ⓕ</span>',
+              'mo': '<span class="file-icon-primary">ⓜ</span>',
+              'pp_fits': '<span class="file-icon-primary">ⓟ</span>'
+            };
 
-              html += '<br/><small style="margin-left: 20px; color: #666;">关联文件:</small>';
-              file.related_file_paths.forEach(function(relatedFile, rIndex) {
-                var relatedFileName = relatedFile.path ? relatedFile.path.split(/[/\\]/).pop() : '未知文件';
+            var relatedIconsDefault = {
+              'axy': '<span class="file-icon-secondary">ⓐ</span>',
+              'diff1': '<span class="file-icon-secondary">ⓓ</span>',
+              'fixedsrc': '<span class="file-icon-secondary">ⓕ</span>',
+              'mo': '<span class="file-icon-secondary">ⓜ</span>',
+              'pp_fits': '<span class="file-icon-secondary">ⓟ</span>'
+            };
+
+            // 显示所有可能的关联文件类型
+            html += '<br/><small style="margin-left: 20px; color: #666;">关联文件:</small>';
+
+            // 创建已找到文件的映射
+            var foundFiles = {};
+            if (file.related_file_paths && file.related_file_paths.length > 0) {
+              file.related_file_paths.forEach(function(relatedFile) {
                 var fileType = relatedFile.type || 'unknown';
-                var icon = relatedIcons[fileType] || '<span class="file-icon-secondary">ⓧ</span>';
-                html += '<br/><small style="margin-left: 20px;">' + icon + ' ' + relatedFileName + '</small>';
+                if (!foundFiles[fileType]) {
+                  foundFiles[fileType] = [];
+                }
+                foundFiles[fileType].push(relatedFile);
               });
             }
+
+            // 显示所有类型的关联文件
+            var allTypes = ['axy', 'diff1', 'fixedsrc', 'mo', 'pp_fits'];
+            allTypes.forEach(function(fileType) {
+              if (foundFiles[fileType] && foundFiles[fileType].length > 0) {
+                // 找到了文件，显示绿色图标和文件名
+                foundFiles[fileType].forEach(function(relatedFile) {
+                  var relatedFileName = relatedFile.path ? relatedFile.path.split(/[/\\]/).pop() : '未知文件';
+                  var icon = relatedIcons[fileType] || '<span class="file-icon-primary">ⓧ</span>';
+                  html += '<br/><small style="margin-left: 20px;">' + icon + ' ' + relatedFileName + '</small>';
+                });
+              } else {
+                // 没找到文件，显示黄色图标
+                var icon = relatedIconsDefault[fileType] || '<span class="file-icon-secondary">ⓧ</span>';
+                html += '<br/><small style="margin-left: 20px; color: #999;">' + icon + ' (未找到)</small>';
+              }
+            });
             html += '</div>';
           });
           html += '</td></tr>';
