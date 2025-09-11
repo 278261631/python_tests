@@ -582,16 +582,61 @@
         }
 
         if (selectedItem.file_details && selectedItem.file_details.length > 0) {
-          html += '<tr><td><strong>包含文件:</strong></td><td>';
+          html += '<tr><td><strong>FIT文件:</strong></td><td>';
           selectedItem.file_details.forEach(function(file, index) {
-            if (index > 0) html += '<br/>';
+            if (index > 0) html += '<br/><br/>';
             var fileName = file.file_name || file.file_path;
             // 添加文字图标
-            var icons = '<span class="file-icon-primary">ⓕ</span>' +
-                       '<span class="file-icon-secondary">ⓟⓒⓓⓧ</span>';
-            html += icons + fileName;
+            var icons = '<span class="file-icon-primary">ⓕ</span>';
+            html += '<div style="margin-bottom: 8px;"><strong>' + icons + fileName + '</strong>';
+
+            // 显示该.fit文件的关联文件（直接整合显示）
+            if (file.related_file_paths && file.related_file_paths.length > 0) {
+              var relatedIcons = {
+                'axy': '<span class="file-icon-secondary">ⓐ</span>',
+                'diff1': '<span class="file-icon-secondary">ⓓ</span>',
+                'fixedsrc': '<span class="file-icon-secondary">ⓕ</span>',
+                'mo': '<span class="file-icon-secondary">ⓜ</span>'
+              };
+
+              html += '<br/><small style="margin-left: 20px; color: #666;">关联文件:</small>';
+              file.related_file_paths.forEach(function(relatedFile, rIndex) {
+                var relatedFileName = relatedFile.path ? relatedFile.path.split(/[/\\]/).pop() : '未知文件';
+                var fileType = relatedFile.type || 'unknown';
+                var icon = relatedIcons[fileType] || '<span class="file-icon-secondary">ⓧ</span>';
+                html += '<br/><small style="margin-left: 20px;">' + icon + ' ' + relatedFileName + '</small>';
+              });
+            }
+            html += '</div>';
           });
           html += '</td></tr>';
+        }
+
+        // 显示关联文件
+        if (selectedItem.related_files) {
+          var relatedTypes = ['axy', 'diff1', 'fixedsrc', 'mo'];
+          var relatedTypeNames = {
+            'axy': 'AXY文件 (天体测量)',
+            'diff1': 'DIFF1文件 (差分图像)',
+            'fixedsrc': 'FIXEDSRC文件 (固定源)',
+            'mo': 'MO文件 (移动目标)'
+          };
+
+          for (var k = 0; k < relatedTypes.length; k++) {
+            var relatedType = relatedTypes[k];
+            var relatedFiles = selectedItem.related_files[relatedType] || [];
+
+            if (relatedFiles.length > 0) {
+              html += '<tr><td><strong>' + relatedTypeNames[relatedType] + ':</strong></td><td>';
+              relatedFiles.forEach(function(relatedFile, index) {
+                if (index > 0) html += '<br/>';
+                var fileName = relatedFile.file_path ? relatedFile.file_path.split('/').pop() : '未知文件';
+                var matchScore = relatedFile.match_score || 0;
+                html += fileName + ' <small>(匹配度: ' + matchScore + ')</small>';
+              });
+              html += '</td></tr>';
+            }
+          }
         }
       } else {
         // 单文件数据显示
@@ -617,6 +662,8 @@
         if (selectedItem.file_path) {
           html += '<tr><td><strong>文件路径:</strong></td><td style="word-break: break-all;">' + selectedItem.file_path + '</td></tr>';
         }
+
+        // 单文件模式下的关联文件已经整合到文件名显示中，不需要单独显示
       }
 
       html += '</table>';

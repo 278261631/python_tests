@@ -888,12 +888,14 @@ class FitsFileFinderRipgrep:
 
             self.logger.info(f"分类搜索结果已保存到: {output_file}")
 
-            # 生成Timeline格式的JavaScript文件（合并所有类型）
-            all_files = []
-            for files in files_by_type.values():
-                all_files.extend(files)
+            # 只对.fit文件生成Timeline格式的JavaScript文件，其他文件作为关联文件
+            fit_files = files_by_type.get('fit', [])
 
-            if all_files:
+            if fit_files:
+                # 匹配其他类型文件到.fit文件
+                other_files = {k: v for k, v in files_by_type.items() if k != 'fit'}
+                fit_matches = self.match_related_files_to_fit(fit_files, other_files)
+
                 config_timeline_js_output = self.config.get('options', {}).get('output_files', {}).get('timeline_js')
                 if config_timeline_js_output:
                     timeline_js_output = config_timeline_js_output
@@ -905,12 +907,103 @@ class FitsFileFinderRipgrep:
                     if timeline_js_output == output_file:
                         timeline_js_output = output_file + '.js'
 
-                self.save_timeline_js(all_files, timeline_js_output, use_clustering, time_threshold_minutes)
+                self.save_timeline_js_with_related_files(fit_files, fit_matches, timeline_js_output, use_clustering, time_threshold_minutes)
 
             return True
 
         except Exception as e:
             self.logger.error(f"保存分类结果失败: {e}")
+            return False
+
+    def save_timeline_js_with_related_files(self, fit_files: List[str], fit_matches: Dict[str, Dict[str, Any]], output_file: str, use_clustering: bool = True, time_threshold_minutes: int = 30) -> bool:
+        """
+        保存包含关联文件信息的Timeline JavaScript文件
+
+        Args:
+            fit_files: .fit文件列表
+            fit_matches: 匹配结果字典
+            output_file: 输出文件路径
+            use_clustering: 是否使用聚类
+            time_threshold_minutes: 时间阈值
+
+        Returns:
+            bool: 保存成功返回True
+        """
+        try:
+            if use_clustering:
+                # 对.fit文件进行聚类
+                fit_info_list = self.extract_batch_fits_info(fit_files)
+                clustered_groups = self.cluster_data_by_region_and_time(fit_info_list, time_threshold_minutes)
+
+                # 为聚类数据添加关联文件信息
+                enhanced_groups = []
+                for group in clustered_groups:
+                    enhanced_group = group.copy()
+
+                    # 转换数据结构：将聚类方法的格式转换为Timeline方法期望的格式
+                    items = group.get('items', [])
+                    count = group.get('count', 0)
+
+                    # 转换为Timeline期望的格式
+                    enhanced_group['file_details'] = items
+                    enhanced_group['item_count'] = count
+
+                    # 提取系统名称列表
+                    system_names = set()
+                    for item in items:
+                        system_name = item.get('system_name')
+                        if system_name:
+                            system_names.add(system_name)
+                    enhanced_group['system_names'] = list(system_names)
+
+                    enhanced_group['related_files'] = {
+                        'axy': [],
+                        'diff1': [],
+                        'fixedsrc': [],
+                        'mo': []
+                    }
+
+                    # 收集该组中所有.fit文件的关联文件
+                    for file_detail in items:
+                        fit_file_path = file_detail.get('original_path', '')
+                        if fit_file_path in fit_matches:
+                            match_info = fit_matches[fit_file_path]
+                            for file_type, related_files in match_info['related_files'].items():
+                                enhanced_group['related_files'][file_type].extend(related_files)
+
+                    enhanced_groups.append(enhanced_group)
+
+                timeline_data = self.convert_clustered_data_to_timeline_format_with_related(enhanced_groups)
+            else:
+                # 单文件模式，直接转换.fit文件并添加关联文件信息
+                timeline_data = self.convert_to_timeline_format_with_related(fit_files, fit_matches)
+
+            # 保存JavaScript文件
+            with open(output_file, 'w', encoding='utf-8') as f:
+                f.write("// FITS文件Timeline数据 (包含关联文件)\n")
+                f.write(f"// 生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write(f"// 主文件数量: {len(fit_files)}\n")
+                f.write(f"// 聚类模式: {'启用' if use_clustering else '禁用'}\n")
+                f.write("\nvar fitsData = ")
+
+                import json
+
+                # 自定义JSON编码器处理datetime对象
+                class DateTimeEncoder(json.JSONEncoder):
+                    def default(self, obj):
+                        if isinstance(obj, datetime):
+                            return obj.strftime('%Y-%m-%dT%H:%M:%S')
+                        return super().default(obj)
+
+                json_str = json.dumps(timeline_data, ensure_ascii=False, indent=2, cls=DateTimeEncoder)
+                f.write(json_str)
+                f.write(";\n")
+
+            self.logger.info(f"Timeline JavaScript文件已保存到: {output_file}")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"保存Timeline JavaScript文件失败: {e}")
             return False
 
     def convert_to_timeline_format(self, files: List[str]) -> List[Dict[str, Any]]:
@@ -1001,6 +1094,317 @@ class FitsFileFinderRipgrep:
             timeline_data.append(timeline_item)
 
         return timeline_data
+
+    def convert_to_timeline_format_with_related(self, fit_files: List[str], fit_matches: Dict[str, Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        将.fit文件信息转换为包含关联文件的Timeline格式
+        """
+        timeline_data = []
+
+        for fit_file in fit_files:
+            match_info = fit_matches.get(fit_file, {})
+            fit_info = match_info.get('fit_info', {})
+
+            sky_region = fit_info.get('sky_region', 'Unknown')
+            system_name = fit_info.get('system_name', 'Unknown')
+            timestamp = fit_info.get('timestamp')
+
+            if timestamp:
+                try:
+                    from datetime import datetime
+                    dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                    start_time = dt.strftime("%Y-%m-%dT%H:%M:%S")
+                except:
+                    start_time = timestamp
+            else:
+                start_time = "1970-01-01T00:00:00"
+
+            # 统计关联文件
+            related_counts = {}
+            related_files_detail = {}
+            for file_type, related_files in match_info.get('related_files', {}).items():
+                related_counts[file_type] = len(related_files)
+                related_files_detail[file_type] = related_files
+
+            # 构建内容描述
+            content_parts = [f"{sky_region} | {system_name}"]
+            if any(count > 0 for count in related_counts.values()):
+                related_desc = []
+                if related_counts.get('axy', 0) > 0:
+                    related_desc.append(f"AXY:{related_counts['axy']}")
+                if related_counts.get('diff1', 0) > 0:
+                    related_desc.append(f"DIFF1:{related_counts['diff1']}")
+                if related_counts.get('fixedsrc', 0) > 0:
+                    related_desc.append(f"FIXEDSRC:{related_counts['fixedsrc']}")
+                if related_counts.get('mo', 0) > 0:
+                    related_desc.append(f"MO:{related_counts['mo']}")
+
+                if related_desc:
+                    content_parts.append(f"({', '.join(related_desc)})")
+
+            timeline_item = {
+                'id': f"fit_{len(timeline_data)}",
+                'content': " | ".join(content_parts),
+                'start': start_time,
+                'type': 'point',
+                'group': sky_region[:4] if len(sky_region) >= 4 else sky_region,
+                'subgroup': system_name,
+                'sky_region': sky_region,
+                'system_name': system_name,
+                'timestamp': timestamp,
+                'file_name': Path(fit_file).name,
+                'file_path': fit_file,
+                'related_files': related_files_detail,
+                'related_counts': related_counts
+            }
+
+            timeline_data.append(timeline_item)
+
+        return timeline_data
+
+    def convert_clustered_data_to_timeline_format_with_related(self, enhanced_groups: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        将包含关联文件的聚类数据转换为Timeline格式，每个.fit文件都有自己的关联文件
+        """
+        timeline_data = []
+
+        for group in enhanced_groups:
+            group_id = group.get('group_id', '')
+            sky_region_name = group.get('sky_region_name', 'Unknown')
+            system_names = group.get('system_names', [])
+            start_time = group.get('start_time')
+            end_time = group.get('end_time')
+            item_count = group.get('item_count', 0)
+            file_details = group.get('file_details', [])
+            related_files = group.get('related_files', {})
+
+            # 为每个.fit文件添加其专属的关联文件信息，直接整合到文件详情中
+            enhanced_file_details = []
+            for file_detail in file_details:
+                enhanced_detail = file_detail.copy()
+                fit_file_path = file_detail.get('original_path', '')
+
+                # 为这个特定的.fit文件找到匹配的关联文件，直接添加到文件详情中
+                related_file_paths = []
+
+                # 检查每种类型的关联文件
+                for file_type, files in related_files.items():
+                    for related_file in files:
+                        related_info = related_file.get('file_info', {})
+                        # 检查关联文件是否与当前.fit文件匹配
+                        if self._files_match(file_detail, related_info):
+                            related_file_paths.append({
+                                'path': related_file.get('file_path', ''),
+                                'type': file_type,
+                                'match_score': related_file.get('match_score', 100)
+                            })
+
+                # 将关联文件路径直接添加到文件详情中
+                if related_file_paths:
+                    enhanced_detail['related_file_paths'] = related_file_paths
+
+                enhanced_file_details.append(enhanced_detail)
+
+            # 更新file_details
+            file_details = enhanced_file_details
+
+            # 统计关联文件数量
+            related_counts = {}
+            for file_type, files in related_files.items():
+                related_counts[file_type] = len(files)
+
+            # 构建内容描述
+            content_parts = [sky_region_name]
+            if system_names:
+                content_parts.append(f"系统: {', '.join(sorted(system_names))}")
+
+            content_parts.append(f"({item_count}个FIT文件)")
+
+            # 添加关联文件信息
+            if any(count > 0 for count in related_counts.values()):
+                related_desc = []
+                if related_counts.get('axy', 0) > 0:
+                    related_desc.append(f"AXY:{related_counts['axy']}")
+                if related_counts.get('diff1', 0) > 0:
+                    related_desc.append(f"DIFF1:{related_counts['diff1']}")
+                if related_counts.get('fixedsrc', 0) > 0:
+                    related_desc.append(f"FIXEDSRC:{related_counts['fixedsrc']}")
+                if related_counts.get('mo', 0) > 0:
+                    related_desc.append(f"MO:{related_counts['mo']}")
+
+                if related_desc:
+                    content_parts.append(f"关联: {', '.join(related_desc)}")
+
+            content = " | ".join(content_parts)
+
+            # 处理时间
+            if start_time and end_time:
+                start_time_str = start_time.strftime("%Y-%m-%dT%H:%M:%S")
+                end_time_str = end_time.strftime("%Y-%m-%dT%H:%M:%S")
+
+                if start_time_str == end_time_str:
+                    timeline_item = {
+                        'id': group_id,
+                        'content': content,
+                        'start': start_time_str,
+                        'type': 'point'
+                    }
+                else:
+                    timeline_item = {
+                        'id': group_id,
+                        'content': content,
+                        'start': start_time_str,
+                        'end': end_time_str,
+                        'type': 'range'
+                    }
+            else:
+                timeline_item = {
+                    'id': group_id,
+                    'content': content,
+                    'start': "1970-01-01T00:00:00",
+                    'type': 'point'
+                }
+
+            # 添加分组信息（移除聚类级别的related_files，关联文件已整合到各个文件中）
+            timeline_item.update({
+                'group': sky_region_name,
+                'sky_region_name': sky_region_name,
+                'system_names': system_names,
+                'item_count': item_count,
+                'file_details': file_details
+            })
+
+            timeline_data.append(timeline_item)
+
+        return timeline_data
+
+    def match_related_files_to_fit(self, fit_files: List[str], other_files_by_type: Dict[str, List[str]]) -> Dict[str, Dict[str, Any]]:
+        """
+        将其他类型的文件匹配到对应的.fit文件
+
+        Args:
+            fit_files: .fit文件列表
+            other_files_by_type: 其他类型文件的字典
+
+        Returns:
+            Dict[str, Dict[str, Any]]: 以.fit文件路径为键的匹配结果
+        """
+        fit_file_matches = {}
+
+        # 首先提取所有.fit文件的信息
+        fit_info_list = self.extract_batch_fits_info(fit_files)
+
+        # 为每个.fit文件创建匹配记录
+        for i, fit_file in enumerate(fit_files):
+            fit_info = fit_info_list[i] if i < len(fit_info_list) else {}
+
+            fit_file_matches[fit_file] = {
+                'fit_file': fit_file,
+                'fit_info': fit_info,
+                'sky_region': fit_info.get('sky_region'),
+                'system_name': fit_info.get('system_name'),
+                'timestamp': fit_info.get('timestamp'),
+                'related_files': {
+                    'axy': [],
+                    'diff1': [],
+                    'fixedsrc': [],
+                    'mo': []
+                }
+            }
+
+        # 匹配其他类型的文件
+        for file_type, files in other_files_by_type.items():
+            if file_type == 'fit_files':  # 跳过.fit文件本身
+                continue
+
+            if not files:
+                continue
+
+            # 将文件类型名称转换为简短形式
+            short_type = file_type.replace('_files', '')
+
+            # 提取其他文件的信息
+            other_info_list = self.extract_batch_fits_info(files)
+
+            for j, other_file in enumerate(files):
+                other_info = other_info_list[j] if j < len(other_info_list) else {}
+                other_sky_region = other_info.get('sky_region')
+                other_system_name = other_info.get('system_name')
+                other_timestamp = other_info.get('timestamp')
+
+                # 寻找完全匹配的.fit文件（sky_region、system_name、timestamp 三个字段必须完全相同）
+                matched_fit_file = None
+
+                for fit_file, fit_match in fit_file_matches.items():
+                    # 三个字段必须完全相同
+                    if (other_sky_region and fit_match['sky_region'] and other_sky_region == fit_match['sky_region'] and
+                        other_system_name and fit_match['system_name'] and other_system_name == fit_match['system_name'] and
+                        other_timestamp and fit_match['timestamp'] and other_timestamp == fit_match['timestamp']):
+                        matched_fit_file = fit_file
+                        break
+
+                # 如果找到完全匹配，添加到相关文件列表
+                if matched_fit_file:
+                    fit_file_matches[matched_fit_file]['related_files'][short_type].append({
+                        'file_path': other_file,
+                        'file_info': other_info,
+                        'match_score': 100  # 完全匹配给予满分
+                    })
+
+        return fit_file_matches
+
+    def _files_match(self, fit_file_info: Dict[str, Any], related_file_info: Dict[str, Any]) -> bool:
+        """
+        判断.fit文件和关联文件是否匹配
+        要求 sky_region、system_name 和 timestamp 三个字段同时完全相同
+
+        Args:
+            fit_file_info: .fit文件信息
+            related_file_info: 关联文件信息
+
+        Returns:
+            bool: 是否匹配
+        """
+        # 获取三个关键字段
+        fit_region = fit_file_info.get('sky_region', '')
+        related_region = related_file_info.get('sky_region', '')
+
+        fit_system = fit_file_info.get('system_name', '')
+        related_system = related_file_info.get('system_name', '')
+
+        fit_timestamp = fit_file_info.get('timestamp', '')
+        related_timestamp = related_file_info.get('timestamp', '')
+
+        # 三个字段必须同时完全相同
+        return (fit_region and related_region and fit_region == related_region and
+                fit_system and related_system and fit_system == related_system and
+                fit_timestamp and related_timestamp and fit_timestamp == related_timestamp)
+
+    def _parse_timestamp(self, timestamp_str: str) -> Optional[datetime]:
+        """
+        解析时间戳字符串
+
+        Args:
+            timestamp_str: 时间戳字符串，如 "UTC20250826_161037"
+
+        Returns:
+            Optional[datetime]: 解析后的datetime对象，失败返回None
+        """
+        try:
+            timestamp_str = timestamp_str.replace('UTC', '')
+            date_part = timestamp_str[:8]  # 20250826
+            time_part = timestamp_str[9:]  # 161037
+
+            year = int(date_part[:4])
+            month = int(date_part[4:6])
+            day = int(date_part[6:8])
+            hour = int(time_part[:2])
+            minute = int(time_part[2:4])
+            second = int(time_part[4:6])
+
+            return datetime(year, month, day, hour, minute, second)
+        except:
+            return None
 
     def convert_clustered_data_to_timeline_format(self, files: List[str], use_clustering: bool = True, time_threshold_minutes: int = 30) -> List[Dict[str, Any]]:
         """
@@ -1296,12 +1700,13 @@ def main():
 
         # 输出分类列表信息供后续使用
         print(f"\n文件分类列表已准备完成:")
-        print(f"  axy_files: {len(files_by_type.get('axy', []))} 个 .fits.axy 文件")
-        print(f"  diff1_files: {len(files_by_type.get('diff1', []))} 个 .diff1.fits 文件")
-        print(f"  fixedsrc_files: {len(files_by_type.get('fixedsrc', []))} 个 .fixedsrc.cat 文件")
-        print(f"  mo_files: {len(files_by_type.get('mo', []))} 个 .mo.cat 文件")
-        print(f"  fit_files: {len(files_by_type.get('fit', []))} 个 .fit 文件")
+        print(f"  axy_files: {len(files_by_type.get('axy', []))} 个 .fits.axy 文件 (关联到.fit文件)")
+        print(f"  diff1_files: {len(files_by_type.get('diff1', []))} 个 .diff1.fits 文件 (关联到.fit文件)")
+        print(f"  fixedsrc_files: {len(files_by_type.get('fixedsrc', []))} 个 .fixedsrc.cat 文件 (关联到.fit文件)")
+        print(f"  mo_files: {len(files_by_type.get('mo', []))} 个 .mo.cat 文件 (关联到.fit文件)")
+        print(f"  fit_files: {len(files_by_type.get('fit', []))} 个 .fit 文件 (主Timeline列表)")
         print(f"  可通过 finder.get_files_by_type() 获取所有分类列表")
+        print(f"\n注意: 只有.fit文件会被聚合并导出到Timeline主列表，其他文件类型作为关联文件显示")
 
 
 if __name__ == "__main__":
