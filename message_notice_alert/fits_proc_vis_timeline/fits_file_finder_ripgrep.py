@@ -884,7 +884,7 @@ class FitsFileFinderRipgrep:
             self.logger.error(f"保存结果失败: {e}")
             return False
 
-    def save_results_by_type(self, files_by_type: Dict[str, List[str]], output_file: str = None, include_extracted_info: bool = True, use_clustering: bool = True, time_threshold_minutes: int = 30) -> bool:
+    def save_results_by_type(self, files_by_type: Dict[str, List[str]], output_file: str = None, include_extracted_info: bool = True, use_clustering: bool = True, time_threshold_minutes: int = 30, save_text_file: bool = False) -> bool:
         """
         保存按类型分类的搜索结果到文件
 
@@ -894,6 +894,7 @@ class FitsFileFinderRipgrep:
             include_extracted_info: 是否包含提取的文件信息，默认为True
             use_clustering: 是否使用聚类分组
             time_threshold_minutes: 时间阈值（分钟）
+            save_text_file: 是否保存文本文件，默认为False
 
         Returns:
             bool: 保存成功返回True，否则返回False
@@ -911,55 +912,59 @@ class FitsFileFinderRipgrep:
         try:
             total_files = sum(len(files) for files in files_by_type.values())
 
-            with open(output_file, 'w', encoding='utf-8') as f:
-                f.write(f"FITS文件搜索结果 (按类型分类)\n")
-                f.write(f"搜索时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-                f.write(f"文件类型数量: {len(files_by_type)}\n")
-                f.write(f"总文件数量: {total_files}\n")
-                f.write("=" * 80 + "\n\n")
+            # 只有在需要保存文本文件时才创建和写入文本文件
+            if save_text_file:
+                with open(output_file, 'w', encoding='utf-8') as f:
+                    f.write(f"FITS文件搜索结果 (按类型分类)\n")
+                    f.write(f"搜索时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                    f.write(f"文件类型数量: {len(files_by_type)}\n")
+                    f.write(f"总文件数量: {total_files}\n")
+                    f.write("=" * 80 + "\n\n")
 
-                # 按文件类型分别处理
-                for file_type, files in files_by_type.items():
-                    if not files:
-                        continue
+                    # 按文件类型分别处理
+                    for file_type, files in files_by_type.items():
+                        if not files:
+                            continue
 
-                    f.write(f"文件类型: {file_type.upper()}\n")
-                    f.write(f"文件数量: {len(files)}\n")
-                    f.write("-" * 60 + "\n")
+                        f.write(f"文件类型: {file_type.upper()}\n")
+                        f.write(f"文件数量: {len(files)}\n")
+                        f.write("-" * 60 + "\n")
 
-                    if include_extracted_info:
-                        # 提取文件信息并以表格形式保存
-                        f.write("文件信息提取结果:\n")
-                        f.write(f"{'序号':<4} {'天区索引':<12} {'系统名称':<12} {'时间戳':<20} {'文件路径'}\n")
-                        f.write("-" * 80 + "\n")
+                        if include_extracted_info:
+                            # 提取文件信息并以表格形式保存
+                            f.write("文件信息提取结果:\n")
+                            f.write(f"{'序号':<4} {'天区索引':<12} {'系统名称':<12} {'时间戳':<20} {'文件路径'}\n")
+                            f.write("-" * 80 + "\n")
 
-                        extracted_info = self.extract_batch_fits_info(files)
-                        successful_extractions = 0
+                            extracted_info = self.extract_batch_fits_info(files)
+                            successful_extractions = 0
 
-                        for i, info in enumerate(extracted_info, 1):
-                            sky_region = info['sky_region'] or 'N/A'
-                            system_name = info['system_name'] or 'N/A'
-                            timestamp = info['timestamp'] or 'N/A'
-                            file_path = info['original_path']
+                            for i, info in enumerate(extracted_info, 1):
+                                sky_region = info['sky_region'] or 'N/A'
+                                system_name = info['system_name'] or 'N/A'
+                                timestamp = info['timestamp'] or 'N/A'
+                                file_path = info['original_path']
 
-                            # 统计成功提取的数量
-                            if any(info[key] for key in ['sky_region', 'system_name', 'timestamp']):
-                                successful_extractions += 1
+                                # 统计成功提取的数量
+                                if any(info[key] for key in ['sky_region', 'system_name', 'timestamp']):
+                                    successful_extractions += 1
 
-                            f.write(f"{i:<4} {sky_region:<12} {system_name:<12} {timestamp:<20} {file_path}\n")
+                                f.write(f"{i:<4} {sky_region:<12} {system_name:<12} {timestamp:<20} {file_path}\n")
 
-                        f.write("-" * 80 + "\n")
-                        f.write(f"信息提取统计: 总文件数={len(files)}, 成功提取={successful_extractions}, 成功率={successful_extractions/len(files)*100:.1f}%\n")
+                            f.write("-" * 80 + "\n")
+                            f.write(f"信息提取统计: 总文件数={len(files)}, 成功提取={successful_extractions}, 成功率={successful_extractions/len(files)*100:.1f}%\n")
 
-                    # 保存完整的文件路径列表
-                    f.write("\n完整文件路径列表:\n")
-                    f.write("-" * 50 + "\n")
-                    for i, file_path in enumerate(files, 1):
-                        f.write(f"{i:4d}. {file_path}\n")
+                        # 保存完整的文件路径列表
+                        f.write("\n完整文件路径列表:\n")
+                        f.write("-" * 50 + "\n")
+                        for i, file_path in enumerate(files, 1):
+                            f.write(f"{i:4d}. {file_path}\n")
 
-                    f.write("\n" + "=" * 80 + "\n\n")
+                        f.write("\n" + "=" * 80 + "\n\n")
 
-            self.logger.info(f"分类搜索结果已保存到: {output_file}")
+                self.logger.info(f"分类搜索结果已保存到: {output_file}")
+            else:
+                self.logger.info("跳过文本文件保存")
 
             # 只对.fit文件生成Timeline格式的JavaScript文件，其他文件作为关联文件
             fit_files = files_by_type.get('fit', [])
@@ -1702,6 +1707,8 @@ def main():
                        help='配置文件路径 (默认: fits_finder_config.json)')
     parser.add_argument('-o', '--output', help='输出文件路径')
     parser.add_argument('--output-dir', help='输出目录路径，会自动拷贝HTML模板文件')
+    parser.add_argument('--save-text', action='store_true',
+                       help='保存搜索结果文本文件 (默认不保存)')
     parser.add_argument('-v', '--verbose', action='store_true',
                        help='详细输出')
     parser.add_argument('--extract-info', action='store_true',
@@ -1779,7 +1786,7 @@ def main():
     # 保存分类结果
     if files_by_type:
         use_clustering = not args.no_clustering
-        finder.save_results_by_type(files_by_type, args.output, True, use_clustering, args.time_threshold)
+        finder.save_results_by_type(files_by_type, args.output, True, use_clustering, args.time_threshold, args.save_text)
 
         # 输出分类列表信息供后续使用
         print(f"\n文件分类列表已准备完成:")
