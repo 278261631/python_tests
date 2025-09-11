@@ -556,6 +556,7 @@ class FitsFileFinderRipgrep:
                 - 'diff1_files': .diff1.fits 文件列表
                 - 'fixedsrc_files': .fixedsrc.cat 文件列表
                 - 'mo_files': .mo.cat 文件列表
+                - 'fit_files': .fit 文件列表
         """
         files_by_type = self.get_files_by_type()
 
@@ -564,7 +565,8 @@ class FitsFileFinderRipgrep:
             'axy_files': files_by_type.get('axy', []),
             'diff1_files': files_by_type.get('diff1', []),
             'fixedsrc_files': files_by_type.get('fixedsrc', []),
-            'mo_files': files_by_type.get('mo', [])
+            'mo_files': files_by_type.get('mo', []),
+            'fit_files': files_by_type.get('fit', [])
         }
 
         return file_lists
@@ -1298,6 +1300,7 @@ def main():
         print(f"  diff1_files: {len(files_by_type.get('diff1', []))} 个 .diff1.fits 文件")
         print(f"  fixedsrc_files: {len(files_by_type.get('fixedsrc', []))} 个 .fixedsrc.cat 文件")
         print(f"  mo_files: {len(files_by_type.get('mo', []))} 个 .mo.cat 文件")
+        print(f"  fit_files: {len(files_by_type.get('fit', []))} 个 .fit 文件")
         print(f"  可通过 finder.get_files_by_type() 获取所有分类列表")
 
 
