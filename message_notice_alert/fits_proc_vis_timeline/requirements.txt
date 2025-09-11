@@ -1,0 +1,5 @@
+# fits_file_finder_ripgrep.py 依赖包
+# 不包含版本号，使用最新版本
+
+python-ripgrep
+
