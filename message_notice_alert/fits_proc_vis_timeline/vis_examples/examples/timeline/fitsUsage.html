@@ -159,12 +159,7 @@
 
 <div id="visualization"></div>
 
-<div class="info-panel">
-  <div style="display: flex; gap: 20px; align-items: center;">
-    <span>FITS文件时间线可视化</span>
-  </div>
 
-</div>
 
 <div id="info" class="info-panel" style="display: none;">
   <h3>选中项目信息：</h3>
@@ -585,7 +580,7 @@
           html += '<tr><td><strong>FIT文件:</strong></td><td>';
           selectedItem.file_details.forEach(function(file, index) {
             if (index > 0) html += '<br/><br/>';
-            var fileName = file.file_name || file.file_path;
+            var fileName = file.original_path ? file.original_path.split(/[/\\]/).pop() : '未知文件';
             // 添加文字图标
             var icons = '<span class="file-icon-primary">ⓕ</span>';
             html += '<div style="margin-bottom: 8px;"><strong>' + icons + fileName + '</strong>';
