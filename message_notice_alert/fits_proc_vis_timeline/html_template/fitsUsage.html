@@ -99,7 +99,7 @@
       font-weight: bold;
     }
 
-    /* 完整检测项目样式（同时存在MO和FIXEDSRC文件） */
+    /* 完整检测项目样式（所有文件都同时存在MO和FIXEDSRC文件） */
     .vis-item.complete-detection {
       background-color: #d4edda !important;
       border-color: #28a745 !important;
@@ -121,6 +121,30 @@
     .vis-item.complete-detection.vis-selected:hover {
       background-color: #fff3cd !important;
       border-color: #28a745 !important;
+    }
+
+    /* 部分检测项目样式（部分文件同时存在MO和FIXEDSRC文件） */
+    .vis-item.partial-detection {
+      background-color: #cce7ff !important;
+      border-color: #007bff !important;
+    }
+
+    /* 悬停状态：保持蓝色背景 */
+    .vis-item.partial-detection:hover {
+      background-color: #b3d9ff !important;
+      border-color: #0056b3 !important;
+    }
+
+    /* 选中状态：黄色背景 + 蓝色边框 (优先级最高) */
+    .vis-item.partial-detection.vis-selected {
+      background-color: #fff3cd !important;
+      border-color: #007bff !important;
+    }
+
+    /* 选中且悬停状态：黄色背景 + 蓝色边框 */
+    .vis-item.partial-detection.vis-selected:hover {
+      background-color: #fff3cd !important;
+      border-color: #007bff !important;
     }
 
     /* 为不同天区设置不同的边框样式 */
@@ -408,29 +432,45 @@
     });
   }
 
-  // 检测并标记完整检测的项目（同时存在MO和FIXEDSRC文件）
+  // 检测并标记检测状态的项目（完整、部分、不完整）
   processedData.forEach(function(item) {
     if (isClusteredData && item.file_details) {
-      // 检查聚类数据中是否有文件同时存在MO和FIXEDSRC
-      var hasMO = false;
-      var hasFixedSrc = false;
+      // 检查聚类数据中文件的检测完整性
+      var totalFiles = 0;
+      var completeFiles = 0;
 
       item.file_details.forEach(function(file) {
+        totalFiles++;
+        var fileHasMO = false;
+        var fileHasFixedSrc = false;
+
         if (file.related_file_paths) {
           file.related_file_paths.forEach(function(relatedFile) {
             if (relatedFile.type === 'mo') {
-              hasMO = true;
+              fileHasMO = true;
             }
             if (relatedFile.type === 'fixedsrc') {
-              hasFixedSrc = true;
+              fileHasFixedSrc = true;
             }
           });
         }
+
+        // 如果当前文件同时存在MO和FIXEDSRC，则计为完整文件
+        if (fileHasMO && fileHasFixedSrc) {
+          completeFiles++;
+        }
       });
 
-      // 如果同时存在MO和FIXEDSRC，添加完整检测的CSS类
-      if (hasMO && hasFixedSrc) {
-        item.className = (item.className || '') + ' complete-detection';
+      // 根据完整文件的比例添加相应的CSS类
+      if (totalFiles > 0) {
+        if (completeFiles === totalFiles) {
+          // 所有文件都完整 - 绿色
+          item.className = (item.className || '') + ' complete-detection';
+        } else if (completeFiles > 0) {
+          // 部分文件完整 - 蓝色
+          item.className = (item.className || '') + ' partial-detection';
+        }
+        // 如果 completeFiles === 0，则不添加任何特殊样式（保持默认颜色）
       }
     }
   });
