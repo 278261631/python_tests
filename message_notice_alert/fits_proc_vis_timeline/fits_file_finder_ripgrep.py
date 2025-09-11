@@ -566,7 +566,8 @@ class FitsFileFinderRipgrep:
             'diff1_files': files_by_type.get('diff1', []),
             'fixedsrc_files': files_by_type.get('fixedsrc', []),
             'mo_files': files_by_type.get('mo', []),
-            'fit_files': files_by_type.get('fit', [])
+            'fit_files': files_by_type.get('fit', []),
+            'pp_fits_files': files_by_type.get('pp_fits', [])
         }
 
         return file_lists
@@ -960,7 +961,8 @@ class FitsFileFinderRipgrep:
                         'axy': [],
                         'diff1': [],
                         'fixedsrc': [],
-                        'mo': []
+                        'mo': [],
+                        'pp_fits': []
                     }
 
                     # 收集该组中所有.fit文件的关联文件
@@ -1003,7 +1005,9 @@ class FitsFileFinderRipgrep:
             return True
 
         except Exception as e:
+            import traceback
             self.logger.error(f"保存Timeline JavaScript文件失败: {e}")
+            self.logger.error(f"详细错误信息: {traceback.format_exc()}")
             return False
 
     def convert_to_timeline_format(self, files: List[str]) -> List[Dict[str, Any]]:
@@ -1231,6 +1235,8 @@ class FitsFileFinderRipgrep:
                     related_desc.append(f"FIXEDSRC:{related_counts['fixedsrc']}")
                 if related_counts.get('mo', 0) > 0:
                     related_desc.append(f"MO:{related_counts['mo']}")
+                if related_counts.get('pp_fits', 0) > 0:
+                    related_desc.append(f"PP_FITS:{related_counts['pp_fits']}")
 
                 if related_desc:
                     content_parts.append(f"关联: {', '.join(related_desc)}")
@@ -1311,7 +1317,8 @@ class FitsFileFinderRipgrep:
                     'axy': [],
                     'diff1': [],
                     'fixedsrc': [],
-                    'mo': []
+                    'mo': [],
+                    'pp_fits': []
                 }
             }
 
@@ -1708,6 +1715,7 @@ def main():
         print(f"  fixedsrc_files: {len(files_by_type.get('fixedsrc', []))} 个 .fixedsrc.cat 文件 (关联到.fit文件)")
         print(f"  mo_files: {len(files_by_type.get('mo', []))} 个 .mo.cat 文件 (关联到.fit文件)")
         print(f"  fit_files: {len(files_by_type.get('fit', []))} 个 .fit 文件 (主Timeline列表)")
+        print(f"  pp_fits_files: {len(files_by_type.get('pp_fits', []))} 个 _pp.fits 文件 (处理后的FITS文件)")
         print(f"  可通过 finder.get_files_by_type() 获取所有分类列表")
         print(f"\n注意: 只有.fit文件会被聚合并导出到Timeline主列表，其他文件类型作为关联文件显示")
 

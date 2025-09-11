@@ -10,7 +10,7 @@
     "file_patterns": [
         {
             "type": "regex",
-            "pattern": ".*\\.(fits\\.axy|diff1\\.fits|fixedsrc\\.cat|mo\\.cat|fit)$",
+            "pattern": ".*\\.(fits\\.axy|diff1\\.fits|fixedsrc\\.cat|mo\\.cat|fit)$|.*_pp\\.fits$",
             "case_sensitive": false,
             "description": "所有目标文件类型"
         }
@@ -76,6 +76,14 @@
                 "case_sensitive": false,
                 "description": "搜索.fit文件",
                 "file_type": "fit"
+            }
+,
+            {
+                "type": "regex",
+                "pattern": "\\d{8}/K\\d{3}/redux/GY\\d_K\\d{3}-.*?_pp\\.fits$",
+                "case_sensitive": false,
+                "description": "搜索redux目录下的_pp.fits文件",
+                "file_type": "pp_fits"
             }
         ],
         "output_files": {
