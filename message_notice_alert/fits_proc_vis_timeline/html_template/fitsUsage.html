@@ -99,52 +99,78 @@
       font-weight: bold;
     }
 
-    /* 完整检测项目样式（所有文件都同时存在MO和FIXEDSRC文件） */
-    .vis-item.complete-detection {
-      background-color: #d4edda !important;
-      border-color: #28a745 !important;
-    }
+    /* 完成度分级样式 */
 
-    /* 悬停状态：保持绿色背景 */
-    .vis-item.complete-detection:hover {
-      background-color: #c3e6cb !important;
-      border-color: #1e7e34 !important;
+    /* 红色：完成度 < 10% */
+    .vis-item.completion-red {
+      background-color: #f8d7da !important;
+      border-color: #dc3545 !important;
     }
-
-    /* 选中状态：黄色背景 + 绿色边框 (优先级最高) */
-    .vis-item.complete-detection.vis-selected {
+    .vis-item.completion-red:hover {
+      background-color: #f1b0b7 !important;
+      border-color: #bd2130 !important;
+    }
+    .vis-item.completion-red.vis-selected {
       background-color: #fff3cd !important;
-      border-color: #28a745 !important;
+      border-color: #dc3545 !important;
     }
-
-    /* 选中且悬停状态：黄色背景 + 绿色边框 */
-    .vis-item.complete-detection.vis-selected:hover {
+    .vis-item.completion-red.vis-selected:hover {
       background-color: #fff3cd !important;
-      border-color: #28a745 !important;
+      border-color: #dc3545 !important;
     }
 
-    /* 部分检测项目样式（部分文件同时存在MO和FIXEDSRC文件） */
-    .vis-item.partial-detection {
+    /* 黄色：完成度 10%-50% */
+    .vis-item.completion-yellow {
+      background-color: #fff3cd !important;
+      border-color: #ffc107 !important;
+    }
+    .vis-item.completion-yellow:hover {
+      background-color: #ffeaa7 !important;
+      border-color: #e0a800 !important;
+    }
+    .vis-item.completion-yellow.vis-selected {
+      background-color: #fff3cd !important;
+      border-color: #ffc107 !important;
+    }
+    .vis-item.completion-yellow.vis-selected:hover {
+      background-color: #fff3cd !important;
+      border-color: #ffc107 !important;
+    }
+
+    /* 蓝色：完成度 50%-90% */
+    .vis-item.completion-blue {
       background-color: #cce7ff !important;
       border-color: #007bff !important;
     }
-
-    /* 悬停状态：保持蓝色背景 */
-    .vis-item.partial-detection:hover {
+    .vis-item.completion-blue:hover {
       background-color: #b3d9ff !important;
       border-color: #0056b3 !important;
     }
-
-    /* 选中状态：黄色背景 + 蓝色边框 (优先级最高) */
-    .vis-item.partial-detection.vis-selected {
+    .vis-item.completion-blue.vis-selected {
+      background-color: #fff3cd !important;
+      border-color: #007bff !important;
+    }
+    .vis-item.completion-blue.vis-selected:hover {
       background-color: #fff3cd !important;
       border-color: #007bff !important;
     }
 
-    /* 选中且悬停状态：黄色背景 + 蓝色边框 */
-    .vis-item.partial-detection.vis-selected:hover {
+    /* 绿色：完成度 90%-100% */
+    .vis-item.completion-green {
+      background-color: #d4edda !important;
+      border-color: #28a745 !important;
+    }
+    .vis-item.completion-green:hover {
+      background-color: #c3e6cb !important;
+      border-color: #1e7e34 !important;
+    }
+    .vis-item.completion-green.vis-selected {
       background-color: #fff3cd !important;
-      border-color: #007bff !important;
+      border-color: #28a745 !important;
+    }
+    .vis-item.completion-green.vis-selected:hover {
+      background-color: #fff3cd !important;
+      border-color: #28a745 !important;
     }
 
     /* 为不同天区设置不同的边框样式 */
@@ -368,7 +394,39 @@
           return;
         }
 
-        var itemContent = systemName + ' | ' + groupKey + ' (' + systemFileCount + '个文件)';
+        // 计算 MO 和 FIXEDSRC 的完成度统计
+        var moCount = 0;
+        var fixedsrcCount = 0;
+        var completeCount = 0;
+
+        systemFileDetails.forEach(function(file) {
+          var fileHasMO = false;
+          var fileHasFixedSrc = false;
+
+          if (file.related_file_paths) {
+            file.related_file_paths.forEach(function(relatedFile) {
+              if (relatedFile.type === 'mo') {
+                fileHasMO = true;
+              }
+              if (relatedFile.type === 'fixedsrc') {
+                fileHasFixedSrc = true;
+              }
+            });
+          }
+
+          if (fileHasMO) moCount++;
+          if (fileHasFixedSrc) fixedsrcCount++;
+          if (fileHasMO && fileHasFixedSrc) completeCount++;
+        });
+
+        // 计算占比
+        var moPercent = systemFileCount > 0 ? Math.round((moCount / systemFileCount) * 100) : 0;
+        var fixedsrcPercent = systemFileCount > 0 ? Math.round((fixedsrcCount / systemFileCount) * 100) : 0;
+        var completePercent = systemFileCount > 0 ? Math.round((completeCount / systemFileCount) * 100) : 0;
+
+        // 构建显示内容，包含完成度信息
+        var itemContent = systemName + ' | ' + groupKey + ' (' + systemFileCount + '个文件)' +
+                         '<br/>完成度: ' + completePercent + '% | MO: ' + moPercent + '% | FS: ' + fixedsrcPercent + '%';
 
         processedData.push({
           id: group.group_id + '_' + sysIndex,
@@ -384,11 +442,20 @@
           system_names: [systemName],
           item_count: systemFileCount,
           file_details: systemFileDetails,
+          mo_count: moCount,
+          fixedsrc_count: fixedsrcCount,
+          complete_count: completeCount,
+          mo_percent: moPercent,
+          fixedsrc_percent: fixedsrcPercent,
+          complete_percent: completePercent,
           title: itemContent + '<br/>' +
                  '时间: ' + group.start + '<br/>' +
                  '系统: ' + systemName + '<br/>' +
                  '天区: ' + groupKey + '<br/>' +
                  '文件数量: ' + systemFileCount + '<br/>' +
+                 '完成统计: ' + completeCount + '/' + systemFileCount + ' 完整, ' +
+                 moCount + '/' + systemFileCount + ' 有MO, ' +
+                 fixedsrcCount + '/' + systemFileCount + ' 有FIXEDSRC<br/>' +
                  '图标说明: ⓕ(绿色-主要) ⓟⓒⓓⓧ(黄色-辅助)'
         });
       });
@@ -416,24 +483,64 @@
       systemsInRegion.sort();
       var subgroupOrder = systemsInRegion.indexOf(systemName);
 
+      // 计算单文件的 MO 和 FIXEDSRC 完成度统计
+      var hasMO = false;
+      var hasFixedSrc = false;
+
+      if (item.related_file_paths) {
+        item.related_file_paths.forEach(function(relatedFile) {
+          if (relatedFile.type === 'mo') {
+            hasMO = true;
+          }
+          if (relatedFile.type === 'fixedsrc') {
+            hasFixedSrc = true;
+          }
+        });
+      }
+
+      var completePercent = 0;
+      var moPercent = hasMO ? 100 : 0;
+      var fixedsrcPercent = hasFixedSrc ? 100 : 0;
+
+      if (hasMO && hasFixedSrc) {
+        completePercent = 100;
+      } else if (hasMO || hasFixedSrc) {
+        completePercent = 50;
+      }
+
+      // 构建显示内容，包含完成度信息
+      var enhancedContent = item.content + '<br/>完成度: ' + completePercent + '% | MO: ' + moPercent + '% | FS: ' + fixedsrcPercent + '%';
+
       return {
         ...item,
+        content: enhancedContent,
         group: groupId,      // 分配到主分组（天区）
         subgroup: systemName, // 子分组使用系统名称
         subgroupOrder: subgroupOrder, // 子分组排序
         type: 'point',       // 设置为点类型
-        title: item.content + '<br/>' +
+        mo_count: hasMO ? 1 : 0,
+        fixedsrc_count: hasFixedSrc ? 1 : 0,
+        complete_count: (hasMO && hasFixedSrc) ? 1 : 0,
+        mo_percent: moPercent,
+        fixedsrc_percent: fixedsrcPercent,
+        complete_percent: completePercent,
+        title: enhancedContent + '<br/>' +
                '时间: ' + item.start + '<br/>' +
                '系统: ' + systemName + '<br/>' +
                '天区: ' + region + '<br/>' +
                '文件: ' + item.file_name + '<br/>' +
+               '完成统计: ' + (hasMO && hasFixedSrc ? '1/1 完整' : '0/1 完整') + ', ' +
+               (hasMO ? '1/1 有MO' : '0/1 有MO') + ', ' +
+               (hasFixedSrc ? '1/1 有FIXEDSRC' : '0/1 有FIXEDSRC') + '<br/>' +
                '图标说明: ⓕ(绿色-主要) ⓟⓒⓓⓧ(黄色-辅助)'  // 使用 title 属性作为 tooltip
       };
     });
   }
 
-  // 检测并标记检测状态的项目（完整、部分、不完整）
+  // 检测并标记检测状态的项目（根据完成度百分比分级）
   processedData.forEach(function(item) {
+    var completionPercent = 0;
+
     if (isClusteredData && item.file_details) {
       // 检查聚类数据中文件的检测完整性
       var totalFiles = 0;
@@ -461,17 +568,28 @@
         }
       });
 
-      // 根据完整文件的比例添加相应的CSS类
+      // 计算聚类数据的完成度百分比
       if (totalFiles > 0) {
-        if (completeFiles === totalFiles) {
-          // 所有文件都完整 - 绿色
-          item.className = (item.className || '') + ' complete-detection';
-        } else if (completeFiles > 0) {
-          // 部分文件完整 - 蓝色
-          item.className = (item.className || '') + ' partial-detection';
-        }
-        // 如果 completeFiles === 0，则不添加任何特殊样式（保持默认颜色）
+        completionPercent = (completeFiles / totalFiles) * 100;
       }
+    } else {
+      // 单文件数据：使用已计算的完成度百分比
+      completionPercent = item.complete_percent || 0;
+    }
+
+    // 根据完成度百分比添加相应的颜色CSS类
+    if (completionPercent < 10) {
+      // 完成度 < 10% - 红色
+      item.className = (item.className || '') + ' completion-red';
+    } else if (completionPercent < 50) {
+      // 完成度 10%-50% - 黄色
+      item.className = (item.className || '') + ' completion-yellow';
+    } else if (completionPercent < 90) {
+      // 完成度 50%-90% - 蓝色
+      item.className = (item.className || '') + ' completion-blue';
+    } else {
+      // 完成度 90%-100% - 绿色
+      item.className = (item.className || '') + ' completion-green';
     }
   });
 
