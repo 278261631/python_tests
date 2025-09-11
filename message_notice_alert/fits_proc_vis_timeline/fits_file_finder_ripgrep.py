@@ -46,7 +46,64 @@ class FitsFileFinderRipgrep:
         # 如果没有指定输出目录，默认使用"dest"目录
         self.output_dir = output_dir or "dest"
         self.logger = self._setup_logger()
-        
+
+        # 生成运行时间戳，用于文件命名
+        self.run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    def _generate_timestamped_filename(self, base_name: str, extension: str) -> str:
+        """
+        生成带时间戳和参数的文件名
+
+        Args:
+            base_name: 基础文件名（如 "fitsUsage", "fits_data"）
+            extension: 文件扩展名（如 ".html", ".js"）
+
+        Returns:
+            str: 带时间戳的文件名
+        """
+        # 确定参数部分
+        if self.ignore_date:
+            param_part = "all"
+        else:
+            param_part = self.date_suffix
+
+        # 生成文件名：base_name_param_timestamp.extension
+        return f"{base_name}_{param_part}_{self.run_timestamp}{extension}"
+
+    def _update_html_file_references(self, html_file_path: Path, js_filename: str, css_filename: str, vis_js_filename: str) -> bool:
+        """
+        更新HTML文件中的CSS和JS文件引用
+
+        Args:
+            html_file_path: HTML文件路径
+            js_filename: JS数据文件名
+            css_filename: CSS文件名
+            vis_js_filename: vis.js文件名
+
+        Returns:
+            bool: 更新成功返回True，失败返回False
+        """
+        try:
+            # 读取HTML文件内容
+            with open(html_file_path, 'r', encoding='utf-8') as f:
+                html_content = f.read()
+
+            # 替换文件引用
+            html_content = html_content.replace('src="fits_data.js"', f'src="{js_filename}"')
+            html_content = html_content.replace('href="vis.css"', f'href="{css_filename}"')
+            html_content = html_content.replace('src="vis.js"', f'src="{vis_js_filename}"')
+
+            # 写回文件
+            with open(html_file_path, 'w', encoding='utf-8') as f:
+                f.write(html_content)
+
+            self.logger.info(f"已更新HTML文件引用: {html_file_path}")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"更新HTML文件引用失败: {e}")
+            return False
+
     def _setup_logger(self) -> logging.Logger:
         """设置日志记录器"""
         logger = logging.getLogger('FitsFileFinderRipgrep')
@@ -73,7 +130,7 @@ class FitsFileFinderRipgrep:
         
         return logger
 
-    def copy_html_template_files(self, dest_dir: str = None) -> bool:
+    def copy_html_template_files(self, dest_dir: str = None) -> dict:
         """
         拷贝HTML模板文件到指定目录
 
@@ -81,14 +138,14 @@ class FitsFileFinderRipgrep:
             dest_dir: 目标目录，如果为None则使用self.output_dir
 
         Returns:
-            bool: 拷贝成功返回True，失败返回False
+            dict: 包含生成的文件名信息，格式为 {"success": bool, "files": {"html": str, "css": str, "js": str}}
         """
         if dest_dir is None:
             dest_dir = self.output_dir
 
         if not dest_dir:
             self.logger.warning("未指定输出目录，跳过HTML模板文件拷贝")
-            return False
+            return {"success": False, "files": {}}
 
         try:
             # 获取当前脚本所在目录
@@ -97,36 +154,71 @@ class FitsFileFinderRipgrep:
 
             if not template_dir.exists():
                 self.logger.error(f"HTML模板目录不存在: {template_dir}")
-                return False
+                return {"success": False, "files": {}}
 
             # 确保目标目录存在
             dest_path = Path(dest_dir)
             dest_path.mkdir(parents=True, exist_ok=True)
 
-            # 拷贝模板文件
-            template_files = ["fitsUsage.html", "vis.css", "vis.js"]
+            # 拷贝模板文件，HTML文件使用带时间戳的文件名，CSS和JS文件保持原名
+            template_files = [
+                ("fitsUsage.html", "fitsUsage", ".html"),
+                ("vis.css", "vis", ".css"),
+                ("vis.js", "vis", ".js")
+            ]
             copied_files = []
             skipped_files = []
+            generated_files = {}  # 记录生成的文件名
 
-            for template_file in template_files:
+            for template_file, base_name, extension in template_files:
                 src_file = template_dir / template_file
-                dest_file = dest_path / template_file
+
+                # 只有HTML文件使用时间戳，CSS和JS文件保持原名
+                if template_file == "fitsUsage.html":
+                    timestamped_filename = self._generate_timestamped_filename(base_name, extension)
+                else:
+                    # CSS和JS文件保持原名
+                    timestamped_filename = template_file
+
+                dest_file = dest_path / timestamped_filename
 
                 if not src_file.exists():
                     self.logger.warning(f"模板文件不存在: {src_file}")
                     continue
 
-                if dest_file.exists():
-                    self.logger.info(f"文件已存在，跳过: {dest_file}")
-                    skipped_files.append(template_file)
-                    continue
+                # HTML文件总是拷贝（因为文件名包含时间戳），CSS和JS文件检查是否存在
+                if template_file == "fitsUsage.html":
+                    # HTML文件总是拷贝
+                    should_copy = True
+                else:
+                    # CSS和JS文件检查是否存在
+                    if dest_file.exists():
+                        self.logger.info(f"文件已存在，跳过: {dest_file}")
+                        skipped_files.append(timestamped_filename)
+                        # 记录已存在的文件名
+                        if template_file == "vis.css":
+                            generated_files["css"] = timestamped_filename
+                        elif template_file == "vis.js":
+                            generated_files["vis_js"] = timestamped_filename
+                        continue
+                    should_copy = True
 
-                try:
-                    shutil.copy2(src_file, dest_file)
-                    copied_files.append(template_file)
-                    self.logger.info(f"已拷贝: {src_file} -> {dest_file}")
-                except Exception as e:
-                    self.logger.error(f"拷贝文件失败 {src_file} -> {dest_file}: {e}")
+                if should_copy:
+                    try:
+                        shutil.copy2(src_file, dest_file)
+                        copied_files.append(timestamped_filename)
+                        self.logger.info(f"已拷贝: {src_file} -> {dest_file}")
+
+                        # 记录生成的文件名
+                        if template_file == "fitsUsage.html":
+                            generated_files["html"] = timestamped_filename
+                        elif template_file == "vis.css":
+                            generated_files["css"] = timestamped_filename
+                        elif template_file == "vis.js":
+                            generated_files["vis_js"] = timestamped_filename
+
+                    except Exception as e:
+                        self.logger.error(f"拷贝文件失败 {src_file} -> {dest_file}: {e}")
 
             self.logger.info(f"HTML模板文件拷贝完成: 拷贝 {len(copied_files)} 个文件，跳过 {len(skipped_files)} 个文件")
             if copied_files:
@@ -134,11 +226,11 @@ class FitsFileFinderRipgrep:
             if skipped_files:
                 self.logger.info(f"已跳过的文件: {', '.join(skipped_files)}")
 
-            return True
+            return {"success": True, "files": generated_files}
 
         except Exception as e:
             self.logger.error(f"拷贝HTML模板文件失败: {e}")
-            return False
+            return {"success": False, "files": {}}
 
     def load_config(self) -> bool:
         """
@@ -873,8 +965,9 @@ class FitsFileFinderRipgrep:
             self.logger.info(f"搜索结果已保存到: {output_file}")
 
             # 默认生成Timeline格式的JavaScript文件（主要格式）
-            # 数据文件输出到输出目录（默认为dest目录）
-            timeline_js_output = Path(self.output_dir) / "fits_data.js"
+            # 数据文件输出到输出目录（默认为dest目录），使用带时间戳的文件名
+            timestamped_js_filename = self._generate_timestamped_filename("fits_data", ".js")
+            timeline_js_output = Path(self.output_dir) / timestamped_js_filename
 
             self.save_timeline_js(files, timeline_js_output, use_clustering, time_threshold_minutes)
 
@@ -884,7 +977,7 @@ class FitsFileFinderRipgrep:
             self.logger.error(f"保存结果失败: {e}")
             return False
 
-    def save_results_by_type(self, files_by_type: Dict[str, List[str]], output_file: str = None, include_extracted_info: bool = True, use_clustering: bool = True, time_threshold_minutes: int = 30, save_text_file: bool = False) -> bool:
+    def save_results_by_type(self, files_by_type: Dict[str, List[str]], output_file: str = None, include_extracted_info: bool = True, use_clustering: bool = True, time_threshold_minutes: int = 30, save_text_file: bool = False) -> dict:
         """
         保存按类型分类的搜索结果到文件
 
@@ -897,7 +990,7 @@ class FitsFileFinderRipgrep:
             save_text_file: 是否保存文本文件，默认为False
 
         Returns:
-            bool: 保存成功返回True，否则返回False
+            dict: 包含保存结果信息，格式为 {"success": bool, "js_filename": str}
         """
         if output_file is None:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -974,16 +1067,17 @@ class FitsFileFinderRipgrep:
                 other_files = {k: v for k, v in files_by_type.items() if k != 'fit'}
                 fit_matches = self.match_related_files_to_fit(fit_files, other_files)
 
-                # 数据文件输出到输出目录（默认为dest目录）
-                timeline_js_output = Path(self.output_dir) / "fits_data.js"
+                # 数据文件输出到输出目录（默认为dest目录），使用带时间戳的文件名
+                timestamped_js_filename = self._generate_timestamped_filename("fits_data", ".js")
+                timeline_js_output = Path(self.output_dir) / timestamped_js_filename
 
                 self.save_timeline_js_with_related_files(fit_files, fit_matches, timeline_js_output, use_clustering, time_threshold_minutes)
 
-            return True
+            return {"success": True, "js_filename": timestamped_js_filename}
 
         except Exception as e:
             self.logger.error(f"保存分类结果失败: {e}")
-            return False
+            return {"success": False, "js_filename": ""}
 
     def save_timeline_js_with_related_files(self, fit_files: List[str], fit_matches: Dict[str, Dict[str, Any]], output_file: str, use_clustering: bool = True, time_threshold_minutes: int = 30) -> bool:
         """
@@ -1738,10 +1832,13 @@ def main():
     # 拷贝HTML模板文件到输出目录
     output_dir_display = args.output_dir or "dest (默认)"
     print(f"\n拷贝HTML模板文件到输出目录: {output_dir_display}")
-    if finder.copy_html_template_files():
+    copy_result = finder.copy_html_template_files()
+    if copy_result["success"]:
         print("HTML模板文件拷贝完成")
+        html_files_info = copy_result["files"]
     else:
         print("HTML模板文件拷贝失败")
+        html_files_info = {}
 
     # 默认按类型分类搜索
     files_by_type = finder.get_files_by_type()
@@ -1786,7 +1883,16 @@ def main():
     # 保存分类结果
     if files_by_type:
         use_clustering = not args.no_clustering
-        finder.save_results_by_type(files_by_type, args.output, True, use_clustering, args.time_threshold, args.save_text)
+        save_result = finder.save_results_by_type(files_by_type, args.output, True, use_clustering, args.time_threshold, args.save_text)
+
+        # 如果成功生成了JS文件且有HTML文件信息，更新HTML文件引用
+        if save_result["success"] and save_result["js_filename"] and html_files_info.get("html"):
+            html_file_path = Path(finder.output_dir) / html_files_info["html"]
+            js_filename = save_result["js_filename"]
+            css_filename = html_files_info.get("css", "vis.css")
+            vis_js_filename = html_files_info.get("vis_js", "vis.js")
+
+            finder._update_html_file_references(html_file_path, js_filename, css_filename, vis_js_filename)
 
         # 输出分类列表信息供后续使用
         print(f"\n文件分类列表已准备完成:")
