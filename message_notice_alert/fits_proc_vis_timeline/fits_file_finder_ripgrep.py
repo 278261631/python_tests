@@ -29,7 +29,7 @@ except ImportError:
 class FitsFileFinderRipgrep:
     """基于Ripgrep的FITS文件查找器类"""
     
-    def __init__(self, config_file: str = "fits_finder_config.json", date_suffix: str = None, ignore_date: bool = False, output_dir: str = None):
+    def __init__(self, config_file: str = "fits_finder_config.json", date_suffix: str = None, ignore_date: bool = False, output_dir: str = None, enable_log_file: bool = False):
         """
         初始化文件查找器
 
@@ -38,6 +38,7 @@ class FitsFileFinderRipgrep:
             date_suffix: 日期后缀，格式为yyyymmdd，默认为当前日期
             ignore_date: 是否忽略日期后缀，直接搜索基础目录
             output_dir: 输出目录路径，如果为None则默认使用"dest"目录
+            enable_log_file: 是否启用日志文件输出，默认为False
         """
         self.config_file = config_file
         self.config = {}
@@ -45,6 +46,7 @@ class FitsFileFinderRipgrep:
         self.date_suffix = date_suffix or datetime.now().strftime("%Y%m%d")
         # 如果没有指定输出目录，默认使用"dest"目录
         self.output_dir = output_dir or "dest"
+        self.enable_log_file = enable_log_file
         self.logger = self._setup_logger()
 
         # 生成运行时间戳，用于文件命名
@@ -108,26 +110,35 @@ class FitsFileFinderRipgrep:
         """设置日志记录器"""
         logger = logging.getLogger('FitsFileFinderRipgrep')
         logger.setLevel(logging.INFO)
-        
+
         # 创建控制台处理器
         console_handler = logging.StreamHandler()
         console_handler.setLevel(logging.INFO)
-        
-        # 创建文件处理器
-        file_handler = logging.FileHandler('fits_finder_ripgrep.log', encoding='utf-8')
-        file_handler.setLevel(logging.DEBUG)
-        
+
         # 创建格式器
         formatter = logging.Formatter(
             '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
         )
         console_handler.setFormatter(formatter)
-        file_handler.setFormatter(formatter)
-        
-        # 添加处理器
+
+        # 添加控制台处理器
         logger.addHandler(console_handler)
-        logger.addHandler(file_handler)
-        
+
+        # 只有在启用日志文件时才创建文件处理器
+        if self.enable_log_file:
+            # 确保输出目录存在
+            output_path = Path(self.output_dir)
+            output_path.mkdir(parents=True, exist_ok=True)
+
+            # 创建文件处理器，日志文件放到输出目录中
+            log_file_path = output_path / 'fits_finder_ripgrep.log'
+            file_handler = logging.FileHandler(log_file_path, encoding='utf-8')
+            file_handler.setLevel(logging.DEBUG)
+            file_handler.setFormatter(formatter)
+
+            # 添加文件处理器
+            logger.addHandler(file_handler)
+
         return logger
 
     def copy_html_template_files(self, dest_dir: str = None) -> dict:
@@ -1814,11 +1825,13 @@ def main():
                        help='禁用数据聚类分组，使用原始的单个文件模式')
     parser.add_argument('--time-threshold', type=int, default=30,
                        help='时间聚类阈值（分钟），默认30分钟')
+    parser.add_argument('--enable-log-file', action='store_true',
+                       help='启用日志文件输出到输出目录 (默认只输出到控制台)')
 
     args = parser.parse_args()
 
     # 创建查找器实例
-    finder = FitsFileFinderRipgrep(args.config, args.date, args.all, args.output_dir)
+    finder = FitsFileFinderRipgrep(args.config, args.date, args.all, args.output_dir, args.enable_log_file)
     
     # 设置日志级别
     if args.verbose:
