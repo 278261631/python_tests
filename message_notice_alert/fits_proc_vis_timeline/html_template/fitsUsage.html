@@ -238,6 +238,18 @@
 <div id="info" class="info-panel" style="display: none;">
   <h3>选中项目信息：</h3>
   <div id="item-details"></div>
+
+  <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #ddd;">
+    <div class="filter-controls">
+      <button onclick="generateCommandTexts()" style="background-color: #28a745; color: white; border: 1px solid #1e7e34;">生成处理命令</button>
+      <span style="margin-left: 20px; color: #666; font-size: 14px;">为当前选中项目的每个fit文件生成预处理命令</span>
+    </div>
+    <div id="command-output" style="display: none; background-color: #f8f9fa; padding: 10px; border-radius: 4px; margin-top: 10px; max-height: 300px; overflow-y: auto;">
+      <h4>生成的命令文本：</h4>
+      <pre id="command-text" style="white-space: pre-wrap; font-family: monospace; font-size: 12px;"></pre>
+      <button onclick="copyToClipboard()" style="margin-top: 10px; padding: 5px 10px; border: 1px solid #ddd; background-color: #f8f9fa; border-radius: 4px; cursor: pointer;">复制到剪贴板</button>
+    </div>
+  </div>
 </div>
 
 <script type="text/javascript">
@@ -765,6 +777,9 @@
       var selectedId = selection.items[0];
       var selectedItem = items.get(selectedId);
 
+      // 保存当前选中的项目数据
+      currentSelectedItem = selectedItem;
+
       // Display item details
       var html = '<table style="width: 100%;">';
       html += '<tr><td><strong>ID:</strong></td><td>' + selectedItem.id + '</td></tr>';
@@ -906,6 +921,8 @@
       detailsDiv.innerHTML = html;
       infoDiv.style.display = 'block';
     } else {
+      // 清空当前选中的项目数据
+      currentSelectedItem = null;
       infoDiv.style.display = 'none';
     }
   });
@@ -966,6 +983,127 @@
     }
     updateRegionDisplay();
     applyFilters();
+  }
+
+  // 当前选中的项目数据
+  var currentSelectedItem = null;
+
+  // 生成处理命令文本
+  function generateCommandTexts() {
+    var commandTexts = [];
+
+    // 检查是否有选中的项目
+    if (!currentSelectedItem) {
+      var commandOutput = document.getElementById('command-output');
+      var commandText = document.getElementById('command-text');
+      commandText.textContent = '请先选择一个项目';
+      commandOutput.style.display = 'block';
+      return;
+    }
+
+    // 为当前选中的项目生成命令
+    if (isClusteredData && currentSelectedItem.file_details) {
+      // 聚类数据：为选中项目中的每个文件生成命令
+      currentSelectedItem.file_details.forEach(function(file) {
+        var command = generateSingleCommand(file, currentSelectedItem);
+        if (command) {
+          commandTexts.push(command);
+        }
+      });
+    } else if (!isClusteredData) {
+      // 单文件数据：为选中的项目生成命令
+      var command = generateSingleCommand(currentSelectedItem, currentSelectedItem);
+      if (command) {
+        commandTexts.push(command);
+      }
+    }
+
+    // 显示生成的命令
+    var commandOutput = document.getElementById('command-output');
+    var commandText = document.getElementById('command-text');
+
+    if (commandTexts.length > 0) {
+      commandText.textContent = commandTexts.join('\n\n');
+      commandOutput.style.display = 'block';
+    } else {
+      commandText.textContent = '没有找到符合条件的fit文件';
+      commandOutput.style.display = 'block';
+    }
+  }
+
+  // 生成单个文件的命令
+  function generateSingleCommand(fileData, itemData) {
+    var fileName, filePath, systemName, skyRegion, timestamp;
+
+    if (isClusteredData) {
+      // 聚类数据
+      fileName = fileData.original_path ? fileData.original_path.split(/[/\\]/).pop() : '';
+      filePath = fileData.original_path || '';
+      systemName = fileData.system_name || (itemData.system_names && itemData.system_names[0]) || '';
+      skyRegion = itemData.sky_region_name || '';
+      timestamp = itemData.start || '';
+    } else {
+      // 单文件数据
+      fileName = fileData.file_name || '';
+      filePath = fileData.file_path || '';
+      systemName = fileData.system_name || '';
+      skyRegion = fileData.sky_region || '';
+      timestamp = fileData.timestamp || fileData.start || '';
+    }
+
+    if (!fileName || !systemName) {
+      return null;
+    }
+
+    // 从时间戳提取日期 (yyyymmdd格式)
+    var dateMatch = timestamp.match(/(\d{4})-(\d{2})-(\d{2})/);
+    var dateStr = '';
+    if (dateMatch) {
+      dateStr = dateMatch[1] + dateMatch[2] + dateMatch[3];
+    } else {
+      // 如果时间戳格式不匹配，尝试其他格式或使用默认值
+      dateStr = 'yyyymmdd';
+    }
+
+    // 提取天区前四位
+    var skyRegionPrefix = skyRegion.substring(0, 4);
+
+    // 构建路径
+    var originalFilePath = '/data/' + systemName + '/' + dateStr + '/' + skyRegionPrefix + '/' + fileName;
+    var biasFilePath = '/data/' + systemName + '/calibration/20220429/master_bias_bin2.fits';
+    var flatFilePath = '/data/' + systemName + '/calibration/20220429/master_flat_C_bin2.fits';
+    var darkFilePath = '/data/' + systemName + '/calibration/20220429/master_dark_bin2_30s.fits';
+
+    // 生成命令文本
+    var commands = [];
+    commands.push('cp "' + originalFilePath + '" /data/mayong_transdata/debug2/cmd_debug/');
+    commands.push('python preproc.py KATS "' + originalFilePath + '" --bias-file "' + biasFilePath + '" --dark-file "' + darkFilePath + '" --flat-file "' + flatFilePath + '"');
+
+    return commands.join('\n');
+  }
+
+  // 复制到剪贴板
+  function copyToClipboard() {
+    var commandText = document.getElementById('command-text');
+    var textArea = document.createElement('textarea');
+    textArea.value = commandText.textContent;
+    document.body.appendChild(textArea);
+    textArea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textArea);
+
+    // 显示复制成功提示
+    var button = event.target;
+    var originalText = button.textContent;
+    button.textContent = '已复制!';
+    button.style.backgroundColor = '#28a745';
+    button.style.color = 'white';
+
+    setTimeout(function() {
+      button.textContent = originalText;
+      button.style.backgroundColor = '#f8f9fa';
+      button.style.color = 'black';
+    }, 2000);
   }
 </script>
 </body>
