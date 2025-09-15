@@ -67,8 +67,8 @@ class FitsFileFinderRipgrep:
         # 生成运行时间戳，用于文件命名
         self.run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         
-        # 图像目录 - 存储缩略图和中心区域图
-        self.image_dir = os.path.join(self.output_dir, "images")
+        # 图像目录 - 存储缩略图和中心区域图，包含运行时间戳以匹配HTML文件名
+        self.image_dir = os.path.join(self.output_dir, f"images_{self.run_timestamp}")
         # 确保图像目录存在
         os.makedirs(self.image_dir, exist_ok=True)
 
