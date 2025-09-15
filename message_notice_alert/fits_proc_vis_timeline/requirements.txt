@@ -2,4 +2,8 @@
 # 不包含版本号，使用最新版本
 
 python-ripgrep
+astropy
+matplotlib
+numpy
+pillow
 

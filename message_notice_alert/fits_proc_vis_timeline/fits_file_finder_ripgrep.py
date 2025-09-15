@@ -25,6 +25,21 @@ except ImportError:
     print("请运行: pip install python-ripgrep")
     sys.exit(1)
 
+try:
+    from astropy.io import fits
+    import matplotlib.pyplot as plt
+    import numpy as np
+    from PIL import Image
+    PLOT_AVAILABLE = True
+except ImportError:
+    print("警告: 图像处理库未安装，无法生成缩略图和中心区域图")
+    print("请运行: pip install astropy matplotlib numpy pillow")
+    PLOT_AVAILABLE = False
+
+# 设置matplotlib不显示图形窗口
+if PLOT_AVAILABLE:
+    plt.switch_backend('Agg')
+
 
 class FitsFileFinderRipgrep:
     """基于Ripgrep的FITS文件查找器类"""
@@ -51,6 +66,11 @@ class FitsFileFinderRipgrep:
 
         # 生成运行时间戳，用于文件命名
         self.run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        # 图像目录 - 存储缩略图和中心区域图
+        self.image_dir = os.path.join(self.output_dir, "images")
+        # 确保图像目录存在
+        os.makedirs(self.image_dir, exist_ok=True)
 
     def _generate_timestamped_filename(self, base_name: str, extension: str) -> str:
         """
@@ -361,6 +381,230 @@ class FitsFileFinderRipgrep:
                 patterns.append(f".*{escaped_pattern}.*")
         
         return patterns
+
+    def _normalize_image_data(self, data: np.ndarray) -> np.ndarray:
+        """
+        对FITS图像数据进行归一化处理
+        
+        Args:
+            data: 原始FITS图像数据
+        
+        Returns:
+            np.ndarray: 归一化后的图像数据 (0-255范围的uint8)
+        """
+        # 移除NaN和无穷大值
+        data = np.nan_to_num(data)
+        
+        # 计算数据的最小值和最大值（排除异常值）
+        min_val = np.percentile(data, 1)
+        max_val = np.percentile(data, 99)
+        
+        # 确保最大值大于最小值
+        if max_val <= min_val:
+            max_val = min_val + 1
+        
+        # 归一化到0-255范围
+        normalized = (data - min_val) / (max_val - min_val)
+        normalized = np.clip(normalized * 255, 0, 255).astype(np.uint8)
+        
+        return normalized
+
+    def _create_thumbnail(self, fits_path: str, thumbnail_path: str, size: tuple = (512, 512)) -> Optional[str]:
+        """
+        为FITS文件创建缩略图
+        
+        Args:
+            fits_path: FITS文件路径
+            thumbnail_path: 缩略图保存路径
+            size: 缩略图尺寸
+        
+        Returns:
+            Optional[str]: 缩略图保存路径，如果创建失败返回None
+        """
+        if not PLOT_AVAILABLE:
+            self.logger.warning("图像处理库未安装，跳过缩略图生成")
+            return None
+        
+        try:
+            # 打开FITS文件并读取数据
+            with fits.open(fits_path) as hdul:
+                # 假设第一个HDU包含图像数据
+                if len(hdul) > 0:
+                    image_data = hdul[0].data
+                    
+                    # 检查数据类型
+                    if image_data is None:
+                        self.logger.warning(f"FITS文件中没有图像数据: {fits_path}")
+                        return None
+                    
+                    # 如果是3D数据（例如带有颜色通道），取第一个通道
+                    if len(image_data.shape) > 2:
+                        image_data = image_data[0]
+                    
+                    # 归一化图像数据
+                    normalized_data = self._normalize_image_data(image_data)
+                    
+                    # 创建PIL图像
+                    img = Image.fromarray(normalized_data)
+                    
+                    # 调整大小为缩略图尺寸
+                    thumbnail_img = img.resize(size, Image.Resampling.LANCZOS)
+                    
+                    # 确保目录存在
+                    os.makedirs(os.path.dirname(thumbnail_path), exist_ok=True)
+                    
+                    # 保存缩略图
+                    thumbnail_img.save(thumbnail_path)
+                    
+                    self.logger.debug(f"已生成缩略图: {thumbnail_path}")
+                    return thumbnail_path
+                else:
+                    self.logger.warning(f"FITS文件为空: {fits_path}")
+                    return None
+        except Exception as e:
+            self.logger.error(f"生成缩略图失败 {fits_path}: {e}")
+            return None
+
+    def _create_center_crop(self, fits_path: str, crop_path: str, size: tuple = (200, 200)) -> Optional[str]:
+        """
+        提取FITS文件的中心区域并保存为图像
+        
+        Args:
+            fits_path: FITS文件路径
+            crop_path: 中心区域图保存路径
+            size: 中心区域图尺寸
+        
+        Returns:
+            Optional[str]: 中心区域图保存路径，如果创建失败返回None
+        """
+        if not PLOT_AVAILABLE:
+            self.logger.warning("图像处理库未安装，跳过中心区域图生成")
+            return None
+        
+        try:
+            # 打开FITS文件并读取数据
+            with fits.open(fits_path) as hdul:
+                # 假设第一个HDU包含图像数据
+                if len(hdul) > 0:
+                    image_data = hdul[0].data
+                    
+                    # 检查数据类型
+                    if image_data is None:
+                        self.logger.warning(f"FITS文件中没有图像数据: {fits_path}")
+                        return None
+                    
+                    # 如果是3D数据（例如带有颜色通道），取第一个通道
+                    if len(image_data.shape) > 2:
+                        image_data = image_data[0]
+                    
+                    # 计算中心坐标
+                    height, width = image_data.shape
+                    center_y, center_x = height // 2, width // 2
+                    
+                    # 计算裁剪区域
+                    crop_height, crop_width = size
+                    half_height, half_width = crop_height // 2, crop_width // 2
+                    
+                    # 确保裁剪区域在图像范围内
+                    start_y = max(0, center_y - half_height)
+                    end_y = min(height, center_y + half_height)
+                    start_x = max(0, center_x - half_width)
+                    end_x = min(width, center_x + half_width)
+                    
+                    # 提取中心区域
+                    center_data = image_data[start_y:end_y, start_x:end_x]
+                    
+                    # 归一化图像数据
+                    normalized_data = self._normalize_image_data(center_data)
+                    
+                    # 创建PIL图像
+                    img = Image.fromarray(normalized_data)
+                    
+                    # 如果裁剪区域小于目标尺寸，调整大小
+                    if img.size != size:
+                        img = img.resize(size, Image.Resampling.LANCZOS)
+                    
+                    # 确保目录存在
+                    os.makedirs(os.path.dirname(crop_path), exist_ok=True)
+                    
+                    # 保存中心区域图
+                    img.save(crop_path)
+                    
+                    self.logger.debug(f"已生成中心区域图: {crop_path}")
+                    return crop_path
+                else:
+                    self.logger.warning(f"FITS文件为空: {fits_path}")
+                    return None
+        except Exception as e:
+            self.logger.error(f"生成中心区域图失败 {fits_path}: {e}")
+            return None
+
+    def process_fits_image(self, fits_path: str, create_thumbnail: bool = True, create_center_crop: bool = True) -> Dict[str, Optional[str]]:
+        """
+        处理单个FITS文件，生成缩略图和中心区域图
+        
+        Args:
+            fits_path: FITS文件路径
+            create_thumbnail: 是否创建缩略图
+            create_center_crop: 是否创建中心区域图
+        
+        Returns:
+            Dict[str, Optional[str]]: 包含图像路径的字典
+        """
+        result = {
+            'thumbnail': None,
+            'center_crop': None
+        }
+        
+        # 为图像生成唯一的文件名
+        file_name = Path(fits_path).stem
+        base_name = f"{file_name}"
+        
+        # 生成缩略图
+        if create_thumbnail:
+            thumbnail_path = os.path.join(self.image_dir, f"{base_name}_thumbnail.jpg")
+            result['thumbnail'] = self._create_thumbnail(fits_path, thumbnail_path)
+        
+        # 生成中心区域图
+        if create_center_crop:
+            center_crop_path = os.path.join(self.image_dir, f"{base_name}_center.jpg")
+            result['center_crop'] = self._create_center_crop(fits_path, center_crop_path)
+        
+        return result
+
+    def batch_process_fits_images(self, fits_files: List[str], create_thumbnail: bool = True, create_center_crop: bool = True) -> Dict[str, Dict[str, Optional[str]]]:
+        """
+        批量处理FITS文件，为每个文件生成缩略图和中心区域图
+        
+        Args:
+            fits_files: FITS文件路径列表
+            create_thumbnail: 是否创建缩略图
+            create_center_crop: 是否创建中心区域图
+        
+        Returns:
+            Dict[str, Dict[str, Optional[str]]]: 以FITS文件路径为键，包含图像路径的字典
+        """
+        results = {}
+        
+        total_files = len(fits_files)
+        self.logger.info(f"开始批量处理 {total_files} 个FITS文件的图像")
+        
+        for i, fits_file in enumerate(fits_files, 1):
+            # 进度信息
+            if i % 10 == 0 or i == total_files:
+                self.logger.info(f"处理进度: {i}/{total_files}")
+            
+            # 处理单个FITS文件
+            image_paths = self.process_fits_image(fits_file, create_thumbnail, create_center_crop)
+            results[fits_file] = image_paths
+        
+        # 统计结果
+        success_thumbnails = sum(1 for paths in results.values() if paths['thumbnail'] is not None)
+        success_center_crops = sum(1 for paths in results.values() if paths['center_crop'] is not None)
+        
+        self.logger.info(f"批量处理完成: 成功生成 {success_thumbnails}/{total_files} 个缩略图, {success_center_crops}/{total_files} 个中心区域图")
+        
+        return results
     
     def _should_filter_path(self, path: str) -> bool:
         """
@@ -1827,6 +2071,12 @@ def main():
                        help='时间聚类阈值（分钟），默认30分钟')
     parser.add_argument('--enable-log-file', action='store_true',
                        help='启用日志文件输出到输出目录 (默认只输出到控制台)')
+    parser.add_argument('--generate-images', action='store_true',
+                       help='为FITS文件生成缩略图和中心区域图（默认不启用）')
+    parser.add_argument('--thumbnail-only', action='store_true',
+                       help='只生成缩略图（需与--generate-images一起使用）')
+    parser.add_argument('--center-only', action='store_true',
+                       help='只生成中心区域图（需与--generate-images一起使用）')
 
     args = parser.parse_args()
 
@@ -1893,10 +2143,34 @@ def main():
             if len(files) > 5:
                 print(f"     ... 还有 {len(files) - 5} 个文件")
 
+    # 初始化保存结果变量
+    save_result = {"success": False, "js_filename": None}
+    
     # 保存分类结果
     if files_by_type:
         use_clustering = not args.no_clustering
         save_result = finder.save_results_by_type(files_by_type, args.output, True, use_clustering, args.time_threshold, args.save_text)
+        
+        # 如果启用了图像生成功能
+        if args.generate_images:
+            # 获取所有FITS文件
+            fit_files = files_by_type.get('fit', []) + files_by_type.get('fits', [])
+            
+            if fit_files:
+                print(f"\n发现 {len(fit_files)} 个FITS文件，开始生成图像...")
+                
+                # 确定要生成的图像类型
+                create_thumbnail = not args.center_only
+                create_center_crop = not args.thumbnail_only
+                
+                # 批量生成图像
+                image_results = finder.batch_process_fits_images(
+                    fit_files,
+                    create_thumbnail=create_thumbnail,
+                    create_center_crop=create_center_crop
+                )
+            else:
+                print("未找到FITS文件，无法生成图像")
 
         # 如果成功生成了JS文件且有HTML文件信息，更新HTML文件引用
         if save_result["success"] and save_result["js_filename"] and html_files_info.get("html"):
