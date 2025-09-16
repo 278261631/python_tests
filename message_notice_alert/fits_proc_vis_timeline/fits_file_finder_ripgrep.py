@@ -542,34 +542,56 @@ class FitsFileFinderRipgrep:
     def process_fits_image(self, fits_path: str, create_thumbnail: bool = True, create_center_crop: bool = True) -> Dict[str, Optional[str]]:
         """
         处理单个FITS文件，生成缩略图和中心区域图
-        
+
         Args:
             fits_path: FITS文件路径
             create_thumbnail: 是否创建缩略图
             create_center_crop: 是否创建中心区域图
-        
+
         Returns:
-            Dict[str, Optional[str]]: 包含图像路径的字典
+            Dict[str, Optional[str]]: 包含图像路径的字典，包含绝对路径和相对路径
         """
         result = {
             'thumbnail': None,
-            'center_crop': None
+            'center_crop': None,
+            'thumbnail_relative': None,
+            'center_crop_relative': None
         }
-        
+
         # 为图像生成唯一的文件名
         file_name = Path(fits_path).stem
         base_name = f"{file_name}"
-        
+
         # 生成缩略图
         if create_thumbnail:
             thumbnail_path = os.path.join(self.image_dir, f"{base_name}_thumbnail.jpg")
-            result['thumbnail'] = self._create_thumbnail(fits_path, thumbnail_path)
-        
+            absolute_path = self._create_thumbnail(fits_path, thumbnail_path)
+            if absolute_path:
+                result['thumbnail'] = absolute_path
+                # 生成相对于输出目录的相对路径
+                try:
+                    output_dir_path = Path(self.output_dir).resolve()
+                    thumbnail_abs_path = Path(absolute_path).resolve()
+                    result['thumbnail_relative'] = str(thumbnail_abs_path.relative_to(output_dir_path))
+                except ValueError:
+                    # 如果无法生成相对路径，使用文件名
+                    result['thumbnail_relative'] = f"images_{self.run_timestamp}/{base_name}_thumbnail.jpg"
+
         # 生成中心区域图
         if create_center_crop:
             center_crop_path = os.path.join(self.image_dir, f"{base_name}_center.jpg")
-            result['center_crop'] = self._create_center_crop(fits_path, center_crop_path)
-        
+            absolute_path = self._create_center_crop(fits_path, center_crop_path)
+            if absolute_path:
+                result['center_crop'] = absolute_path
+                # 生成相对于输出目录的相对路径
+                try:
+                    output_dir_path = Path(self.output_dir).resolve()
+                    center_abs_path = Path(absolute_path).resolve()
+                    result['center_crop_relative'] = str(center_abs_path.relative_to(output_dir_path))
+                except ValueError:
+                    # 如果无法生成相对路径，使用文件名
+                    result['center_crop_relative'] = f"images_{self.run_timestamp}/{base_name}_center.jpg"
+
         return result
 
     def batch_process_fits_images(self, fits_files: List[str], create_thumbnail: bool = True, create_center_crop: bool = True) -> Dict[str, Dict[str, Optional[str]]]:
@@ -1232,7 +1254,7 @@ class FitsFileFinderRipgrep:
             self.logger.error(f"保存结果失败: {e}")
             return False
 
-    def save_results_by_type(self, files_by_type: Dict[str, List[str]], output_file: str = None, include_extracted_info: bool = True, use_clustering: bool = True, time_threshold_minutes: int = 30, save_text_file: bool = False) -> dict:
+    def save_results_by_type(self, files_by_type: Dict[str, List[str]], output_file: str = None, include_extracted_info: bool = True, use_clustering: bool = True, time_threshold_minutes: int = 30, save_text_file: bool = False, generate_images: bool = False) -> dict:
         """
         保存按类型分类的搜索结果到文件
 
@@ -1243,6 +1265,7 @@ class FitsFileFinderRipgrep:
             use_clustering: 是否使用聚类分组
             time_threshold_minutes: 时间阈值（分钟）
             save_text_file: 是否保存文本文件，默认为False
+            generate_images: 是否为FITS文件生成缩略图和中心区域图，默认为False
 
         Returns:
             dict: 包含保存结果信息，格式为 {"success": bool, "js_filename": str}
@@ -1318,9 +1341,22 @@ class FitsFileFinderRipgrep:
             fit_files = files_by_type.get('fit', [])
 
             if fit_files:
+                # 如果启用了图像生成，先生成图像
+                image_results = {}
+                if generate_images:
+                    self.logger.info(f"为 {len(fit_files)} 个FITS文件生成缩略图和中心区域图...")
+                    image_results = self.batch_process_fits_images(fit_files, create_thumbnail=True, create_center_crop=True)
+                    self.logger.info("图像生成完成")
+
                 # 匹配其他类型文件到.fit文件
                 other_files = {k: v for k, v in files_by_type.items() if k != 'fit'}
                 fit_matches = self.match_related_files_to_fit(fit_files, other_files)
+
+                # 将图像信息添加到fit_matches中
+                if image_results:
+                    for fit_file, match_info in fit_matches.items():
+                        if fit_file in image_results:
+                            match_info['image_paths'] = image_results[fit_file]
 
                 # 数据文件输出到输出目录（默认为dest目录），使用带时间戳的文件名
                 timestamped_js_filename = self._generate_timestamped_filename("fits_data", ".js")
@@ -1383,13 +1419,21 @@ class FitsFileFinderRipgrep:
                         'pp_fits': []
                     }
 
-                    # 收集该组中所有.fit文件的关联文件
+                    # 收集该组中所有.fit文件的关联文件和图像信息
                     for file_detail in items:
                         fit_file_path = file_detail.get('original_path', '')
                         if fit_file_path in fit_matches:
                             match_info = fit_matches[fit_file_path]
                             for file_type, related_files in match_info['related_files'].items():
                                 enhanced_group['related_files'][file_type].extend(related_files)
+
+                            # 将图像路径信息添加到文件详情中
+                            image_paths = match_info.get('image_paths', {})
+                            if image_paths:
+                                if image_paths.get('thumbnail_relative'):
+                                    file_detail['thumbnail_path'] = image_paths['thumbnail_relative']
+                                if image_paths.get('center_crop_relative'):
+                                    file_detail['center_path'] = image_paths['center_crop_relative']
 
                     enhanced_groups.append(enhanced_group)
 
@@ -1579,6 +1623,14 @@ class FitsFileFinderRipgrep:
                 'related_files': related_files_detail,
                 'related_counts': related_counts
             }
+
+            # 添加图像路径信息（如果存在）
+            image_paths = match_info.get('image_paths', {})
+            if image_paths:
+                if image_paths.get('thumbnail_relative'):
+                    timeline_item['thumbnail_path'] = image_paths['thumbnail_relative']
+                if image_paths.get('center_crop_relative'):
+                    timeline_item['center_path'] = image_paths['center_crop_relative']
 
             timeline_data.append(timeline_item)
 
@@ -2149,28 +2201,16 @@ def main():
     # 保存分类结果
     if files_by_type:
         use_clustering = not args.no_clustering
-        save_result = finder.save_results_by_type(files_by_type, args.output, True, use_clustering, args.time_threshold, args.save_text)
-        
-        # 如果启用了图像生成功能
-        if args.generate_images:
-            # 获取所有FITS文件
-            fit_files = files_by_type.get('fit', []) + files_by_type.get('fits', [])
-            
-            if fit_files:
-                print(f"\n发现 {len(fit_files)} 个FITS文件，开始生成图像...")
-                
-                # 确定要生成的图像类型
-                create_thumbnail = not args.center_only
-                create_center_crop = not args.thumbnail_only
-                
-                # 批量生成图像
-                image_results = finder.batch_process_fits_images(
-                    fit_files,
-                    create_thumbnail=create_thumbnail,
-                    create_center_crop=create_center_crop
-                )
-            else:
-                print("未找到FITS文件，无法生成图像")
+        # 将图像生成参数传递给save_results_by_type方法
+        save_result = finder.save_results_by_type(
+            files_by_type,
+            args.output,
+            True,
+            use_clustering,
+            args.time_threshold,
+            args.save_text,
+            args.generate_images  # 传递图像生成参数
+        )
 
         # 如果成功生成了JS文件且有HTML文件信息，更新HTML文件引用
         if save_result["success"] and save_result["js_filename"] and html_files_info.get("html"):
