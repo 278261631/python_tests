@@ -274,6 +274,7 @@
   <script src="vis.js"></script>
   <link href="vis.css" rel="stylesheet" type="text/css" />
   <script src="fits_data.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
@@ -304,6 +305,13 @@
 
 <div id="info" class="info-panel" style="display: none;">
   <h3>选中项目信息：</h3>
+
+  <!-- PP FITS Header 曲线图 -->
+  <div id="header-chart-container" style="display: none; margin-bottom: 20px; padding: 15px; background-color: white; border: 1px solid #ddd; border-radius: 4px;">
+    <h4 style="margin-top: 0; color: #007bff;">PP FITS Header 参数曲线</h4>
+    <canvas id="headerChart" width="800" height="300"></canvas>
+  </div>
+
   <div id="item-details"></div>
 
   <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #ddd;">
@@ -853,6 +861,9 @@
       // 保存当前选中的项目数据
       currentSelectedItem = selectedItem;
 
+      // 更新 PP FITS Header 曲线图
+      updateHeaderChart(selectedItem);
+
       // Display item details
       var html = '<table style="width: 100%;">';
       html += '<tr><td><strong>ID:</strong></td><td>' + selectedItem.id + '</td></tr>';
@@ -1054,6 +1065,13 @@
     } else {
       // 清空当前选中的项目数据
       currentSelectedItem = null;
+
+      // 隐藏曲线图
+      var chartContainer = document.getElementById('header-chart-container');
+      if (chartContainer) {
+        chartContainer.style.display = 'none';
+      }
+
       infoDiv.style.display = 'none';
     }
   });
@@ -1118,6 +1136,186 @@
 
   // 当前选中的项目数据
   var currentSelectedItem = null;
+
+  // Chart.js 实例
+  var headerChart = null;
+
+  // 创建或更新 PP FITS Header 曲线图
+  function updateHeaderChart(selectedItem) {
+    var chartContainer = document.getElementById('header-chart-container');
+    var canvas = document.getElementById('headerChart');
+
+    // 收集所有 PP FITS 文件的 header 数据
+    var headerData = [];
+    var labels = [];
+
+    if (isClusteredData && selectedItem.file_details) {
+      // 聚类数据：从文件详情中收集数据
+      selectedItem.file_details.forEach(function(file, index) {
+        if (file.related_file_paths) {
+          file.related_file_paths.forEach(function(relatedFile) {
+            if (relatedFile.type === 'pp_fits' && relatedFile.header_info) {
+              var header = relatedFile.header_info;
+              var fileName = relatedFile.path ? relatedFile.path.split(/[/\\]/).pop() : 'File ' + (index + 1);
+
+              // 只添加有效的数据点
+              if (header.LM5SIG && header.ELLIPTI && header.FWHM &&
+                  !isNaN(parseFloat(header.LM5SIG)) &&
+                  !isNaN(parseFloat(header.ELLIPTI)) &&
+                  !isNaN(parseFloat(header.FWHM))) {
+
+                headerData.push({
+                  fileName: fileName,
+                  lm5sig: parseFloat(header.LM5SIG),
+                  ellipti: parseFloat(header.ELLIPTI),
+                  fwhm: parseFloat(header.FWHM),
+                  timestamp: file.timestamp || file.parsed_time || 'Unknown'
+                });
+                labels.push(fileName.substring(0, 20) + '...');
+              }
+            }
+          });
+        }
+      });
+    } else if (!isClusteredData && selectedItem.related_file_paths) {
+      // 单文件数据：从关联文件中收集数据
+      selectedItem.related_file_paths.forEach(function(relatedFile, index) {
+        if (relatedFile.type === 'pp_fits' && relatedFile.header_info) {
+          var header = relatedFile.header_info;
+          var fileName = relatedFile.path ? relatedFile.path.split(/[/\\]/).pop() : 'File ' + (index + 1);
+
+          if (header.LM5SIG && header.ELLIPTI && header.FWHM &&
+              !isNaN(parseFloat(header.LM5SIG)) &&
+              !isNaN(parseFloat(header.ELLIPTI)) &&
+              !isNaN(parseFloat(header.FWHM))) {
+
+            headerData.push({
+              fileName: fileName,
+              lm5sig: parseFloat(header.LM5SIG),
+              ellipti: parseFloat(header.ELLIPTI),
+              fwhm: parseFloat(header.FWHM),
+              timestamp: selectedItem.timestamp || selectedItem.start || 'Unknown'
+            });
+            labels.push(fileName.substring(0, 20) + '...');
+          }
+        }
+      });
+    }
+
+    // 如果没有有效数据，隐藏图表
+    if (headerData.length === 0) {
+      chartContainer.style.display = 'none';
+      return;
+    }
+
+    // 显示图表容器
+    chartContainer.style.display = 'block';
+
+    // 准备图表数据
+    var lm5sigData = headerData.map(function(item) { return item.lm5sig; });
+    var elliptiData = headerData.map(function(item) { return item.ellipti; });
+    var fwhmData = headerData.map(function(item) { return item.fwhm; });
+
+    // 销毁现有图表
+    if (headerChart) {
+      headerChart.destroy();
+    }
+
+    // 创建新图表
+    var ctx = canvas.getContext('2d');
+    headerChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'LM5SIG (5σ限制星等)',
+            data: lm5sigData,
+            borderColor: 'rgb(255, 99, 132)',
+            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+            tension: 0.1,
+            yAxisID: 'y'
+          },
+          {
+            label: 'ELLIPTI (椭圆度)',
+            data: elliptiData,
+            borderColor: 'rgb(54, 162, 235)',
+            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+            tension: 0.1,
+            yAxisID: 'y1'
+          },
+          {
+            label: 'FWHM (半高全宽)',
+            data: fwhmData,
+            borderColor: 'rgb(255, 205, 86)',
+            backgroundColor: 'rgba(255, 205, 86, 0.2)',
+            tension: 0.1,
+            yAxisID: 'y2'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        interaction: {
+          mode: 'index',
+          intersect: false,
+        },
+        plugins: {
+          title: {
+            display: true,
+            text: 'PP FITS Header 参数变化曲线'
+          },
+          legend: {
+            display: true,
+            position: 'top'
+          }
+        },
+        scales: {
+          x: {
+            display: true,
+            title: {
+              display: true,
+              text: '文件'
+            }
+          },
+          y: {
+            type: 'linear',
+            display: true,
+            position: 'left',
+            title: {
+              display: true,
+              text: 'LM5SIG',
+              color: 'rgb(255, 99, 132)'
+            },
+            ticks: {
+              color: 'rgb(255, 99, 132)'
+            }
+          },
+          y1: {
+            type: 'linear',
+            display: true,
+            position: 'right',
+            title: {
+              display: true,
+              text: 'ELLIPTI',
+              color: 'rgb(54, 162, 235)'
+            },
+            ticks: {
+              color: 'rgb(54, 162, 235)'
+            },
+            grid: {
+              drawOnChartArea: false,
+            },
+          },
+          y2: {
+            type: 'linear',
+            display: false, // 隐藏第三个Y轴，FWHM使用右侧Y轴
+            position: 'right',
+          }
+        }
+      }
+    });
+  }
 
   // 生成处理命令文本
   function generateCommandTexts() {
