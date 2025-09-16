@@ -202,6 +202,73 @@
       font-weight: bold;
       margin-right: 4px;
     }
+
+    /* 图像模态框样式 */
+    .image-modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.8);
+      cursor: pointer;
+    }
+
+    .image-modal-content {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      max-width: 90%;
+      max-height: 90%;
+      background-color: white;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .image-modal img {
+      max-width: 100%;
+      max-height: 80vh;
+      display: block;
+      margin: 0 auto;
+    }
+
+    .image-modal-title {
+      text-align: center;
+      margin-bottom: 15px;
+      font-weight: bold;
+      color: #333;
+    }
+
+    .image-modal-close {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      font-size: 24px;
+      font-weight: bold;
+      color: #666;
+      cursor: pointer;
+      background: none;
+      border: none;
+    }
+
+    .image-modal-close:hover {
+      color: #000;
+    }
+
+    /* 图像预览样式 */
+    .image-preview img {
+      cursor: pointer;
+      transition: transform 0.2s ease;
+    }
+
+    .image-preview img:hover {
+      transform: scale(1.05);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
   </style>
 
   <script src="vis.js"></script>
@@ -249,6 +316,15 @@
       <pre id="command-text" style="white-space: pre-wrap; font-family: monospace; font-size: 12px;"></pre>
       <button onclick="copyToClipboard()" style="margin-top: 10px; padding: 5px 10px; border: 1px solid #ddd; background-color: #f8f9fa; border-radius: 4px; cursor: pointer;">复制到剪贴板</button>
     </div>
+  </div>
+</div>
+
+<!-- 图像模态框 -->
+<div id="imageModal" class="image-modal" onclick="closeImageModal()">
+  <div class="image-modal-content" onclick="event.stopPropagation()">
+    <button class="image-modal-close" onclick="closeImageModal()">&times;</button>
+    <div id="imageModalTitle" class="image-modal-title"></div>
+    <img id="imageModalImg" src="" alt="图像预览">
   </div>
 </div>
 
@@ -647,12 +723,9 @@
     orientation: 'top',
     groupOrder: 'content',     // 按分组内容排序
     stack: false,              // 不堆叠主分组
-    stackSubgroups: false,     // 禁用子分组堆叠，让每个子分组独占一行
     showCurrentTime: false,
     zoomable: true,
-    moveable: true,
-    groupHeightMode: 'fitItems',  // 让分组高度适应内容
-    verticalScroll: true          // 如果内容超过高度，启用垂直滚动
+    moveable: true
   };
 
   // Create a Timeline with groups
@@ -809,6 +882,28 @@
             var icons = '<span class="file-icon-primary">ⓕ</span>';
             html += '<div style="margin-bottom: 8px;"><strong>' + icons + fileName + '</strong>';
 
+            // 显示缩略图和中心区域图
+            if (file.thumbnail_path || file.center_path) {
+              html += '<br/><div class="image-preview" style="margin-left: 20px; margin-top: 10px; margin-bottom: 10px;">';
+              html += '<small style="color: #666;">图像预览:</small><br/>';
+
+              if (file.thumbnail_path) {
+                html += '<div style="display: inline-block; margin-right: 15px; text-align: center;">';
+                html += '<img src="' + file.thumbnail_path + '" alt="缩略图" style="max-width: 150px; max-height: 150px; border: 1px solid #ddd; border-radius: 4px;" onclick="showImageModal(\'' + file.thumbnail_path + '\', \'缩略图: ' + fileName + '\')" title="点击查看大图"/>';
+                html += '<br/><small style="color: #666;">缩略图</small>';
+                html += '</div>';
+              }
+
+              if (file.center_path) {
+                html += '<div style="display: inline-block; margin-right: 15px; text-align: center;">';
+                html += '<img src="' + file.center_path + '" alt="中心区域" style="max-width: 150px; max-height: 150px; border: 1px solid #ddd; border-radius: 4px;" onclick="showImageModal(\'' + file.center_path + '\', \'中心区域: ' + fileName + '\')" title="点击查看大图"/>';
+                html += '<br/><small style="color: #666;">中心区域</small>';
+                html += '</div>';
+              }
+
+              html += '</div>';
+            }
+
             // 显示该.fit文件的关联文件（直接整合显示）
             var relatedIcons = {
               'axy': '<span class="file-icon-primary">ⓐ</span>',
@@ -913,6 +1008,29 @@
           html += '<tr><td><strong>文件路径:</strong></td><td style="word-break: break-all;">' + selectedItem.file_path + '</td></tr>';
         }
 
+        // 显示缩略图和中心区域图（单文件模式）
+        if (selectedItem.thumbnail_path || selectedItem.center_path) {
+          html += '<tr><td><strong>图像预览:</strong></td><td>';
+          html += '<div class="image-preview" style="margin-top: 10px; margin-bottom: 10px;">';
+
+          if (selectedItem.thumbnail_path) {
+            html += '<div style="display: inline-block; margin-right: 15px; text-align: center;">';
+            html += '<img src="' + selectedItem.thumbnail_path + '" alt="缩略图" style="max-width: 150px; max-height: 150px; border: 1px solid #ddd; border-radius: 4px;" onclick="showImageModal(\'' + selectedItem.thumbnail_path + '\', \'缩略图: ' + selectedItem.file_name + '\')" title="点击查看大图"/>';
+            html += '<br/><small style="color: #666;">缩略图</small>';
+            html += '</div>';
+          }
+
+          if (selectedItem.center_path) {
+            html += '<div style="display: inline-block; margin-right: 15px; text-align: center;">';
+            html += '<img src="' + selectedItem.center_path + '" alt="中心区域" style="max-width: 150px; max-height: 150px; border: 1px solid #ddd; border-radius: 4px;" onclick="showImageModal(\'' + selectedItem.center_path + '\', \'中心区域: ' + selectedItem.file_name + '\')" title="点击查看大图"/>';
+            html += '<br/><small style="color: #666;">中心区域</small>';
+            html += '</div>';
+          }
+
+          html += '</div>';
+          html += '</td></tr>';
+        }
+
         // 单文件模式下的关联文件已经整合到文件名显示中，不需要单独显示
       }
 
@@ -933,7 +1051,7 @@
     fitsData.length;
 
   console.log('Timeline loaded with ' + fitsData.length + ' groups (' + totalItems + ' total items) - ' + dataTypeInfo + ' (fitsUsage - 带过滤功能和子分组)');
-  console.log('主分组数量: ' + Object.keys(regionGroupStats).length + ', 子分组数量: ' + totalSubgroups + ', 计算高度: ' + calculatedHeight + 'px');
+  console.log('主分组数量: ' + Object.keys(regionGroupStats).length + ', 子分组数量: ' + totalSubgroups);
   console.log('处理后的数据项数量: ' + processedData.length);
 </script>
 
@@ -1105,6 +1223,35 @@
       button.style.color = 'black';
     }, 2000);
   }
+
+  // 图像模态框函数
+  function showImageModal(imageSrc, title) {
+    var modal = document.getElementById('imageModal');
+    var modalImg = document.getElementById('imageModalImg');
+    var modalTitle = document.getElementById('imageModalTitle');
+
+    modal.style.display = 'block';
+    modalImg.src = imageSrc;
+    modalTitle.textContent = title || '图像预览';
+
+    // 防止页面滚动
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeImageModal() {
+    var modal = document.getElementById('imageModal');
+    modal.style.display = 'none';
+
+    // 恢复页面滚动
+    document.body.style.overflow = 'auto';
+  }
+
+  // 键盘事件：按ESC键关闭模态框
+  document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+      closeImageModal();
+    }
+  });
 </script>
 </body>
 </html>
