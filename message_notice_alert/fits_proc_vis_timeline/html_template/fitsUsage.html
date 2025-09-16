@@ -1202,9 +1202,25 @@
       });
     }
 
-    // 如果没有有效数据，隐藏图表
+    // 如果没有有效数据，显示提示信息
     if (headerData.length === 0) {
-      chartContainer.style.display = 'none';
+      chartContainer.style.display = 'block';
+      var canvas = document.getElementById('headerChart');
+      var ctx = canvas.getContext('2d');
+
+      // 销毁现有图表
+      if (headerChart) {
+        headerChart.destroy();
+        headerChart = null;
+      }
+
+      // 清空画布并显示提示信息
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.font = '16px Arial';
+      ctx.fillStyle = '#666';
+      ctx.textAlign = 'center';
+      ctx.fillText('没有PP FITS header数据', canvas.width / 2, canvas.height / 2 - 10);
+      ctx.fillText('请使用 --generate-images 参数来读取header信息', canvas.width / 2, canvas.height / 2 + 20);
       return;
     }
 

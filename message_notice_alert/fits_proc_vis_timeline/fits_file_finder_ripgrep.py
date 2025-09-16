@@ -1452,7 +1452,7 @@ class FitsFileFinderRipgrep:
 
                 # 匹配其他类型文件到.fit文件
                 other_files = {k: v for k, v in files_by_type.items() if k != 'fit'}
-                fit_matches = self.match_related_files_to_fit(fit_files, other_files)
+                fit_matches = self.match_related_files_to_fit(fit_files, other_files, generate_images)
 
                 # 将图像信息添加到fit_matches中
                 if image_results:
@@ -1871,13 +1871,14 @@ class FitsFileFinderRipgrep:
 
         return timeline_data
 
-    def match_related_files_to_fit(self, fit_files: List[str], other_files_by_type: Dict[str, List[str]]) -> Dict[str, Dict[str, Any]]:
+    def match_related_files_to_fit(self, fit_files: List[str], other_files_by_type: Dict[str, List[str]], generate_images: bool = False) -> Dict[str, Dict[str, Any]]:
         """
         将其他类型的文件匹配到对应的.fit文件
 
         Args:
             fit_files: .fit文件列表
             other_files_by_type: 其他类型文件的字典
+            generate_images: 是否生成图像和读取PP FITS header信息
 
         Returns:
             Dict[str, Dict[str, Any]]: 以.fit文件路径为键的匹配结果
@@ -1945,8 +1946,8 @@ class FitsFileFinderRipgrep:
                         'match_score': 100  # 完全匹配给予满分
                     }
 
-                    # 对于pp_fits文件，添加header信息
-                    if short_type == 'pp_fits':
+                    # 对于pp_fits文件，只有在generate_images为True时才添加header信息
+                    if short_type == 'pp_fits' and generate_images:
                         header_info = self.read_pp_fits_header(other_file)
                         file_entry['header_info'] = {
                             'LM5SIG': header_info.get('LM5SIG'),
