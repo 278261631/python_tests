@@ -944,7 +944,20 @@
                 foundFiles[fileType].forEach(function(relatedFile) {
                   var relatedFileName = relatedFile.path ? relatedFile.path.split(/[/\\]/).pop() : '未知文件';
                   var icon = relatedIcons[fileType] || '<span class="file-icon-primary">ⓧ</span>';
-                  html += '<br/><small style="margin-left: 20px;">' + icon + ' ' + relatedFileName + '</small>';
+                  html += '<br/><small style="margin-left: 20px;">' + icon + ' ' + relatedFileName;
+
+                  // 对于pp_fits文件，显示header信息
+                  if (fileType === 'pp_fits' && relatedFile.header_info) {
+                    var headerInfo = relatedFile.header_info;
+                    html += '<br/><small style="margin-left: 40px; color: #007bff; font-family: monospace;">';
+                    if (headerInfo.LM5SIG) html += 'LM5SIG: ' + headerInfo.LM5SIG + ' ';
+                    if (headerInfo.ELLIPTI) html += 'ELLIPTI: ' + headerInfo.ELLIPTI + ' ';
+                    if (headerInfo.FWHM) html += 'FWHM: ' + headerInfo.FWHM;
+                    if (headerInfo.error) html += ' <span style="color: #dc3545;">(错误: ' + headerInfo.error + ')</span>';
+                    html += '</small>';
+                  }
+
+                  html += '</small>';
                 });
               } else {
                 // 没找到文件，显示黄色图标

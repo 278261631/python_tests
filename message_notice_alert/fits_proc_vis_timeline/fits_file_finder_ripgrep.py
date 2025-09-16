@@ -1031,6 +1031,73 @@ class FitsFileFinderRipgrep:
 
         return results
 
+    def read_pp_fits_header(self, fits_path: str) -> Dict[str, Optional[str]]:
+        """
+        读取单个PP FITS文件的header信息
+
+        Args:
+            fits_path: FITS文件路径
+
+        Returns:
+            包含header信息的字典
+        """
+        result = {
+            'file_path': fits_path,
+            'file_name': Path(fits_path).name,
+            'LM5SIG': None,
+            'ELLIPTI': None,
+            'FWHM': None,
+            'error': None
+        }
+
+        try:
+            with fits.open(fits_path) as hdul:
+                header = hdul[0].header
+
+                # 读取指定的header字段
+                for key in ['LM5SIG', 'ELLIPTI', 'FWHM']:
+                    if key in header:
+                        result[key] = str(header[key])
+                    else:
+                        result[key] = 'N/A'
+
+                self.logger.debug(f"成功读取 {Path(fits_path).name} 的header信息")
+
+        except Exception as e:
+            error_msg = f"读取失败: {str(e)}"
+            result['error'] = error_msg
+            self.logger.error(f"{Path(fits_path).name} - {error_msg}")
+
+        return result
+
+    def batch_read_pp_fits_headers(self, pp_fits_files: List[str]) -> List[Dict[str, Optional[str]]]:
+        """
+        批量读取PP FITS文件的header信息
+
+        Args:
+            pp_fits_files: PP FITS文件路径列表
+
+        Returns:
+            包含所有文件header信息的列表
+        """
+        results = []
+        total_files = len(pp_fits_files)
+
+        self.logger.info(f"开始批量读取 {total_files} 个PP FITS文件的header信息")
+
+        for i, fits_file in enumerate(pp_fits_files, 1):
+            # 显示进度
+            if i % 10 == 0 or i == total_files:
+                self.logger.info(f"处理进度: {i}/{total_files}")
+
+            header_info = self.read_pp_fits_header(fits_file)
+            results.append(header_info)
+
+        self.logger.info(f"批量读取完成，共处理 {len(results)} 个文件")
+        return results
+
+
+
     def find_files_by_type(self) -> Dict[str, List[str]]:
         """
         使用ripgrep查找匹配的文件，按文件类型分类返回
@@ -1304,28 +1371,60 @@ class FitsFileFinderRipgrep:
                         f.write("-" * 60 + "\n")
 
                         if include_extracted_info:
-                            # 提取文件信息并以表格形式保存
-                            f.write("文件信息提取结果:\n")
-                            f.write(f"{'序号':<4} {'天区索引':<12} {'系统名称':<12} {'时间戳':<20} {'文件路径'}\n")
-                            f.write("-" * 80 + "\n")
+                            # 对于pp_fits文件，提取header信息
+                            if file_type == 'pp_fits':
+                                f.write("PP FITS文件Header信息:\n")
+                                f.write(f"{'序号':<4} {'文件名':<50} {'LM5SIG':<10} {'ELLIPTI':<10} {'FWHM':<10} {'错误'}\n")
+                                f.write("-" * 100 + "\n")
 
-                            extracted_info = self.extract_batch_fits_info(files)
-                            successful_extractions = 0
+                                header_data = self.batch_read_pp_fits_headers(files)
+                                successful_extractions = 0
 
-                            for i, info in enumerate(extracted_info, 1):
-                                sky_region = info['sky_region'] or 'N/A'
-                                system_name = info['system_name'] or 'N/A'
-                                timestamp = info['timestamp'] or 'N/A'
-                                file_path = info['original_path']
+                                for i, info in enumerate(header_data, 1):
+                                    file_name = Path(info['file_path']).name
+                                    lm5sig = info['LM5SIG'] or 'N/A'
+                                    ellipti = info['ELLIPTI'] or 'N/A'
+                                    fwhm = info['FWHM'] or 'N/A'
+                                    error = info['error'] or ''
 
-                                # 统计成功提取的数量
-                                if any(info[key] for key in ['sky_region', 'system_name', 'timestamp']):
-                                    successful_extractions += 1
+                                    if not error:
+                                        successful_extractions += 1
 
-                                f.write(f"{i:<4} {sky_region:<12} {system_name:<12} {timestamp:<20} {file_path}\n")
+                                    f.write(f"{i:<4} {file_name:<50} {lm5sig:<10} {ellipti:<10} {fwhm:<10} {error}\n")
 
-                            f.write("-" * 80 + "\n")
-                            f.write(f"信息提取统计: 总文件数={len(files)}, 成功提取={successful_extractions}, 成功率={successful_extractions/len(files)*100:.1f}%\n")
+                                f.write("-" * 100 + "\n")
+                                f.write(f"Header信息统计: 总文件数={len(files)}, 成功读取={successful_extractions}, 成功率={successful_extractions/len(files)*100:.1f}%\n")
+
+                                # 统计有效数据
+                                if successful_extractions > 0:
+                                    valid_lm5sig = sum(1 for row in header_data if row['LM5SIG'] and row['LM5SIG'] != 'N/A')
+                                    valid_ellipti = sum(1 for row in header_data if row['ELLIPTI'] and row['ELLIPTI'] != 'N/A')
+                                    valid_fwhm = sum(1 for row in header_data if row['FWHM'] and row['FWHM'] != 'N/A')
+
+                                    f.write(f"有效数据统计: LM5SIG={valid_lm5sig}, ELLIPTI={valid_ellipti}, FWHM={valid_fwhm}\n")
+                            else:
+                                # 对于其他文件类型，提取文件信息
+                                f.write("文件信息提取结果:\n")
+                                f.write(f"{'序号':<4} {'天区索引':<12} {'系统名称':<12} {'时间戳':<20} {'文件路径'}\n")
+                                f.write("-" * 80 + "\n")
+
+                                extracted_info = self.extract_batch_fits_info(files)
+                                successful_extractions = 0
+
+                                for i, info in enumerate(extracted_info, 1):
+                                    sky_region = info['sky_region'] or 'N/A'
+                                    system_name = info['system_name'] or 'N/A'
+                                    timestamp = info['timestamp'] or 'N/A'
+                                    file_path = info['original_path']
+
+                                    # 统计成功提取的数量
+                                    if any(info[key] for key in ['sky_region', 'system_name', 'timestamp']):
+                                        successful_extractions += 1
+
+                                    f.write(f"{i:<4} {sky_region:<12} {system_name:<12} {timestamp:<20} {file_path}\n")
+
+                                f.write("-" * 80 + "\n")
+                                f.write(f"信息提取统计: 总文件数={len(files)}, 成功提取={successful_extractions}, 成功率={successful_extractions/len(files)*100:.1f}%\n")
 
                         # 保存完整的文件路径列表
                         f.write("\n完整文件路径列表:\n")
@@ -1341,6 +1440,7 @@ class FitsFileFinderRipgrep:
 
             # 只对.fit文件生成Timeline格式的JavaScript文件，其他文件作为关联文件
             fit_files = files_by_type.get('fit', [])
+            timestamped_js_filename = ""
 
             if fit_files:
                 # 如果启用了图像生成，先生成图像
@@ -1365,6 +1465,8 @@ class FitsFileFinderRipgrep:
                 timeline_js_output = Path(self.output_dir) / timestamped_js_filename
 
                 self.save_timeline_js_with_related_files(fit_files, fit_matches, timeline_js_output, use_clustering, time_threshold_minutes)
+            else:
+                self.logger.info("没有找到.fit文件，跳过Timeline JavaScript文件生成")
 
             return {"success": True, "js_filename": timestamped_js_filename}
 
@@ -1673,11 +1775,17 @@ class FitsFileFinderRipgrep:
                         related_info = related_file.get('file_info', {})
                         # 检查关联文件是否与当前.fit文件匹配
                         if self._files_match(file_detail, related_info):
-                            related_file_paths.append({
+                            related_file_entry = {
                                 'path': related_file.get('file_path', ''),
                                 'type': file_type,
                                 'match_score': related_file.get('match_score', 100)
-                            })
+                            }
+
+                            # 对于pp_fits文件，添加header信息
+                            if file_type == 'pp_fits' and 'header_info' in related_file:
+                                related_file_entry['header_info'] = related_file['header_info']
+
+                            related_file_paths.append(related_file_entry)
 
                 # 将关联文件路径直接添加到文件详情中
                 if related_file_paths:
@@ -1831,11 +1939,23 @@ class FitsFileFinderRipgrep:
 
                 # 如果找到完全匹配，添加到相关文件列表
                 if matched_fit_file:
-                    fit_file_matches[matched_fit_file]['related_files'][short_type].append({
+                    file_entry = {
                         'file_path': other_file,
                         'file_info': other_info,
                         'match_score': 100  # 完全匹配给予满分
-                    })
+                    }
+
+                    # 对于pp_fits文件，添加header信息
+                    if short_type == 'pp_fits':
+                        header_info = self.read_pp_fits_header(other_file)
+                        file_entry['header_info'] = {
+                            'LM5SIG': header_info.get('LM5SIG'),
+                            'ELLIPTI': header_info.get('ELLIPTI'),
+                            'FWHM': header_info.get('FWHM'),
+                            'error': header_info.get('error')
+                        }
+
+                    fit_file_matches[matched_fit_file]['related_files'][short_type].append(file_entry)
 
         return fit_file_matches
 
