@@ -572,7 +572,8 @@ class FitsFileFinderRipgrep:
                 try:
                     output_dir_path = Path(self.output_dir).resolve()
                     thumbnail_abs_path = Path(absolute_path).resolve()
-                    result['thumbnail_relative'] = str(thumbnail_abs_path.relative_to(output_dir_path))
+                    # 将Windows路径分隔符转换为URL路径分隔符
+                    result['thumbnail_relative'] = str(thumbnail_abs_path.relative_to(output_dir_path)).replace('\\', '/')
                 except ValueError:
                     # 如果无法生成相对路径，使用文件名
                     result['thumbnail_relative'] = f"images_{self.run_timestamp}/{base_name}_thumbnail.jpg"
@@ -587,7 +588,8 @@ class FitsFileFinderRipgrep:
                 try:
                     output_dir_path = Path(self.output_dir).resolve()
                     center_abs_path = Path(absolute_path).resolve()
-                    result['center_crop_relative'] = str(center_abs_path.relative_to(output_dir_path))
+                    # 将Windows路径分隔符转换为URL路径分隔符
+                    result['center_crop_relative'] = str(center_abs_path.relative_to(output_dir_path)).replace('\\', '/')
                 except ValueError:
                     # 如果无法生成相对路径，使用文件名
                     result['center_crop_relative'] = f"images_{self.run_timestamp}/{base_name}_center.jpg"
@@ -1431,9 +1433,11 @@ class FitsFileFinderRipgrep:
                             image_paths = match_info.get('image_paths', {})
                             if image_paths:
                                 if image_paths.get('thumbnail_relative'):
-                                    file_detail['thumbnail_path'] = image_paths['thumbnail_relative']
+                                    # 将Windows路径分隔符转换为URL路径分隔符
+                                    file_detail['thumbnail_path'] = image_paths['thumbnail_relative'].replace('\\', '/')
                                 if image_paths.get('center_crop_relative'):
-                                    file_detail['center_path'] = image_paths['center_crop_relative']
+                                    # 将Windows路径分隔符转换为URL路径分隔符
+                                    file_detail['center_path'] = image_paths['center_crop_relative'].replace('\\', '/')
 
                     enhanced_groups.append(enhanced_group)
 
@@ -1628,9 +1632,11 @@ class FitsFileFinderRipgrep:
             image_paths = match_info.get('image_paths', {})
             if image_paths:
                 if image_paths.get('thumbnail_relative'):
-                    timeline_item['thumbnail_path'] = image_paths['thumbnail_relative']
+                    # 将Windows路径分隔符转换为URL路径分隔符
+                    timeline_item['thumbnail_path'] = image_paths['thumbnail_relative'].replace('\\', '/')
                 if image_paths.get('center_crop_relative'):
-                    timeline_item['center_path'] = image_paths['center_crop_relative']
+                    # 将Windows路径分隔符转换为URL路径分隔符
+                    timeline_item['center_path'] = image_paths['center_crop_relative'].replace('\\', '/')
 
             timeline_data.append(timeline_item)
 
