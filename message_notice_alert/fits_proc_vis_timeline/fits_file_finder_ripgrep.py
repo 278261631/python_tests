@@ -17,6 +17,8 @@ import shutil
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime, timedelta
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
 
 try:
     import python_ripgrep as ripgrep
@@ -614,38 +616,88 @@ class FitsFileFinderRipgrep:
 
         return result
 
-    def batch_process_fits_images(self, fits_files: List[str], create_thumbnail: bool = True, create_center_crop: bool = True) -> Dict[str, Dict[str, Optional[str]]]:
+    def batch_process_fits_images(self, fits_files: List[str], create_thumbnail: bool = True, create_center_crop: bool = True, max_workers: int = 20) -> Dict[str, Dict[str, Optional[str]]]:
         """
-        批量处理FITS文件，为每个文件生成缩略图和中心区域图
-        
+        批量处理FITS文件，为每个文件生成缩略图和中心区域图（多线程版本）
+
         Args:
             fits_files: FITS文件路径列表
             create_thumbnail: 是否创建缩略图
             create_center_crop: 是否创建中心区域图
-        
+            max_workers: 最大线程数，默认为20
+
         Returns:
             Dict[str, Dict[str, Optional[str]]]: 以FITS文件路径为键，包含图像路径的字典
         """
         results = {}
-        
+
         total_files = len(fits_files)
-        self.logger.info(f"开始批量处理 {total_files} 个FITS文件的图像")
-        
-        for i, fits_file in enumerate(fits_files, 1):
-            # 进度信息
-            if i % 10 == 0 or i == total_files:
-                self.logger.info(f"处理进度: {i}/{total_files}")
-            
-            # 处理单个FITS文件
-            image_paths = self.process_fits_image(fits_file, create_thumbnail, create_center_crop)
-            results[fits_file] = image_paths
-        
+        self.logger.info(f"开始批量处理 {total_files} 个FITS文件的图像（使用 {max_workers} 个线程）")
+
+        # 使用线程锁保护进度计数器
+        progress_lock = threading.Lock()
+        completed_count = [0]  # 使用列表以便在闭包中修改
+
+        def process_single_image(fits_file: str) -> Tuple[str, Dict[str, Optional[str]]]:
+            """处理单个FITS文件图像的内部函数"""
+            try:
+                image_paths = self.process_fits_image(fits_file, create_thumbnail, create_center_crop)
+
+                # 更新进度
+                with progress_lock:
+                    completed_count[0] += 1
+                    current_count = completed_count[0]
+                    if current_count % 10 == 0 or current_count == total_files:
+                        self.logger.info(f"处理进度: {current_count}/{total_files}")
+
+                return fits_file, image_paths
+            except Exception as e:
+                self.logger.error(f"处理图像文件 {fits_file} 时出错: {e}")
+                # 返回空结果
+                empty_result = {
+                    'thumbnail': None,
+                    'center_crop': None,
+                    'thumbnail_relative': None,
+                    'center_crop_relative': None
+                }
+
+                # 更新进度
+                with progress_lock:
+                    completed_count[0] += 1
+                    current_count = completed_count[0]
+                    if current_count % 10 == 0 or current_count == total_files:
+                        self.logger.info(f"处理进度: {current_count}/{total_files}")
+
+                return fits_file, empty_result
+
+        # 使用ThreadPoolExecutor进行多线程处理
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # 提交所有任务
+            future_to_file = {executor.submit(process_single_image, fits_file): fits_file
+                             for fits_file in fits_files}
+
+            # 收集结果
+            for future in as_completed(future_to_file):
+                try:
+                    fits_file, image_paths = future.result()
+                    results[fits_file] = image_paths
+                except Exception as e:
+                    fits_file = future_to_file[future]
+                    self.logger.error(f"获取文件 {fits_file} 处理结果时出错: {e}")
+                    # 添加空结果
+                    results[fits_file] = {
+                        'thumbnail': None,
+                        'center_crop': None,
+                        'thumbnail_relative': None,
+                        'center_crop_relative': None
+                    }
+
         # 统计结果
         success_thumbnails = sum(1 for paths in results.values() if paths['thumbnail'] is not None)
         success_center_crops = sum(1 for paths in results.values() if paths['center_crop'] is not None)
-        
+
         self.logger.info(f"批量处理完成: 成功生成 {success_thumbnails}/{total_files} 个缩略图, {success_center_crops}/{total_files} 个中心区域图")
-        
+
         return results
     
     def _should_filter_path(self, path: str) -> bool:
@@ -1032,21 +1084,60 @@ class FitsFileFinderRipgrep:
 
         return file_lists
 
-    def extract_batch_fits_info(self, file_paths: List[str]) -> List[Dict[str, Optional[str]]]:
+    def extract_batch_fits_info(self, file_paths: List[str], max_workers: int = 20) -> List[Dict[str, Optional[str]]]:
         """
-        批量提取FITS文件信息
+        批量提取FITS文件信息（多线程版本）
 
         Args:
             file_paths: FITS文件路径列表
+            max_workers: 最大线程数，默认为20
 
         Returns:
             List[Dict[str, Optional[str]]]: 提取信息的列表
         """
-        results = []
-        for file_path in file_paths:
-            info = self.extract_fits_info(file_path)
-            results.append(info)
+        total_files = len(file_paths)
 
+        if total_files == 0:
+            return []
+
+        # 如果文件数量较少，直接使用单线程处理
+        if total_files < max_workers:
+            results = []
+            for file_path in file_paths:
+                info = self.extract_fits_info(file_path)
+                results.append(info)
+            return results
+
+        self.logger.info(f"开始批量提取 {total_files} 个FITS文件信息（使用 {max_workers} 个线程）")
+
+        # 使用ThreadPoolExecutor进行多线程处理
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # 提交所有任务
+            future_to_file = {executor.submit(self.extract_fits_info, file_path): file_path
+                             for file_path in file_paths}
+
+            # 收集结果，保持原始顺序
+            file_to_result = {}
+            for future in as_completed(future_to_file):
+                file_path = future_to_file[future]
+                try:
+                    result = future.result()
+                    file_to_result[file_path] = result
+                except Exception as e:
+                    self.logger.error(f"提取文件信息 {file_path} 时出错: {e}")
+                    # 创建错误结果
+                    error_result = {
+                        'sky_region': None,
+                        'system_name': None,
+                        'timestamp': None,
+                        'original_path': file_path
+                    }
+                    file_to_result[file_path] = error_result
+
+        # 按原始顺序重新排列结果
+        results = [file_to_result[file_path] for file_path in file_paths]
+
+        self.logger.info(f"批量提取完成，共处理 {len(results)} 个文件")
         return results
 
     def read_pp_fits_header(self, fits_path: str) -> Dict[str, Optional[str]]:
@@ -1088,12 +1179,13 @@ class FitsFileFinderRipgrep:
 
         return result
 
-    def batch_read_pp_fits_headers(self, pp_fits_files: List[str]) -> List[Dict[str, Optional[str]]]:
+    def batch_read_pp_fits_headers(self, pp_fits_files: List[str], max_workers: int = 20) -> List[Dict[str, Optional[str]]]:
         """
-        批量读取PP FITS文件的header信息
+        批量读取PP FITS文件的header信息（多线程版本）
 
         Args:
             pp_fits_files: PP FITS文件路径列表
+            max_workers: 最大线程数，默认为20
 
         Returns:
             包含所有文件header信息的列表
@@ -1101,15 +1193,53 @@ class FitsFileFinderRipgrep:
         results = []
         total_files = len(pp_fits_files)
 
-        self.logger.info(f"开始批量读取 {total_files} 个PP FITS文件的header信息")
+        self.logger.info(f"开始批量读取 {total_files} 个PP FITS文件的header信息（使用 {max_workers} 个线程）")
 
-        for i, fits_file in enumerate(pp_fits_files, 1):
-            # 显示进度
-            if i % 10 == 0 or i == total_files:
-                self.logger.info(f"处理进度: {i}/{total_files}")
+        # 使用线程锁保护进度计数器
+        progress_lock = threading.Lock()
+        completed_count = [0]  # 使用列表以便在闭包中修改
 
+        def process_single_file(fits_file: str) -> Dict[str, Optional[str]]:
+            """处理单个文件的内部函数"""
             header_info = self.read_pp_fits_header(fits_file)
-            results.append(header_info)
+
+            # 更新进度
+            with progress_lock:
+                completed_count[0] += 1
+                current_count = completed_count[0]
+                if current_count % 10 == 0 or current_count == total_files:
+                    self.logger.info(f"处理进度: {current_count}/{total_files}")
+
+            return header_info
+
+        # 使用ThreadPoolExecutor进行多线程处理
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # 提交所有任务
+            future_to_file = {executor.submit(process_single_file, fits_file): fits_file
+                             for fits_file in pp_fits_files}
+
+            # 收集结果，保持原始顺序
+            file_to_result = {}
+            for future in as_completed(future_to_file):
+                fits_file = future_to_file[future]
+                try:
+                    result = future.result()
+                    file_to_result[fits_file] = result
+                except Exception as e:
+                    self.logger.error(f"处理文件 {fits_file} 时出错: {e}")
+                    # 创建错误结果
+                    error_result = {
+                        'file_path': fits_file,
+                        'file_name': Path(fits_file).name,
+                        'LM5SIG': None,
+                        'ELLIPTI': None,
+                        'FWHM': None,
+                        'error': f"多线程处理错误: {str(e)}"
+                    }
+                    file_to_result[fits_file] = error_result
+
+        # 按原始顺序重新排列结果
+        results = [file_to_result[fits_file] for fits_file in pp_fits_files]
 
         self.logger.info(f"批量读取完成，共处理 {len(results)} 个文件")
         return results
