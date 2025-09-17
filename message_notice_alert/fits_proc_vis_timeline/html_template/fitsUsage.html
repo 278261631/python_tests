@@ -8,26 +8,52 @@
       font-family: sans-serif;
     }
     .vis-item {
-      line-height: 1;      /* 文字行高 1 */
-      padding: 0 2px;      /* 左右只留 2px，上下 0 */
+      line-height: 14px;   /* 设置合适的行高以显示文字 */
+      padding: 0px 0px;    /* 添加少量padding确保文字可见 */
+      margin: 0;           /* 移除margin */
       border-width: 0;     /* 不要边框 */
-      font-size: 11px;     /* 字号缩到最小可读尺寸 */
+      font-size: 10px;     /* 稍微增大字号确保可读性 */
       white-space: nowrap; /* 不换行 */
       overflow: hidden;
       text-overflow: ellipsis;
     }
+    .vis-item .vis-item-content {
+      padding: 0px 0px;    /* 添加少量padding确保文字可见 */
+      margin: 0;           /* 移除margin */
+    }
+
 
 
 
     /* 子分组样式 */
     .vis-group .vis-label .vis-inner {
-      padding: 5px 10px;
+      padding: 1px 5px;   /* 最小化padding */
+      line-height: 1;     /* 减小行高 */
     }
 
     .vis-group.vis-subgroup .vis-label .vis-inner {
-      padding-left: 25px;
-      font-size: 12px;
+      padding-left: 15px; /* 进一步减小左侧padding */
+      font-size: 9px;     /* 进一步减小字号 */
       color: #666;
+    }
+
+    /* 进一步压缩timeline竖直空间 */
+    .vis-timeline {
+      line-height: 1;
+    }
+
+    .vis-group {
+      margin: 0;
+      padding: 0;
+    }
+
+    .vis-labelset .vis-label {
+      margin: 0;
+      padding: 0;
+    }
+
+    .vis-foreground .vis-group {
+      border-bottom: none;
     }
 
     .info-panel {
@@ -725,8 +751,8 @@
   // Configuration for the Timeline
   var options = {
     margin: {
-      item: 8,     // 减小项目间距
-      axis: 20
+      item: 0,     // 最小化项目间距
+      axis: 10     // 减小轴间距
     },
     orientation: 'top',
     groupOrder: 'content',     // 按分组内容排序
