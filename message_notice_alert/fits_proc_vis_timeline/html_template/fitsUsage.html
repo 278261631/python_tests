@@ -332,7 +332,20 @@
   <!-- PP FITS Header 曲线图 -->
   <div id="header-chart-container" style="display: none; margin-bottom: 20px; padding: 15px; background-color: white; border: 1px solid #ddd; border-radius: 4px;">
     <h4 style="margin-top: 0; color: #007bff;">PP FITS Header 参数曲线</h4>
-    <canvas id="headerChart" width="800" height="300"></canvas>
+    <div style="display: flex; gap: 15px; justify-content: space-between;">
+      <div style="flex: 1; text-align: center;">
+        <h5 style="margin: 0 0 10px 0; color: #dc3545;">LM5SIG (5σ限制星等)</h5>
+        <canvas id="lm5sigChart" width="250" height="200"></canvas>
+      </div>
+      <div style="flex: 1; text-align: center;">
+        <h5 style="margin: 0 0 10px 0; color: #007bff;">ELLIPTI (椭圆度)</h5>
+        <canvas id="elliptiChart" width="250" height="200"></canvas>
+      </div>
+      <div style="flex: 1; text-align: center;">
+        <h5 style="margin: 0 0 10px 0; color: #ffc107;">FWHM (半高全宽)</h5>
+        <canvas id="fwhmChart" width="250" height="200"></canvas>
+      </div>
+    </div>
   </div>
 
   <div id="item-details"></div>
@@ -1143,6 +1156,20 @@
         chartContainer.style.display = 'none';
       }
 
+      // 销毁所有图表实例
+      if (lm5sigChart) {
+        lm5sigChart.destroy();
+        lm5sigChart = null;
+      }
+      if (elliptiChart) {
+        elliptiChart.destroy();
+        elliptiChart = null;
+      }
+      if (fwhmChart) {
+        fwhmChart.destroy();
+        fwhmChart = null;
+      }
+
       infoDiv.style.display = 'none';
     }
   });
@@ -1209,12 +1236,13 @@
   var currentSelectedItem = null;
 
   // Chart.js 实例
-  var headerChart = null;
+  var lm5sigChart = null;
+  var elliptiChart = null;
+  var fwhmChart = null;
 
   // 创建或更新 PP FITS Header 曲线图
   function updateHeaderChart(selectedItem) {
     var chartContainer = document.getElementById('header-chart-container');
-    var canvas = document.getElementById('headerChart');
 
     // 收集所有 PP FITS 文件的 header 数据
     var headerData = [];
@@ -1242,7 +1270,7 @@
                   fwhm: parseFloat(header.FWHM),
                   timestamp: file.timestamp || file.parsed_time || 'Unknown'
                 });
-                labels.push(fileName.substring(0, 20) + '...');
+                labels.push(fileName.substring(0, 15) + '...');
               }
             }
           });
@@ -1267,31 +1295,44 @@
               fwhm: parseFloat(header.FWHM),
               timestamp: selectedItem.timestamp || selectedItem.start || 'Unknown'
             });
-            labels.push(fileName.substring(0, 20) + '...');
+            labels.push(fileName.substring(0, 15) + '...');
           }
         }
       });
     }
 
+    // 销毁现有图表
+    if (lm5sigChart) {
+      lm5sigChart.destroy();
+      lm5sigChart = null;
+    }
+    if (elliptiChart) {
+      elliptiChart.destroy();
+      elliptiChart = null;
+    }
+    if (fwhmChart) {
+      fwhmChart.destroy();
+      fwhmChart = null;
+    }
+
     // 如果没有有效数据，显示提示信息
     if (headerData.length === 0) {
       chartContainer.style.display = 'block';
-      var canvas = document.getElementById('headerChart');
-      var ctx = canvas.getContext('2d');
 
-      // 销毁现有图表
-      if (headerChart) {
-        headerChart.destroy();
-        headerChart = null;
-      }
-
-      // 清空画布并显示提示信息
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.font = '16px Arial';
-      ctx.fillStyle = '#666';
-      ctx.textAlign = 'center';
-      ctx.fillText('没有PP FITS header数据', canvas.width / 2, canvas.height / 2 - 10);
-      ctx.fillText('请使用 --generate-images 参数来读取header信息', canvas.width / 2, canvas.height / 2 + 20);
+      // 在每个画布上显示提示信息
+      var canvases = ['lm5sigChart', 'elliptiChart', 'fwhmChart'];
+      canvases.forEach(function(canvasId) {
+        var canvas = document.getElementById(canvasId);
+        if (canvas) {
+          var ctx = canvas.getContext('2d');
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.font = '12px Arial';
+          ctx.fillStyle = '#666';
+          ctx.textAlign = 'center';
+          ctx.fillText('没有PP FITS', canvas.width / 2, canvas.height / 2 - 10);
+          ctx.fillText('header数据', canvas.width / 2, canvas.height / 2 + 10);
+        }
+      });
       return;
     }
 
@@ -1303,101 +1344,172 @@
     var elliptiData = headerData.map(function(item) { return item.ellipti; });
     var fwhmData = headerData.map(function(item) { return item.fwhm; });
 
-    // 销毁现有图表
-    if (headerChart) {
-      headerChart.destroy();
-    }
-
-    // 创建新图表
-    var ctx = canvas.getContext('2d');
-    headerChart = new Chart(ctx, {
+    // 创建 LM5SIG 图表
+    var lm5sigCanvas = document.getElementById('lm5sigChart');
+    var lm5sigCtx = lm5sigCanvas.getContext('2d');
+    lm5sigChart = new Chart(lm5sigCtx, {
       type: 'line',
       data: {
         labels: labels,
-        datasets: [
-          {
-            label: 'LM5SIG (5σ限制星等)',
-            data: lm5sigData,
-            borderColor: 'rgb(255, 99, 132)',
-            backgroundColor: 'rgba(255, 99, 132, 0.2)',
-            tension: 0.1,
-            yAxisID: 'y'
-          },
-          {
-            label: 'ELLIPTI (椭圆度)',
-            data: elliptiData,
-            borderColor: 'rgb(54, 162, 235)',
-            backgroundColor: 'rgba(54, 162, 235, 0.2)',
-            tension: 0.1,
-            yAxisID: 'y1'
-          },
-          {
-            label: 'FWHM (半高全宽)',
-            data: fwhmData,
-            borderColor: 'rgb(255, 205, 86)',
-            backgroundColor: 'rgba(255, 205, 86, 0.2)',
-            tension: 0.1,
-            yAxisID: 'y2'
-          }
-        ]
+        datasets: [{
+          label: 'LM5SIG',
+          data: lm5sigData,
+          borderColor: 'rgb(220, 53, 69)',
+          backgroundColor: 'rgba(220, 53, 69, 0.1)',
+          tension: 0.1,
+          pointRadius: 3,
+          pointHoverRadius: 5
+        }]
       },
       options: {
         responsive: true,
-        interaction: {
-          mode: 'index',
-          intersect: false,
-        },
+        maintainAspectRatio: false,
         plugins: {
-          title: {
-            display: true,
-            text: 'PP FITS Header 参数变化曲线'
-          },
           legend: {
-            display: true,
-            position: 'top'
+            display: false
           }
         },
         scales: {
           x: {
             display: true,
-            title: {
-              display: true,
-              text: '文件'
+            ticks: {
+              maxRotation: 45,
+              font: {
+                size: 10
+              }
             }
           },
           y: {
             type: 'linear',
             display: true,
-            position: 'left',
+            min: 12,
+            max: 22,
             title: {
               display: true,
-              text: 'LM5SIG',
-              color: 'rgb(255, 99, 132)'
+              text: '星等',
+              font: {
+                size: 11
+              }
             },
             ticks: {
-              color: 'rgb(255, 99, 132)'
+              font: {
+                size: 10
+              }
+            }
+          }
+        }
+      }
+    });
+
+    // 创建 ELLIPTI 图表
+    var elliptiCanvas = document.getElementById('elliptiChart');
+    var elliptiCtx = elliptiCanvas.getContext('2d');
+    elliptiChart = new Chart(elliptiCtx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'ELLIPTI',
+          data: elliptiData,
+          borderColor: 'rgb(0, 123, 255)',
+          backgroundColor: 'rgba(0, 123, 255, 0.1)',
+          tension: 0.1,
+          pointRadius: 3,
+          pointHoverRadius: 5
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          }
+        },
+        scales: {
+          x: {
+            display: true,
+            ticks: {
+              maxRotation: 45,
+              font: {
+                size: 10
+              }
             }
           },
-          y1: {
+          y: {
             type: 'linear',
             display: true,
-            position: 'right',
+            min: 0,
+            max: 0.5,
             title: {
               display: true,
-              text: 'ELLIPTI',
-              color: 'rgb(54, 162, 235)'
+              text: '椭圆度',
+              font: {
+                size: 11
+              }
             },
             ticks: {
-              color: 'rgb(54, 162, 235)'
-            },
-            grid: {
-              drawOnChartArea: false,
-            },
+              font: {
+                size: 10
+              }
+            }
+          }
+        }
+      }
+    });
+
+    // 创建 FWHM 图表
+    var fwhmCanvas = document.getElementById('fwhmChart');
+    var fwhmCtx = fwhmCanvas.getContext('2d');
+    fwhmChart = new Chart(fwhmCtx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'FWHM',
+          data: fwhmData,
+          borderColor: 'rgb(255, 193, 7)',
+          backgroundColor: 'rgba(255, 193, 7, 0.1)',
+          tension: 0.1,
+          pointRadius: 3,
+          pointHoverRadius: 5
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          }
+        },
+        scales: {
+          x: {
+            display: true,
+            ticks: {
+              maxRotation: 45,
+              font: {
+                size: 10
+              }
+            }
           },
-          y2: {
+          y: {
             type: 'linear',
-            display: false, // 隐藏第三个Y轴，FWHM使用右侧Y轴
-            position: 'right',
+            display: true,
+            min: 0,
+            max: 5,
+            title: {
+              display: true,
+              text: '像素',
+              font: {
+                size: 11
+              }
+            },
+            ticks: {
+              font: {
+                size: 10
+              }
+            }
           }
         }
       }
