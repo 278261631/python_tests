@@ -891,7 +891,31 @@
             var fileName = file.original_path ? file.original_path.split(/[/\\]/).pop() : '未知文件';
             // 添加文字图标
             var icons = '<span class="file-icon-primary">ⓕ</span>';
-            html += '<div style="margin-bottom: 8px;"><strong>' + icons + fileName + '</strong>';
+
+            // 生成下载链接
+            var downloadLinks = '';
+            if (file.original_path && selectedItem.system_names && selectedItem.system_names.length > 0 && selectedItem.sky_region_name && selectedItem.start) {
+              var systemName = selectedItem.system_names[0];
+              var skyRegionName = selectedItem.sky_region_name;
+              var startTime = selectedItem.start;
+
+              // 提取开始时间的年份和日期
+              var dateMatch = startTime.match(/(\d{4})-(\d{2})-(\d{2})/);
+              if (dateMatch) {
+                var yyyy = dateMatch[1];
+                var yyyymmdd = dateMatch[1] + dateMatch[2] + dateMatch[3];
+                var encodedFileName = encodeURIComponent(fileName);
+
+                // 旧下载链接
+                var oldDownloadUrl = 'https://download.china-vo.org/psp/KATS/' + systemName + '-DATA/' + yyyy + '/' + yyyymmdd + '/' + skyRegionName + '/' + encodedFileName;
+                // 新下载链接
+                var newDownloadUrl = 'https://download.china-vo.org/psp/KATS/' + systemName + '-DATA/' + yyyymmdd + '/' + skyRegionName + '/' + encodedFileName;
+
+                downloadLinks = ' <small>(<a href="' + oldDownloadUrl + '" target="_blank" style="color: #007bff;">旧下载</a> | <a href="' + newDownloadUrl + '" target="_blank" style="color: #28a745;">新下载</a>)</small>';
+              }
+            }
+
+            html += '<div style="margin-bottom: 8px;"><strong>' + icons + fileName + downloadLinks + '</strong>';
 
             // 显示缩略图和中心区域图
             if (file.thumbnail_path || file.center_path) {
@@ -1025,7 +1049,31 @@
           // 添加文字图标
           var icons = '<span class="file-icon-primary">ⓕ</span>' +
                      '<span class="file-icon-secondary">ⓟⓒⓓⓧ</span>';
-          html += '<tr><td><strong>文件名:</strong></td><td>' + icons + selectedItem.file_name + '</td></tr>';
+
+          // 生成下载链接
+          var downloadLinks = '';
+          if (selectedItem.file_name && selectedItem.system_name && selectedItem.sky_region && selectedItem.start) {
+            var systemName = selectedItem.system_name;
+            var skyRegionName = selectedItem.sky_region;
+            var startTime = selectedItem.start;
+
+            // 提取开始时间的年份和日期
+            var dateMatch = startTime.match(/(\d{4})-(\d{2})-(\d{2})/);
+            if (dateMatch) {
+              var yyyy = dateMatch[1];
+              var yyyymmdd = dateMatch[1] + dateMatch[2] + dateMatch[3];
+              var encodedFileName = encodeURIComponent(selectedItem.file_name);
+
+              // 旧下载链接
+              var oldDownloadUrl = 'https://download.china-vo.org/psp/KATS/' + systemName + '-DATA/' + yyyy + '/' + yyyymmdd + '/' + skyRegionName + '/' + encodedFileName;
+              // 新下载链接
+              var newDownloadUrl = 'https://download.china-vo.org/psp/KATS/' + systemName + '-DATA/' + yyyymmdd + '/' + skyRegionName + '/' + encodedFileName;
+
+              downloadLinks = ' <small>(<a href="' + oldDownloadUrl + '" target="_blank" style="color: #007bff;">旧下载</a> | <a href="' + newDownloadUrl + '" target="_blank" style="color: #28a745;">新下载</a>)</small>';
+            }
+          }
+
+          html += '<tr><td><strong>文件名:</strong></td><td>' + icons + selectedItem.file_name + downloadLinks + '</td></tr>';
         }
 
         if (selectedItem.file_path) {
