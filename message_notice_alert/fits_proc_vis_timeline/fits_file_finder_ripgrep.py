@@ -49,13 +49,19 @@ class FitsFileFinderRipgrep:
         初始化文件查找器
 
         Args:
-            config_file: 配置文件路径
+            config_file: 配置文件路径，如果是相对路径，则相对于脚本文件所在目录
             date_suffix: 日期后缀，格式为yyyymmdd，默认为当前日期
             ignore_date: 是否忽略日期后缀，直接搜索基础目录
             output_dir: 输出目录路径，如果为None则默认使用"dest"目录
             enable_log_file: 是否启用日志文件输出，默认为False
         """
-        self.config_file = config_file
+        # 处理配置文件路径：如果是相对路径，则相对于脚本文件所在目录
+        if not os.path.isabs(config_file):
+            # 获取当前脚本文件所在目录
+            script_dir = Path(__file__).parent
+            self.config_file = str(script_dir / config_file)
+        else:
+            self.config_file = config_file
         self.config = {}
         self.ignore_date = ignore_date
         self.date_suffix = date_suffix or datetime.now().strftime("%Y%m%d")
@@ -448,7 +454,13 @@ class FitsFileFinderRipgrep:
                     img = Image.fromarray(normalized_data)
                     
                     # 调整大小为缩略图尺寸
-                    thumbnail_img = img.resize(size, Image.Resampling.LANCZOS)
+                    # 兼容不同版本的Pillow
+                    try:
+                        # Pillow >= 10.0.0
+                        thumbnail_img = img.resize(size, Image.Resampling.LANCZOS)
+                    except AttributeError:
+                        # Pillow < 10.0.0
+                        thumbnail_img = img.resize(size, Image.LANCZOS)
                     
                     # 确保目录存在
                     os.makedirs(os.path.dirname(thumbnail_path), exist_ok=True)
@@ -522,7 +534,13 @@ class FitsFileFinderRipgrep:
                     
                     # 如果裁剪区域小于目标尺寸，调整大小
                     if img.size != size:
-                        img = img.resize(size, Image.Resampling.LANCZOS)
+                        # 兼容不同版本的Pillow
+                        try:
+                            # Pillow >= 10.0.0
+                            img = img.resize(size, Image.Resampling.LANCZOS)
+                        except AttributeError:
+                            # Pillow < 10.0.0
+                            img = img.resize(size, Image.LANCZOS)
                     
                     # 确保目录存在
                     os.makedirs(os.path.dirname(crop_path), exist_ok=True)
