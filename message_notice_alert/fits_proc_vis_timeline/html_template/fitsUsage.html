@@ -8,18 +8,15 @@
       font-family: sans-serif;
     }
     .vis-item {
-      line-height: 14px;   /* 设置合适的行高以显示文字 */
-      padding: 0px 0px;    /* 添加少量padding确保文字可见 */
-      margin: 0;           /* 移除margin */
-      border-width: 0;     /* 不要边框 */
-      font-size: 10px;     /* 稍微增大字号确保可读性 */
-      white-space: nowrap; /* 不换行 */
-      overflow: hidden;
-      text-overflow: ellipsis;
+      line-height: 14px !important;   /* 强制设置合适的行高 */
+      border-width: 0 !important;     /* 强制不要边框 */
+      font-size: 10px !important;     /* 强制设置字号 */
+      white-space: nowrap !important; /* 强制不换行 */
     }
+
     .vis-item .vis-item-content {
-      padding: 0px 0px;    /* 添加少量padding确保文字可见 */
-      margin: 0;           /* 移除margin */
+      padding: 0 !important;          /* 强制移除内容padding */
+      margin: 0 !important;           /* 强制移除内容margin */
     }
 
 
