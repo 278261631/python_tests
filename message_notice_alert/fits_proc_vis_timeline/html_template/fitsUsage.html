@@ -1366,6 +1366,16 @@
           tension: 0.1,
           pointRadius: 3,
           pointHoverRadius: 5
+        }, {
+          label: '参考线 (19)',
+          data: Array(labels.length).fill(19),
+          borderColor: 'rgba(220, 53, 69, 0.6)',
+          backgroundColor: 'transparent',
+          borderDash: [5, 5],
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHoverRadius: 0,
+          tension: 0
         }]
       },
       options: {
@@ -1373,7 +1383,17 @@
         maintainAspectRatio: false,
         plugins: {
           legend: {
-            display: false
+            display: true,
+            position: 'top',
+            labels: {
+              font: {
+                size: 10
+              },
+              usePointStyle: true,
+              filter: function(item, chart) {
+                return item.text.includes('参考线');
+              }
+            }
           }
         },
         layout: {
@@ -1433,6 +1453,16 @@
           tension: 0.1,
           pointRadius: 3,
           pointHoverRadius: 5
+        }, {
+          label: '参考线 (0.13)',
+          data: Array(labels.length).fill(0.13),
+          borderColor: 'rgba(0, 123, 255, 0.6)',
+          backgroundColor: 'transparent',
+          borderDash: [5, 5],
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHoverRadius: 0,
+          tension: 0
         }]
       },
       options: {
@@ -1440,7 +1470,17 @@
         maintainAspectRatio: false,
         plugins: {
           legend: {
-            display: false
+            display: true,
+            position: 'top',
+            labels: {
+              font: {
+                size: 10
+              },
+              usePointStyle: true,
+              filter: function(item, chart) {
+                return item.text.includes('参考线');
+              }
+            }
           }
         },
         layout: {
@@ -1500,6 +1540,16 @@
           tension: 0.1,
           pointRadius: 3,
           pointHoverRadius: 5
+        }, {
+          label: '参考线 (2.5)',
+          data: Array(labels.length).fill(2.5),
+          borderColor: 'rgba(255, 193, 7, 0.6)',
+          backgroundColor: 'transparent',
+          borderDash: [5, 5],
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHoverRadius: 0,
+          tension: 0
         }]
       },
       options: {
@@ -1507,7 +1557,17 @@
         maintainAspectRatio: false,
         plugins: {
           legend: {
-            display: false
+            display: true,
+            position: 'top',
+            labels: {
+              font: {
+                size: 10
+              },
+              usePointStyle: true,
+              filter: function(item, chart) {
+                return item.text.includes('参考线');
+              }
+            }
           }
         },
         layout: {
