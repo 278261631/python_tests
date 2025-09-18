@@ -1637,11 +1637,21 @@
     var biasFilePath = '/data/' + systemName.toLowerCase() + '/calibration/20220429/master_bias_bin2.fits';
     var flatFilePath = '/data/' + systemName.toLowerCase() + '/calibration/20220429/master_flat_C_bin2.fits';
     var darkFilePath = '/data/' + systemName.toLowerCase() + '/calibration/20220429/master_dark_bin2_30s.fits';
+    var ppFilePath = '/data/' + systemName.toLowerCase() + '/' + dateStr + '/' + skyRegionPrefix + '/redux/' + pp_fileName;
+    var axyFilePath = '/data/' + systemName.toLowerCase() + '/' + dateStr + '/' + skyRegionPrefix + '/redux/' + axy_fileName;
+    var axyFilePath_from_pp = '/data/' + systemName.toLowerCase() + '/' + dateStr + '/' + skyRegionPrefix + '/redux/' + pp_fileName + '.axy';
+
+    var cmd_solve = '/home/mars/miniconda3/envs/kats_env/bin/solve-field'
+    var cmd_solve_astro_cfg = '/home/mars/miniconda3/envs/kats_env/share/astrometry/astrometry.cfg'
+    var cmd_solve_sExtractor = '/home/mars/miniconda3/envs/kats_env/bin/source-extractor'
 
     // 生成命令文本
     var commands = [];
     commands.push('cp "' + originalFilePath + '" /data/mayong_transdata/debug2/cmd_debug/');
     commands.push('python preproc.py KATS "' + originalFilePath + '" --bias-file "' + biasFilePath + '" --dark-file "' + darkFilePath + '" --flat-file "' + flatFilePath + '"');
+    commands.push(cmd_solve +' -L 2.32 -H 2.72 -u arcsecperpix -3 '+ region_ra +' -4 '+ region_dec + ' -5 7.0 -p -O -z 1 --new-fits %s_solved.fits --match none  --corr none --wcs none --axy "'+ axyFilePath_from_pp +'" --use-source-extractor --source-extractor-path "'+ cmd_solve_sExtractor +'" -DETECT_THRESH 3.0 -ANALYSIS_THRESH 3.0 --solved none --crpix-center --cpulimit 20 --config "'+ cmd_solve_astro_cfg + '" "' + ppFilePath + '"');
+    commands.push(cmd_solve +' -L 2.32 -H 2.72 -u arcsecperpix -3 '+ region_ra +' -4 '+ region_dec + ' -5 7.0 -p -O -z 1 --new-fits %s_solved.fits --match none  --corr none --wcs none --use-source-extractor --source-extractor-path "'+ cmd_solve_sExtractor +'" -DETECT_THRESH 3.0 -ANALYSIS_THRESH 3.0 --solved none --crpix-center --cpulimit 20 --config "'+ cmd_solve_astro_cfg + '" "' + ppFilePath + '"');
+    commands.push(cmd_solve +' -L 2.32 -H 2.72 -u arcsecperpix -3 '+ region_ra +' -4 '+ region_dec + ' "'+ ppFilePath + '"');
 
     return commands.join('\n');
   }
