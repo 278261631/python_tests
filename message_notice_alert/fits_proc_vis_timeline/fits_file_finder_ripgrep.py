@@ -14,6 +14,7 @@ import re
 import argparse
 import logging
 import shutil
+import tarfile
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime, timedelta
@@ -1244,7 +1245,54 @@ class FitsFileFinderRipgrep:
         self.logger.info(f"批量读取完成，共处理 {len(results)} 个文件")
         return results
 
+    def create_output_archive(self, archive_name: str = None) -> Optional[str]:
+        """
+        创建包含所有输出文件的tar.gz压缩包
 
+        Args:
+            archive_name: 压缩包名称，如果为None则自动生成
+
+        Returns:
+            Optional[str]: 压缩包路径，如果创建失败返回None
+        """
+        try:
+            # 生成压缩包名称
+            if archive_name is None:
+                if self.ignore_date:
+                    param_part = "all"
+                else:
+                    param_part = self.date_suffix
+                archive_name = f"fits_output_{param_part}_{self.run_timestamp}.tar.gz"
+
+            # 压缩包保存路径
+            archive_path = os.path.join(self.output_dir, archive_name)
+
+            self.logger.info(f"开始创建输出压缩包: {archive_path}")
+
+            # 创建tar.gz压缩包
+            with tarfile.open(archive_path, 'w:gz') as tar:
+                # 添加输出目录中的所有文件
+                output_path = Path(self.output_dir)
+
+                for file_path in output_path.rglob('*'):
+                    if file_path.is_file() and file_path.name != archive_name:
+                        # 计算在压缩包中的相对路径
+                        arcname = file_path.relative_to(output_path)
+                        tar.add(file_path, arcname=arcname)
+                        self.logger.debug(f"添加文件到压缩包: {arcname}")
+
+            # 获取压缩包大小
+            archive_size = os.path.getsize(archive_path)
+            size_mb = archive_size / (1024 * 1024)
+
+            self.logger.info(f"压缩包创建成功: {archive_path}")
+            self.logger.info(f"压缩包大小: {size_mb:.2f} MB")
+
+            return archive_path
+
+        except Exception as e:
+            self.logger.error(f"创建压缩包失败: {e}")
+            return None
 
     def find_files_by_type(self) -> Dict[str, List[str]]:
         """
@@ -2512,6 +2560,16 @@ def main():
         print("  - 搜索结果文件和Timeline JS文件已保存到输出目录")
         print("  - HTML模板文件已拷贝到输出目录（如果不存在）")
         print("  - 可以直接在输出目录中打开fitsUsage.html查看Timeline可视化")
+
+        # 如果启用了图像生成，创建tar.gz压缩包
+        if args.generate_images:
+            print(f"\n正在创建输出压缩包...")
+            archive_path = finder.create_output_archive()
+            if archive_path:
+                print(f"✅ 压缩包创建成功: {archive_path}")
+                print(f"   包含所有输出文件（HTML、JS、CSS、图像等）")
+            else:
+                print(f"❌ 压缩包创建失败，请检查日志")
 
 
 if __name__ == "__main__":
