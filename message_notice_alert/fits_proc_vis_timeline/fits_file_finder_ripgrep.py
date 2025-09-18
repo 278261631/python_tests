@@ -75,11 +75,24 @@ class FitsFileFinderRipgrep:
 
         # 生成运行时间戳，用于文件命名
         self.run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        
+
         # 图像目录 - 存储缩略图和中心区域图，包含运行时间戳以匹配HTML文件名
         self.image_dir = os.path.join(self.output_dir, f"images_{self.run_timestamp}")
-        # 确保图像目录存在
-        os.makedirs(self.image_dir, exist_ok=True)
+        # 注意：只有在需要生成图像时才创建目录
+
+    def _ensure_image_dir_exists(self) -> bool:
+        """
+        确保图像目录存在，只有在需要生成图像时才调用此方法
+
+        Returns:
+            bool: 目录创建成功返回True，失败返回False
+        """
+        try:
+            os.makedirs(self.image_dir, exist_ok=True)
+            return True
+        except Exception as e:
+            self.logger.error(f"创建图像目录失败: {e}")
+            return False
 
     def _generate_timestamped_filename(self, base_name: str, extension: str) -> str:
         """
@@ -465,8 +478,9 @@ class FitsFileFinderRipgrep:
                         # Pillow < 10.0.0
                         thumbnail_img = img.resize(size, Image.LANCZOS)
                     
-                    # 确保目录存在
-                    os.makedirs(os.path.dirname(thumbnail_path), exist_ok=True)
+                    # 确保图像目录存在
+                    if not self._ensure_image_dir_exists():
+                        return None
                     
                     # 保存缩略图
                     thumbnail_img.save(thumbnail_path)
@@ -545,8 +559,9 @@ class FitsFileFinderRipgrep:
                             # Pillow < 10.0.0
                             img = img.resize(size, Image.LANCZOS)
                     
-                    # 确保目录存在
-                    os.makedirs(os.path.dirname(crop_path), exist_ok=True)
+                    # 确保图像目录存在
+                    if not self._ensure_image_dir_exists():
+                        return None
                     
                     # 保存中心区域图
                     img.save(crop_path)
@@ -634,6 +649,11 @@ class FitsFileFinderRipgrep:
 
         total_files = len(fits_files)
         self.logger.info(f"开始批量处理 {total_files} 个FITS文件的图像（使用 {max_workers} 个线程）")
+
+        # 确保图像目录存在
+        if not self._ensure_image_dir_exists():
+            self.logger.error("无法创建图像目录，跳过图像生成")
+            return {}
 
         # 使用线程锁保护进度计数器
         progress_lock = threading.Lock()
