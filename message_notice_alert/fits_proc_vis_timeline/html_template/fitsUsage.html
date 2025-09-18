@@ -1834,15 +1834,19 @@
     var darkFilePath = '/data/' + systemName.toLowerCase() + '/calibration/20220429/master_dark_bin2_30s.fits';
 
     var cmd_solve = '/home/mars/miniconda3/envs/kats_env/bin/solve-field'
+    var cmd_wget = 'C:/GnuWin32/bin/wget.exe'
+    var cmd_solve_astap = 'D:/astap/astap.exe'
     var cmd_solve_astro_cfg = '/home/mars/miniconda3/envs/kats_env/share/astrometry/astrometry.cfg'
     var cmd_solve_sExtractor = '/home/mars/miniconda3/envs/kats_env/bin/source-extractor'
 
     // 从 kats_sky_region.js 中获取天区的 RA 和 DEC
     var region_ra = 0;
     var region_dec = 0;
+    var region_spd = 0;
     if (typeof regionData !== 'undefined' && regionData[skyRegion]) {
       region_ra = regionData[skyRegion][0];  // RA (赤经)
       region_dec = regionData[skyRegion][1]; // DEC (赤纬)
+      region_spd = regionData[skyRegion][1]+90; // DEC (赤纬)
     } else {
       // 如果找不到天区数据，记录警告并使用默认值
       console.warn('未找到天区 ' + skyRegion + ' 的坐标数据，使用默认值 RA=0, DEC=0');
@@ -1855,6 +1859,11 @@
     commands.push(cmd_solve +' -L 2.32 -H 2.72 -u arcsecperpix -3 '+ region_ra +' -4 '+ region_dec + ' -5 7.0 -p -O -z 1 --new-fits %s_solved.fits --match none  --corr none --wcs none --axy "'+ axyFilePath_from_pp +'" --use-source-extractor --source-extractor-path "'+ cmd_solve_sExtractor +'" -DETECT_THRESH 3.0 -ANALYSIS_THRESH 3.0 --solved none --crpix-center --cpulimit 20 --config "'+ cmd_solve_astro_cfg + '" "' + ppFilePath + '"');
     commands.push(cmd_solve +' -L 2.32 -H 2.72 -u arcsecperpix -3 '+ region_ra +' -4 '+ region_dec + ' -5 7.0 -p -O -z 1 --new-fits %s_solved.fits --match none  --corr none --wcs none --use-source-extractor --source-extractor-path "'+ cmd_solve_sExtractor +'" -DETECT_THRESH 3.0 -ANALYSIS_THRESH 3.0 --solved none --crpix-center --cpulimit 20 --config "'+ cmd_solve_astro_cfg + '" "' + ppFilePath + '"');
     commands.push(cmd_solve +' -L 2.32 -H 2.72 -u arcsecperpix -3 '+ region_ra +' -4 '+ region_dec + ' "'+ ppFilePath + '"');
+    commands.push(' ' );
+
+    commands.push(cmd_wget);
+    commands.push(cmd_solve_astap + ' -ra '+ region_ra +' -spd '+ region_spd  +'  -s 1000 -z 1 -fov 2 -D d50 -r 180 -update -f  '+ ' "'+ originalFilePath + '"');
+
 
     return commands.join('\n');
   }
