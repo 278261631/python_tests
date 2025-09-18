@@ -114,7 +114,7 @@ class FitsFileFinderRipgrep:
         # 生成文件名：base_name_param_timestamp.extension
         return f"{base_name}_{param_part}_{self.run_timestamp}{extension}"
 
-    def _update_html_file_references(self, html_file_path: Path, js_filename: str, css_filename: str, vis_js_filename: str) -> bool:
+    def _update_html_file_references(self, html_file_path: Path, js_filename: str, css_filename: str, vis_js_filename: str, sky_region_js_filename: str = "kats_sky_region.js") -> bool:
         """
         更新HTML文件中的CSS和JS文件引用
 
@@ -123,6 +123,7 @@ class FitsFileFinderRipgrep:
             js_filename: JS数据文件名
             css_filename: CSS文件名
             vis_js_filename: vis.js文件名
+            sky_region_js_filename: kats_sky_region.js文件名
 
         Returns:
             bool: 更新成功返回True，失败返回False
@@ -136,6 +137,7 @@ class FitsFileFinderRipgrep:
             html_content = html_content.replace('src="fits_data.js"', f'src="{js_filename}"')
             html_content = html_content.replace('href="vis.css"', f'href="{css_filename}"')
             html_content = html_content.replace('src="vis.js"', f'src="{vis_js_filename}"')
+            html_content = html_content.replace('src="kats_sky_region.js"', f'src="{sky_region_js_filename}"')
 
             # 写回文件
             with open(html_file_path, 'w', encoding='utf-8') as f:
@@ -217,7 +219,8 @@ class FitsFileFinderRipgrep:
             template_files = [
                 ("fitsUsage.html", "fitsUsage", ".html"),
                 ("vis.css", "vis", ".css"),
-                ("vis.js", "vis", ".js")
+                ("vis.js", "vis", ".js"),
+                ("kats_sky_region.js", "kats_sky_region", ".js")
             ]
             copied_files = []
             skipped_files = []
@@ -253,6 +256,8 @@ class FitsFileFinderRipgrep:
                             generated_files["css"] = timestamped_filename
                         elif template_file == "vis.js":
                             generated_files["vis_js"] = timestamped_filename
+                        elif template_file == "kats_sky_region.js":
+                            generated_files["sky_region_js"] = timestamped_filename
                         continue
                     should_copy = True
 
@@ -269,6 +274,8 @@ class FitsFileFinderRipgrep:
                             generated_files["css"] = timestamped_filename
                         elif template_file == "vis.js":
                             generated_files["vis_js"] = timestamped_filename
+                        elif template_file == "kats_sky_region.js":
+                            generated_files["sky_region_js"] = timestamped_filename
 
                     except Exception as e:
                         self.logger.error(f"拷贝文件失败 {src_file} -> {dest_file}: {e}")
@@ -2561,8 +2568,9 @@ def main():
             js_filename = save_result["js_filename"]
             css_filename = html_files_info.get("css", "vis.css")
             vis_js_filename = html_files_info.get("vis_js", "vis.js")
+            sky_region_js_filename = html_files_info.get("sky_region_js", "kats_sky_region.js")
 
-            finder._update_html_file_references(html_file_path, js_filename, css_filename, vis_js_filename)
+            finder._update_html_file_references(html_file_path, js_filename, css_filename, vis_js_filename, sky_region_js_filename)
 
         # 输出分类列表信息供后续使用
         print(f"\n文件分类列表已准备完成:")

@@ -297,6 +297,7 @@
   <script src="vis.js"></script>
   <link href="vis.css" rel="stylesheet" type="text/css" />
   <script src="fits_data.js"></script>
+  <script src="kats_sky_region.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -1604,7 +1605,8 @@
       fileName = fileData.original_path ? fileData.original_path.split(/[/\\]/).pop() : '';
       filePath = fileData.original_path || '';
       systemName = fileData.system_name || (itemData.system_names && itemData.system_names[0]) || '';
-      skyRegion = itemData.sky_region_name || '';
+      // 使用具体文件的完整天区索引，而不是聚类的天区前缀
+      skyRegion = fileData.sky_region || itemData.sky_region_name || '';
       timestamp = itemData.start || '';
     } else {
       // 单文件数据
@@ -1680,8 +1682,17 @@
     var cmd_solve = '/home/mars/miniconda3/envs/kats_env/bin/solve-field'
     var cmd_solve_astro_cfg = '/home/mars/miniconda3/envs/kats_env/share/astrometry/astrometry.cfg'
     var cmd_solve_sExtractor = '/home/mars/miniconda3/envs/kats_env/bin/source-extractor'
-    var region_ra = 0
-    var region_dec = 0
+
+    // 从 kats_sky_region.js 中获取天区的 RA 和 DEC
+    var region_ra = 0;
+    var region_dec = 0;
+    if (typeof regionData !== 'undefined' && regionData[skyRegion]) {
+      region_ra = regionData[skyRegion][0];  // RA (赤经)
+      region_dec = regionData[skyRegion][1]; // DEC (赤纬)
+    } else {
+      // 如果找不到天区数据，记录警告并使用默认值
+      console.warn('未找到天区 ' + skyRegion + ' 的坐标数据，使用默认值 RA=0, DEC=0');
+    }
 
     // 生成命令文本
     var commands = [];
