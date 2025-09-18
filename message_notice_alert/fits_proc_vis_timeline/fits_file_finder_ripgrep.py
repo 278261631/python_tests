@@ -80,6 +80,43 @@ class FitsFileFinderRipgrep:
         self.image_dir = os.path.join(self.output_dir, f"images_{self.run_timestamp}")
         # 注意：只有在需要生成图像时才创建目录
 
+        # 注意：使用 run_timestamp 来识别本次运行生成的文件，无需单独记录
+
+    def _is_current_run_file(self, file_path: Path) -> bool:
+        """
+        判断文件是否是本次运行生成的
+
+        Args:
+            file_path: 文件路径
+
+        Returns:
+            bool: 如果是本次运行生成的文件返回True
+        """
+        file_name = file_path.name
+
+        # 检查是否包含本次运行的时间戳
+        if self.run_timestamp in file_name:
+            return True
+
+        # 检查是否是images目录（包含本次运行时间戳）
+        if file_path.parent.name == f"images_{self.run_timestamp}":
+            return True
+
+        # 检查是否是固定的模板文件（在本次运行中拷贝的）
+        template_files = ["vis.css", "vis.js", "kats_sky_region.js"]
+        if file_name in template_files:
+            # 检查文件修改时间是否接近本次运行时间
+            try:
+                file_mtime = file_path.stat().st_mtime
+                run_time = datetime.strptime(self.run_timestamp, "%Y%m%d_%H%M%S").timestamp()
+                # 如果文件修改时间在运行时间前后5分钟内，认为是本次生成的
+                if abs(file_mtime - run_time) < 300:  # 5分钟 = 300秒
+                    return True
+            except Exception:
+                pass
+
+        return False
+
     def _ensure_image_dir_exists(self) -> bool:
         """
         确保图像目录存在，只有在需要生成图像时才调用此方法
@@ -276,6 +313,8 @@ class FitsFileFinderRipgrep:
                             generated_files["vis_js"] = timestamped_filename
                         elif template_file == "kats_sky_region.js":
                             generated_files["sky_region_js"] = timestamped_filename
+
+                        # 文件已生成，将通过 run_timestamp 识别
 
                     except Exception as e:
                         self.logger.error(f"拷贝文件失败 {src_file} -> {dest_file}: {e}")
@@ -491,7 +530,9 @@ class FitsFileFinderRipgrep:
                     
                     # 保存缩略图
                     thumbnail_img.save(thumbnail_path)
-                    
+
+                    # 图像文件已生成，将通过 run_timestamp 识别
+
                     self.logger.debug(f"已生成缩略图: {thumbnail_path}")
                     return thumbnail_path
                 else:
@@ -572,7 +613,9 @@ class FitsFileFinderRipgrep:
                     
                     # 保存中心区域图
                     img.save(crop_path)
-                    
+
+                    # 图像文件已生成，将通过 run_timestamp 识别
+
                     self.logger.debug(f"已生成中心区域图: {crop_path}")
                     return crop_path
                 else:
@@ -1298,15 +1341,21 @@ class FitsFileFinderRipgrep:
 
             # 创建tar.gz压缩包
             with tarfile.open(archive_path, 'w:gz') as tar:
-                # 添加输出目录中的所有文件
+                # 只添加本次运行生成的文件（通过 run_timestamp 识别）
                 output_path = Path(self.output_dir)
+                added_files = []
 
+                # 遍历输出目录中的所有文件
                 for file_path in output_path.rglob('*'):
                     if file_path.is_file() and file_path.name != archive_name:
-                        # 计算在压缩包中的相对路径
-                        arcname = file_path.relative_to(output_path)
-                        tar.add(file_path, arcname=arcname)
-                        self.logger.debug(f"添加文件到压缩包: {arcname}")
+                        # 检查文件是否是本次运行生成的
+                        if self._is_current_run_file(file_path):
+                            arcname = file_path.relative_to(output_path)
+                            tar.add(file_path, arcname=arcname)
+                            added_files.append(str(arcname))
+                            self.logger.debug(f"添加文件到压缩包: {arcname}")
+
+                self.logger.info(f"压缩包包含 {len(added_files)} 个文件")
 
             # 获取压缩包大小
             archive_size = os.path.getsize(archive_path)
@@ -2564,6 +2613,8 @@ def main():
 
         # 如果成功生成了JS文件且有HTML文件信息，更新HTML文件引用
         if save_result["success"] and save_result["js_filename"] and html_files_info.get("html"):
+            # 生成的文件将通过 run_timestamp 自动识别
+
             html_file_path = Path(finder.output_dir) / html_files_info["html"]
             js_filename = save_result["js_filename"]
             css_filename = html_files_info.get("css", "vis.css")
