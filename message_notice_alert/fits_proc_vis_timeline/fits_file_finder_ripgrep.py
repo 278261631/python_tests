@@ -105,15 +105,8 @@ class FitsFileFinderRipgrep:
         # 检查是否是固定的模板文件（在本次运行中拷贝的）
         template_files = ["vis.css", "vis.js", "kats_sky_region.js"]
         if file_name in template_files:
-            # 检查文件修改时间是否接近本次运行时间
-            try:
-                file_mtime = file_path.stat().st_mtime
-                run_time = datetime.strptime(self.run_timestamp, "%Y%m%d_%H%M%S").timestamp()
-                # 如果文件修改时间在运行时间前后5分钟内，认为是本次生成的
-                if abs(file_mtime - run_time) < 300:  # 5分钟 = 300秒
-                    return True
-            except Exception:
-                pass
+            # 模板文件总是包含在压缩包中（无论是否被重新拷贝）
+            return True
 
         return False
 
