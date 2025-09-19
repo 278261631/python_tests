@@ -1896,7 +1896,7 @@
     commands.push(' ' );
 
     commands.push('cp "' + originalFilePath + '" /data/mayong_transdata/debug2/cmd_debug/');
-    commands.push('python preproc.py KATS "' + originalFilePath + '" --bias-file "' + biasFilePath + '" --dark-file "' + darkFilePath + '" --flat-file "' + flatFilePath + '"');
+    //commands.push('python preproc.py KATS "' + originalFilePath + '" --bias-file "' + biasFilePath + '" --dark-file "' + darkFilePath + '" --flat-file "' + flatFilePath + '"');
     //commands.push(cmd_solve +' -L 2.32 -H 2.72 -u arcsecperpix -3 '+ region_ra +' -4 '+ region_dec + ' -5 7.0 -p -O -z 1 --new-fits %s_solved.fits --match none  --corr none --wcs none --axy "'+ axyFilePath_from_pp +'" --use-source-extractor --source-extractor-path "'+ cmd_solve_sExtractor +'" -DETECT_THRESH 3.0 -ANALYSIS_THRESH 3.0 --solved none --crpix-center --cpulimit 20 --config "'+ cmd_solve_astro_cfg + '" "' + ppFilePath + '"');
     //commands.push(cmd_solve +' -L 2.32 -H 2.72 -u arcsecperpix -3 '+ region_ra +' -4 '+ region_dec + ' -5 7.0 -p -O -z 1 --new-fits %s_solved.fits --match none  --corr none --wcs none --use-source-extractor --source-extractor-path "'+ cmd_solve_sExtractor +'" -DETECT_THRESH 3.0 -ANALYSIS_THRESH 3.0 --solved none --crpix-center --cpulimit 20 --config "'+ cmd_solve_astro_cfg + '" "' + ppFilePath + '"');
     //commands.push(cmd_solve +' -L 2.32 -H 2.72 -u arcsecperpix -3 '+ region_ra +' -4 '+ region_dec + ' "'+ ppFilePath + '"');
