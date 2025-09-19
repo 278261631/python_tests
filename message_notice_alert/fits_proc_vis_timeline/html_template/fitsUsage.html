@@ -1891,7 +1891,8 @@
     // 生成命令文本
     var commands = [];
     commands.push('mkdir -p ' + serv_debug_path);
-    commands.push('cp ' + originalFilePath  + ' ' + serv_debug_path);
+    commands.push('cd ' + serv_debug_path);
+    commands.push('cp "' + originalFilePath  + '" ' + serv_debug_path);
     commands.push(' ' );
 
     commands.push('cp "' + originalFilePath + '" /data/mayong_transdata/debug2/cmd_debug/');
