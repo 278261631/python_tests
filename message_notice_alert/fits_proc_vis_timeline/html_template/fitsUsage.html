@@ -1778,15 +1778,23 @@
     // 从时间戳提取日期 (yyyymmdd格式)
     var dateMatch = timestamp.match(/(\d{4})-(\d{2})-(\d{2})/);
     var dateStr = '';
+    var yyyy = '';
     if (dateMatch) {
+      yyyy = dateMatch[1];
       dateStr = dateMatch[1] + dateMatch[2] + dateMatch[3];
     } else {
       // 如果时间戳格式不匹配，尝试其他格式或使用默认值
+      yyyy = '2024';
       dateStr = 'yyyymmdd';
     }
 
     // 提取天区前四位
     var skyRegionPrefix = skyRegion.substring(0, 4);
+
+    // 生成下载链接
+    var encodedFileName = encodeURIComponent(fileName);
+    var oldDownloadUrl = 'https://download.china-vo.org/psp/KATS/' + systemName + '-DATA/' + yyyy + '/' + dateStr + '/' + skyRegionPrefix + '/' + encodedFileName;
+    var newDownloadUrl = 'https://download.china-vo.org/psp/KATS/' + systemName + '-DATA/' + dateStr + '/' + skyRegionPrefix + '/' + encodedFileName;
 
     // 从关联文件中查找 pp_fits 文件
     var pp_fileName = '';
@@ -1863,13 +1871,13 @@
 
     commands.push('cp "' + originalFilePath + '" /data/mayong_transdata/debug2/cmd_debug/');
     commands.push('python preproc.py KATS "' + originalFilePath + '" --bias-file "' + biasFilePath + '" --dark-file "' + darkFilePath + '" --flat-file "' + flatFilePath + '"');
-    commands.push(cmd_solve +' -L 2.32 -H 2.72 -u arcsecperpix -3 '+ region_ra +' -4 '+ region_dec + ' -5 7.0 -p -O -z 1 --new-fits %s_solved.fits --match none  --corr none --wcs none --axy "'+ axyFilePath_from_pp +'" --use-source-extractor --source-extractor-path "'+ cmd_solve_sExtractor +'" -DETECT_THRESH 3.0 -ANALYSIS_THRESH 3.0 --solved none --crpix-center --cpulimit 20 --config "'+ cmd_solve_astro_cfg + '" "' + ppFilePath + '"');
-    commands.push(cmd_solve +' -L 2.32 -H 2.72 -u arcsecperpix -3 '+ region_ra +' -4 '+ region_dec + ' -5 7.0 -p -O -z 1 --new-fits %s_solved.fits --match none  --corr none --wcs none --use-source-extractor --source-extractor-path "'+ cmd_solve_sExtractor +'" -DETECT_THRESH 3.0 -ANALYSIS_THRESH 3.0 --solved none --crpix-center --cpulimit 20 --config "'+ cmd_solve_astro_cfg + '" "' + ppFilePath + '"');
-    commands.push(cmd_solve +' -L 2.32 -H 2.72 -u arcsecperpix -3 '+ region_ra +' -4 '+ region_dec + ' "'+ ppFilePath + '"');
+    //commands.push(cmd_solve +' -L 2.32 -H 2.72 -u arcsecperpix -3 '+ region_ra +' -4 '+ region_dec + ' -5 7.0 -p -O -z 1 --new-fits %s_solved.fits --match none  --corr none --wcs none --axy "'+ axyFilePath_from_pp +'" --use-source-extractor --source-extractor-path "'+ cmd_solve_sExtractor +'" -DETECT_THRESH 3.0 -ANALYSIS_THRESH 3.0 --solved none --crpix-center --cpulimit 20 --config "'+ cmd_solve_astro_cfg + '" "' + ppFilePath + '"');
+    //commands.push(cmd_solve +' -L 2.32 -H 2.72 -u arcsecperpix -3 '+ region_ra +' -4 '+ region_dec + ' -5 7.0 -p -O -z 1 --new-fits %s_solved.fits --match none  --corr none --wcs none --use-source-extractor --source-extractor-path "'+ cmd_solve_sExtractor +'" -DETECT_THRESH 3.0 -ANALYSIS_THRESH 3.0 --solved none --crpix-center --cpulimit 20 --config "'+ cmd_solve_astro_cfg + '" "' + ppFilePath + '"');
+    //commands.push(cmd_solve +' -L 2.32 -H 2.72 -u arcsecperpix -3 '+ region_ra +' -4 '+ region_dec + ' "'+ ppFilePath + '"');
     commands.push(' ' );
 
-    commands.push(cmd_wget + ' -O ' + originalFile_dir_debug + ' ' + oldDownloadUrl);
-    commands.push(cmd_wget + ' -O ' + originalFile_dir_debug + ' ' + newDownloadUrl);
+    //commands.push(cmd_wget + ' -c -N  -O ' + originalFile_dir_debug + ' ' + oldDownloadUrl);
+    //commands.push(cmd_wget + ' -c -N  -O ' + originalFile_dir_debug + ' ' + newDownloadUrl);
     commands.push(cmd_solve_astap + ' -ra '+ region_ra +' -spd '+ region_spd  +'  -s 1000 -z 1 -fov 2 -D d50 -r 180 -update -f  '+ ' "'+ originalFilePath + '"');
 
 
