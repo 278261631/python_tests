@@ -1720,22 +1720,47 @@
       return;
     }
 
+    // 收集所有文件数据和对应的命令
+    var fileCommandPairs = [];
+
     // 为当前选中的项目生成命令
     if (isClusteredData && currentSelectedItem.file_details) {
       // 聚类数据：为选中项目中的每个文件生成命令
       currentSelectedItem.file_details.forEach(function(file) {
         var command = generateSingleCommand(file, currentSelectedItem);
         if (command) {
-          commandTexts.push(command);
+          var skyRegion = file.sky_region || currentSelectedItem.sky_region_name || '';
+          fileCommandPairs.push({
+            skyRegion: skyRegion,
+            command: command,
+            fileName: file.original_path ? file.original_path.split(/[/\\]/).pop() : ''
+          });
         }
       });
     } else if (!isClusteredData) {
       // 单文件数据：为选中的项目生成命令
       var command = generateSingleCommand(currentSelectedItem, currentSelectedItem);
       if (command) {
-        commandTexts.push(command);
+        var skyRegion = currentSelectedItem.sky_region || '';
+        fileCommandPairs.push({
+          skyRegion: skyRegion,
+          command: command,
+          fileName: currentSelectedItem.file_name || ''
+        });
       }
     }
+
+    // 按照skyRegion排序
+    fileCommandPairs.sort(function(a, b) {
+      return a.skyRegion.localeCompare(b.skyRegion);
+    });
+
+    // 提取排序后的命令，并添加注释信息
+    fileCommandPairs.forEach(function(pair) {
+      var commentLine = '# ========================== ' + pair.skyRegion;
+      commandTexts.push(commentLine);
+      commandTexts.push(pair.command);
+    });
 
     // 显示生成的命令
     var commandOutput = document.getElementById('command-output');
@@ -1874,6 +1899,8 @@
     //commands.push(cmd_solve +' -L 2.32 -H 2.72 -u arcsecperpix -3 '+ region_ra +' -4 '+ region_dec + ' -5 7.0 -p -O -z 1 --new-fits %s_solved.fits --match none  --corr none --wcs none --axy "'+ axyFilePath_from_pp +'" --use-source-extractor --source-extractor-path "'+ cmd_solve_sExtractor +'" -DETECT_THRESH 3.0 -ANALYSIS_THRESH 3.0 --solved none --crpix-center --cpulimit 20 --config "'+ cmd_solve_astro_cfg + '" "' + ppFilePath + '"');
     //commands.push(cmd_solve +' -L 2.32 -H 2.72 -u arcsecperpix -3 '+ region_ra +' -4 '+ region_dec + ' -5 7.0 -p -O -z 1 --new-fits %s_solved.fits --match none  --corr none --wcs none --use-source-extractor --source-extractor-path "'+ cmd_solve_sExtractor +'" -DETECT_THRESH 3.0 -ANALYSIS_THRESH 3.0 --solved none --crpix-center --cpulimit 20 --config "'+ cmd_solve_astro_cfg + '" "' + ppFilePath + '"');
     //commands.push(cmd_solve +' -L 2.32 -H 2.72 -u arcsecperpix -3 '+ region_ra +' -4 '+ region_dec + ' "'+ ppFilePath + '"');
+    commands.push('python run_autoredux_pool_server.py /data/ --sub_dir 20251332 ' );
+    commands.push('python run_autofind_pool_server.py /data/ --sub_dir 20251332 ' );
     commands.push(' ' );
 
     //commands.push(cmd_wget + ' -c -N  -O ' + originalFile_dir_debug + ' ' + oldDownloadUrl);
