@@ -1,9 +1,10 @@
 # fits_file_finder_ripgrep.py 依赖包
 # 不包含版本号，使用最新版本
 
-python-ripgrep
-astropy
-matplotlib
-numpy
-pillow
+python-ripgrep  # 文件搜索引擎
+astropy         # FITS文件处理
+matplotlib      # 图像生成
+numpy           # 数值计算
+pillow          # 图像处理
+psutil          # 系统信息获取（硬盘使用率统计）
 

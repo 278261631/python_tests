@@ -20,6 +20,7 @@ from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
+import psutil
 
 try:
     import python_ripgrep as ripgrep
@@ -38,6 +39,11 @@ except ImportError:
     print("警告: 图像处理库未安装，无法生成缩略图和中心区域图")
     print("请运行: pip install astropy matplotlib numpy pillow")
     PLOT_AVAILABLE = False
+    # 为了避免NameError，创建一个虚拟的numpy模块
+    class DummyNumpy:
+        def __getattr__(self, name):
+            raise ImportError("numpy未安装，无法使用图像处理功能")
+    np = DummyNumpy()
 
 # 设置matplotlib不显示图形窗口
 if PLOT_AVAILABLE:
@@ -214,6 +220,100 @@ class FitsFileFinderRipgrep:
             logger.addHandler(file_handler)
 
         return logger
+
+    def get_disk_usage_stats(self) -> Dict[str, Dict[str, Any]]:
+        """
+        获取所有磁盘的使用率统计，并标识数据盘
+
+        Returns:
+            Dict[str, Dict[str, Any]]: 磁盘使用率统计信息，格式为：
+            {
+                "C:": {
+                    "total_gb": 500.0,
+                    "used_gb": 300.0,
+                    "free_gb": 200.0,
+                    "usage_percent": 60.0,
+                    "is_data_disk": False
+                },
+                "E:": {
+                    "total_gb": 1863.0,
+                    "used_gb": 1214.44,
+                    "free_gb": 648.56,
+                    "usage_percent": 65.19,
+                    "is_data_disk": True
+                },
+                ...
+            }
+        """
+        disk_stats = {}
+
+        try:
+            # 获取搜索目录列表，用于标识数据盘
+            search_directories = self.config.get('search_directories', [])
+
+            # 收集搜索目录涉及的磁盘驱动器（数据盘）
+            data_drives = set()
+            for directory in search_directories:
+                try:
+                    # 获取目录的绝对路径
+                    abs_path = os.path.abspath(directory)
+                    # 提取驱动器字母（Windows）或根目录（Linux）
+                    if os.name == 'nt':  # Windows
+                        drive = os.path.splitdrive(abs_path)[0]
+                        if drive:
+                            data_drives.add(drive)
+                    else:  # Linux/Unix
+                        data_drives.add('/')
+                except Exception as e:
+                    self.logger.debug(f"无法处理目录路径 {directory}: {e}")
+                    continue
+
+            # 获取所有磁盘分区
+            if os.name == 'nt':  # Windows
+                # 获取所有磁盘分区
+                partitions = psutil.disk_partitions()
+                all_drives = set()
+                for partition in partitions:
+                    drive = partition.device
+                    if drive.endswith('\\'):
+                        drive = drive[:-1]  # 移除末尾的反斜杠
+                    all_drives.add(drive)
+            else:  # Linux/Unix
+                all_drives = {'/'}
+
+            # 获取每个驱动器的使用率统计
+            for drive in all_drives:
+                try:
+                    usage = psutil.disk_usage(drive)
+
+                    # 转换为GB
+                    total_gb = usage.total / (1024**3)
+                    used_gb = usage.used / (1024**3)
+                    free_gb = usage.free / (1024**3)
+                    usage_percent = (usage.used / usage.total) * 100
+
+                    # 判断是否为数据盘
+                    is_data_disk = drive in data_drives
+
+                    disk_stats[drive] = {
+                        "total_gb": round(total_gb, 2),
+                        "used_gb": round(used_gb, 2),
+                        "free_gb": round(free_gb, 2),
+                        "usage_percent": round(usage_percent, 2),
+                        "is_data_disk": is_data_disk
+                    }
+
+                    disk_type = "数据盘" if is_data_disk else "系统盘"
+                    self.logger.debug(f"磁盘 {drive} ({disk_type}) 使用率: {usage_percent:.1f}% ({used_gb:.1f}GB / {total_gb:.1f}GB)")
+
+                except Exception as e:
+                    self.logger.error(f"获取磁盘 {drive} 使用率失败: {e}")
+                    continue
+
+        except Exception as e:
+            self.logger.error(f"获取磁盘使用率统计失败: {e}")
+
+        return disk_stats
 
     def copy_html_template_files(self, dest_dir: str = None) -> dict:
         """
@@ -443,7 +543,7 @@ class FitsFileFinderRipgrep:
         
         return patterns
 
-    def _normalize_image_data(self, data: np.ndarray) -> np.ndarray:
+    def _normalize_image_data(self, data) -> Any:
         """
         对FITS图像数据进行归一化处理
         
@@ -1813,6 +1913,9 @@ class FitsFileFinderRipgrep:
                 # 单文件模式，直接转换.fit文件并添加关联文件信息
                 timeline_data = self.convert_to_timeline_format_with_related(fit_files, fit_matches)
 
+            # 获取硬盘使用率统计
+            disk_stats = self.get_disk_usage_stats()
+
             # 保存JavaScript文件
             with open(output_file, 'w', encoding='utf-8') as f:
                 f.write("// FITS文件Timeline数据 (包含关联文件)\n")
@@ -1832,7 +1935,23 @@ class FitsFileFinderRipgrep:
 
                 json_str = json.dumps(timeline_data, ensure_ascii=False, indent=2, cls=DateTimeEncoder)
                 f.write(json_str)
-                f.write(";\n")
+                f.write(";\n\n")
+
+                # 添加硬盘使用率统计信息
+                f.write("// 硬盘使用率统计信息\n")
+                f.write("var diskUsageStats = ")
+                disk_stats_json = json.dumps(disk_stats, ensure_ascii=False, indent=2)
+                f.write(disk_stats_json)
+                f.write(";\n\n")
+
+                # 添加控制台输出代码
+                f.write("// 输出硬盘使用率信息到控制台\n")
+                f.write("console.log('硬盘使用率统计:', diskUsageStats);\n")
+                f.write("Object.keys(diskUsageStats).forEach(function(drive) {\n")
+                f.write("    var stats = diskUsageStats[drive];\n")
+                f.write("    console.log('磁盘 ' + drive + ': ' + stats.usage_percent + '% 已使用 (' + \n")
+                f.write("                stats.used_gb + 'GB / ' + stats.total_gb + 'GB, 剩余 ' + stats.free_gb + 'GB)');\n")
+                f.write("});\n")
 
             self.logger.info(f"Timeline JavaScript文件已保存到: {output_file}")
             return True
@@ -2451,6 +2570,9 @@ class FitsFileFinderRipgrep:
         try:
             timeline_data = self.convert_clustered_data_to_timeline_format(files, use_clustering, time_threshold_minutes)
 
+            # 获取硬盘使用率统计
+            disk_stats = self.get_disk_usage_stats()
+
             # 生成JavaScript文件内容
             clustering_info = "启用聚类分组" if use_clustering else "禁用聚类分组"
             js_content = f'''// FITS 数据 - 由 fits_file_finder_ripgrep.py 自动生成
@@ -2462,8 +2584,19 @@ class FitsFileFinderRipgrep:
 
 var fitsData = {json.dumps(timeline_data, ensure_ascii=False, indent=2)};
 
+// 硬盘使用率统计信息
+var diskUsageStats = {json.dumps(disk_stats, ensure_ascii=False, indent=2)};
+
 // 数据统计信息
 console.log('FITS 数据已加载，共 ' + fitsData.length + ' 条记录');
+
+// 硬盘使用率信息
+console.log('硬盘使用率统计:', diskUsageStats);
+Object.keys(diskUsageStats).forEach(function(drive) {{
+    var stats = diskUsageStats[drive];
+    console.log('磁盘 ' + drive + ': ' + stats.usage_percent + '% 已使用 (' +
+                stats.used_gb + 'GB / ' + stats.total_gb + 'GB)');
+}});
 
 // 数据按系统分组统计
 var systemStats = {{}};
