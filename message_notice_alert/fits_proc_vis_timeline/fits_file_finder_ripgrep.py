@@ -257,13 +257,16 @@ class FitsFileFinderRipgrep:
                 try:
                     # 获取目录的绝对路径
                     abs_path = os.path.abspath(directory)
-                    # 提取驱动器字母（Windows）或根目录（Linux）
+                    # 提取驱动器字母（Windows）或挂载点（Linux）
                     if os.name == 'nt':  # Windows
                         drive = os.path.splitdrive(abs_path)[0]
                         if drive:
                             data_drives.add(drive)
                     else:  # Linux/Unix
-                        data_drives.add('/')
+                        # 找到目录所在的挂载点
+                        mount_point = self._find_mount_point(abs_path)
+                        if mount_point:
+                            data_drives.add(mount_point)
                 except Exception as e:
                     self.logger.debug(f"无法处理目录路径 {directory}: {e}")
                     continue
@@ -279,7 +282,13 @@ class FitsFileFinderRipgrep:
                         drive = drive[:-1]  # 移除末尾的反斜杠
                     all_drives.add(drive)
             else:  # Linux/Unix
-                all_drives = {'/'}
+                # 获取所有挂载点
+                partitions = psutil.disk_partitions()
+                all_drives = set()
+                for partition in partitions:
+                    # 过滤掉虚拟文件系统和特殊挂载点
+                    if self._is_real_filesystem(partition):
+                        all_drives.add(partition.mountpoint)
 
             # 获取每个驱动器的使用率统计
             for drive in all_drives:
@@ -314,6 +323,88 @@ class FitsFileFinderRipgrep:
             self.logger.error(f"获取磁盘使用率统计失败: {e}")
 
         return disk_stats
+
+    def _find_mount_point(self, path: str) -> str:
+        """
+        找到给定路径所在的挂载点（Linux/Unix系统）
+
+        Args:
+            path (str): 文件或目录路径
+
+        Returns:
+            str: 挂载点路径，如果找不到则返回根目录'/'
+        """
+        try:
+            path = os.path.abspath(path)
+            partitions = psutil.disk_partitions()
+
+            # 按挂载点长度降序排序，优先匹配最具体的挂载点
+            sorted_partitions = sorted(partitions, key=lambda p: len(p.mountpoint), reverse=True)
+
+            for partition in sorted_partitions:
+                if self._is_real_filesystem(partition):
+                    mount_point = partition.mountpoint
+                    # 检查路径是否在此挂载点下
+                    if path.startswith(mount_point):
+                        return mount_point
+
+            # 如果没有找到匹配的挂载点，返回根目录
+            return '/'
+
+        except Exception as e:
+            self.logger.debug(f"查找挂载点失败 {path}: {e}")
+            return '/'
+
+    def _is_real_filesystem(self, partition) -> bool:
+        """
+        判断是否为真实的文件系统（过滤虚拟文件系统）
+
+        Args:
+            partition: psutil.disk_partitions()返回的分区对象
+
+        Returns:
+            bool: 是否为真实文件系统
+        """
+        # 虚拟文件系统类型列表
+        virtual_fs_types = {
+            'proc', 'sysfs', 'devfs', 'devpts', 'tmpfs', 'ramfs',
+            'squashfs', 'overlay', 'aufs', 'fuse', 'cgroup', 'cgroup2',
+            'pstore', 'mqueue', 'hugetlbfs', 'debugfs', 'tracefs',
+            'securityfs', 'sockfs', 'pipefs', 'anon_inodefs',
+            'binfmt_misc', 'autofs', 'rpc_pipefs', 'nfsd'
+        }
+
+        # 特殊挂载点列表
+        virtual_mount_points = {
+            '/proc', '/sys', '/dev', '/run', '/tmp', '/var/run',
+            '/dev/pts', '/dev/shm', '/sys/fs/cgroup', '/boot/efi'
+        }
+
+        try:
+            fs_type = partition.fstype.lower()
+            mount_point = partition.mountpoint
+
+            # 过滤虚拟文件系统类型
+            if fs_type in virtual_fs_types:
+                return False
+
+            # 过滤特殊挂载点
+            if mount_point in virtual_mount_points:
+                return False
+
+            # 过滤以/proc, /sys, /dev开头的挂载点
+            if mount_point.startswith(('/proc/', '/sys/', '/dev/')):
+                return False
+
+            # 过滤网络文件系统
+            if fs_type in {'nfs', 'nfs4', 'cifs', 'smb', 'smbfs'}:
+                return False
+
+            return True
+
+        except Exception as e:
+            self.logger.debug(f"检查文件系统类型失败: {e}")
+            return True  # 默认认为是真实文件系统
 
     def copy_html_template_files(self, dest_dir: str = None) -> dict:
         """
