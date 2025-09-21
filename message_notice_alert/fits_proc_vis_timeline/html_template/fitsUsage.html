@@ -343,15 +343,9 @@
       </div>
     </div>
     <div>
-      <div id="disk-usage-list" style="background-color: #f8f9fa; padding: 10px; border-radius: 4px; min-height: 50px;">
-        <div style="color: #28a745; font-weight: bold; margin-bottom: 5px;">硬盘使用率</div>
-        <div style="display: flex; gap: 15px; align-items: flex-start;">
-          <div style="flex: 1;">
-            <canvas id="diskUsageChart" width="120" height="120" style="max-width: 120px; max-height: 120px;"></canvas>
-          </div>
-          <div id="disk-usage-info" style="flex: 2; font-size: 11px; color: #666;">
-            正在加载硬盘使用率信息...
-          </div>
+      <div id="disk-usage-list" style="background-color: #f8f9fa; padding: 4px; border-radius: 2px; min-height: 20px;">
+        <div id="disk-usage-charts" style="display: flex; flex-wrap: wrap; gap: 4px; align-items: flex-start;">
+          正在加载...
         </div>
       </div>
     </div>
@@ -925,18 +919,23 @@
     document.getElementById('region-list').innerHTML = regionHtml;
   }
 
-  // 全局变量存储图表实例
-  var diskUsageChart = null;
+  // 全局变量存储所有图表实例
+  var diskUsageCharts = {};
 
-  // 更新硬盘使用率显示
+  // 更新磁盘使用率显示
   function updateDiskUsageDisplay() {
-    var diskUsageDiv = document.getElementById('disk-usage-info');
+    var diskUsageDiv = document.getElementById('disk-usage-charts');
 
     if (typeof diskUsageStats !== 'undefined' && diskUsageStats) {
-      // 创建饼图
-      createDiskUsageChart();
+      // 清理现有图表
+      Object.values(diskUsageCharts).forEach(function(chart) {
+        if (chart) {
+          chart.destroy();
+        }
+      });
+      diskUsageCharts = {};
 
-      // 创建文字信息
+      // 创建每个磁盘的图表
       var diskHtml = '';
       var sortedDrives = Object.keys(diskUsageStats).sort();
 
@@ -956,85 +955,96 @@
           color = '#ffc107'; // 黄色 (注意)
         }
 
-        // 数据盘使用特殊样式
-        var borderStyle = isDataDisk ? '3px solid #007bff' : '2px solid ' + color;
-        var backgroundColor = isDataDisk ? '#e3f2fd' : '#f8f9fa';
-        var diskLabel = isDataDisk ? drive + ' (数据盘)' : drive;
+        // 数据盘使用蓝色
+        if (isDataDisk) {
+          color = '#007bff';
+        }
 
-        diskHtml += '<div style="margin-bottom: 6px; padding: 4px; border-left: ' + borderStyle + '; background-color: ' + backgroundColor + ';">';
-        diskHtml += '<div style="font-weight: bold; color: ' + (isDataDisk ? '#007bff' : color) + '; font-size: 11px;">' + diskLabel + '</div>';
-        diskHtml += '<div style="font-size: 10px; color: #666; line-height: 1.2;">';
-        diskHtml += usagePercent.toFixed(1) + '% 已使用<br>';
-        diskHtml += usedGB.toFixed(1) + '/' + totalGB.toFixed(1) + 'GB';
+        var diskLabel = isDataDisk ? drive + ' (数据盘)' : drive;
+        var canvasId = 'diskChart_' + drive.replace(':', '');
+
+        // 创建每个磁盘的卡片
+        diskHtml += '<div style="display: flex; flex-direction: column; align-items: center; padding: 2px; border: 1px solid #dee2e6; border-radius: 2px; background-color: white; min-width: 45px;">';
+        diskHtml += '<div style="font-weight: bold; color: ' + color + '; font-size: 8px; margin-bottom: 1px;">' + diskLabel + '</div>';
+        diskHtml += '<canvas id="' + canvasId + '" width="20" height="20" style="margin-bottom: 1px;"></canvas>';
+        diskHtml += '<div style="text-align: center; font-size: 6px; color: #666; line-height: 0.9;">';
+        diskHtml += '<div style="font-weight: bold; color: ' + color + ';">' + usagePercent.toFixed(1) + '%</div>';
+        diskHtml += '<div>' + usedGB.toFixed(0) + '/' + totalGB.toFixed(0) + 'GB</div>';
         diskHtml += '</div>';
         diskHtml += '</div>';
       });
 
       diskUsageDiv.innerHTML = diskHtml;
+
+      // 为每个磁盘创建图表
+      setTimeout(function() {
+        sortedDrives.forEach(function(drive) {
+          createIndividualDiskChart(drive);
+        });
+      }, 100);
+
     } else {
-      diskUsageDiv.innerHTML = '<div style="color: #999; font-style: italic;">硬盘使用率信息不可用</div>';
+      diskUsageDiv.innerHTML = '<div style="color: #999; font-style: italic;">信息不可用</div>';
     }
   }
 
-  // 创建硬盘使用率饼图
-  function createDiskUsageChart() {
-    var canvas = document.getElementById('diskUsageChart');
-    if (!canvas || typeof diskUsageStats === 'undefined' || !diskUsageStats) {
+  // 为单个磁盘创建使用率图表
+  function createIndividualDiskChart(drive) {
+    if (typeof diskUsageStats === 'undefined' || !diskUsageStats[drive]) {
       return;
     }
 
-    // 销毁现有图表
-    if (diskUsageChart) {
-      diskUsageChart.destroy();
+    var canvasId = 'diskChart_' + drive.replace(':', '');
+    var canvas = document.getElementById(canvasId);
+    if (!canvas) {
+      return;
+    }
+
+    var stats = diskUsageStats[drive];
+    var usagePercent = stats.usage_percent;
+    var freePercent = 100 - usagePercent;
+    var isDataDisk = stats.is_data_disk;
+
+    // 根据使用率和是否为数据盘设置颜色
+    var usedColor, freeColor;
+    if (isDataDisk) {
+      usedColor = '#007bff';  // 数据盘用蓝色
+      freeColor = '#e3f2fd';  // 浅蓝色
+    } else {
+      if (usagePercent > 80) {
+        usedColor = '#dc3545';  // 红色 (警告)
+        freeColor = '#f8d7da';  // 浅红色
+      } else if (usagePercent > 60) {
+        usedColor = '#ffc107';  // 黄色 (注意)
+        freeColor = '#fff3cd';  // 浅黄色
+      } else {
+        usedColor = '#28a745';  // 绿色 (正常)
+        freeColor = '#d4edda';  // 浅绿色
+      }
     }
 
     var ctx = canvas.getContext('2d');
-    var drives = Object.keys(diskUsageStats).sort();
-    var data = [];
-    var labels = [];
-    var backgroundColors = [];
-    var borderColors = [];
 
-    drives.forEach(function(drive) {
-      var stats = diskUsageStats[drive];
-      var isDataDisk = stats.is_data_disk;
+    // 销毁现有图表
+    if (diskUsageCharts[drive]) {
+      diskUsageCharts[drive].destroy();
+    }
 
-      labels.push(drive + (isDataDisk ? ' (数据盘)' : ''));
-      data.push(stats.usage_percent);
-
-      // 数据盘使用蓝色系，其他盘根据使用率设置颜色
-      if (isDataDisk) {
-        backgroundColors.push('#007bff');
-        borderColors.push('#0056b3');
-      } else {
-        var usagePercent = stats.usage_percent;
-        if (usagePercent > 80) {
-          backgroundColors.push('#dc3545');
-          borderColors.push('#c82333');
-        } else if (usagePercent > 60) {
-          backgroundColors.push('#ffc107');
-          borderColors.push('#e0a800');
-        } else {
-          backgroundColors.push('#28a745');
-          borderColors.push('#1e7e34');
-        }
-      }
-    });
-
-    diskUsageChart = new Chart(ctx, {
+    diskUsageCharts[drive] = new Chart(ctx, {
       type: 'doughnut',
       data: {
-        labels: labels,
+        labels: ['已使用', '剩余'],
         datasets: [{
-          data: data,
-          backgroundColor: backgroundColors,
-          borderColor: borderColors,
-          borderWidth: 2
+          data: [usagePercent, freePercent],
+          backgroundColor: [usedColor, freeColor],
+          borderColor: [usedColor, freeColor],
+          borderWidth: 1
         }]
       },
       options: {
         responsive: true,
-        maintainAspectRatio: false,
+        maintainAspectRatio: true,
+        cutout: '60%',  // 环形图内圈大小
         plugins: {
           legend: {
             display: false
@@ -1042,13 +1052,20 @@
           tooltip: {
             callbacks: {
               label: function(context) {
-                var drive = drives[context.dataIndex];
-                var stats = diskUsageStats[drive];
-                return drive + ': ' + stats.usage_percent.toFixed(1) + '% (' +
-                       stats.used_gb.toFixed(1) + '/' + stats.total_gb.toFixed(1) + 'GB)';
+                var label = context.label;
+                var value = context.parsed;
+                if (label === '已使用') {
+                  return '已使用: ' + value.toFixed(1) + '% (' + stats.used_gb.toFixed(1) + 'GB)';
+                } else {
+                  return '剩余: ' + value.toFixed(1) + '% (' + stats.free_gb.toFixed(1) + 'GB)';
+                }
               }
             }
           }
+        },
+        animation: {
+          animateRotate: true,
+          duration: 1000
         }
       }
     });
