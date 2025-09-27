@@ -318,6 +318,7 @@
 
   <script src="vis.js"></script>
   <link href="vis.css" rel="stylesheet" type="text/css" />
+  <script src="config.js"></script>
   <script src="fits_data.js"></script>
   <script src="kats_sky_region.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -1132,9 +1133,9 @@
                 var encodedFileName = encodeURIComponent(fileName);
 
                 // 旧下载链接
-                var oldDownloadUrl = 'https://download.china-vo.org/psp/KATS/' + systemName + '-DATA/' + yyyy + '/' + yyyymmdd + '/' + skyRegionName + '/' + encodedFileName;
+                var oldDownloadUrl = CONFIG.DOWNLOAD_BASE_URL + systemName + '-DATA/' + yyyy + '/' + yyyymmdd + '/' + skyRegionName + '/' + encodedFileName;
                 // 新下载链接
-                var newDownloadUrl = 'https://download.china-vo.org/psp/KATS/' + systemName + '-DATA/' + yyyymmdd + '/' + skyRegionName + '/' + encodedFileName;
+                var newDownloadUrl = CONFIG.DOWNLOAD_BASE_URL + systemName + '-DATA/' + yyyymmdd + '/' + skyRegionName + '/' + encodedFileName;
 
                 downloadLinks = ' <small>(<a href="' + oldDownloadUrl + '" target="_blank" style="color: #007bff;">旧下载</a> | <a href="' + newDownloadUrl + '" target="_blank" style="color: #28a745;">新下载</a>)</small>';
               }
@@ -1290,9 +1291,9 @@
               var encodedFileName = encodeURIComponent(selectedItem.file_name);
 
               // 旧下载链接
-              var oldDownloadUrl = 'https://download.china-vo.org/psp/KATS/' + systemName + '-DATA/' + yyyy + '/' + yyyymmdd + '/' + skyRegionName + '/' + encodedFileName;
+              var oldDownloadUrl = CONFIG.DOWNLOAD_BASE_URL + systemName + '-DATA/' + yyyy + '/' + yyyymmdd + '/' + skyRegionName + '/' + encodedFileName;
               // 新下载链接
-              var newDownloadUrl = 'https://download.china-vo.org/psp/KATS/' + systemName + '-DATA/' + yyyymmdd + '/' + skyRegionName + '/' + encodedFileName;
+              var newDownloadUrl = CONFIG.DOWNLOAD_BASE_URL + systemName + '-DATA/' + yyyymmdd + '/' + skyRegionName + '/' + encodedFileName;
 
               downloadLinks = ' <small>(<a href="' + oldDownloadUrl + '" target="_blank" style="color: #007bff;">旧下载</a> | <a href="' + newDownloadUrl + '" target="_blank" style="color: #28a745;">新下载</a>)</small>';
             }
@@ -1978,8 +1979,8 @@
 
     // 生成下载链接
     var encodedFileName = encodeURIComponent(fileName);
-    var oldDownloadUrl = 'https://download.china-vo.org/psp/KATS/' + systemName + '-DATA/' + yyyy + '/' + dateStr + '/' + skyRegionPrefix + '/' + encodedFileName;
-    var newDownloadUrl = 'https://download.china-vo.org/psp/KATS/' + systemName + '-DATA/' + dateStr + '/' + skyRegionPrefix + '/' + encodedFileName;
+    var oldDownloadUrl = CONFIG.DOWNLOAD_BASE_URL + systemName + '-DATA/' + yyyy + '/' + dateStr + '/' + skyRegionPrefix + '/' + encodedFileName;
+    var newDownloadUrl = CONFIG.DOWNLOAD_BASE_URL + systemName + '-DATA/' + dateStr + '/' + skyRegionPrefix + '/' + encodedFileName;
 
     // 从关联文件中查找 pp_fits 文件
     var pp_fileName = '';

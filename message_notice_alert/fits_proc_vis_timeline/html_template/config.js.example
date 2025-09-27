@@ -1,0 +1,9 @@
+
+const CONFIG = {
+    DOWNLOAD_BASE_URL: 'https://your-download-server.com/path/'
+};
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = CONFIG;
+}
+window.APP_CONFIG = CONFIG;
