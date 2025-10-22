@@ -4,6 +4,7 @@ from datetime import timedelta
 from datetime import datetime
 from logging.handlers import TimedRotatingFileHandler
 import traceback
+import xml.etree.ElementTree as ET
 
 import stomp
 from gcn_kafka import Consumer
@@ -208,15 +209,30 @@ while True:
 
             try:
                 current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-                milliseconds = datetime.now().microsecond // 1000  # 取毫秒部分
+                milliseconds = datetime.now().microsecond // 1000
                 time_str = f"{current_time}-{milliseconds:03d}"
 
-                print(time_str)  # 输出示例：2024-05-20_15-30-45-123
-                # json_from_kafka = json.loads(value)
-                # json_format['task_Dec_deg'] = json_from_kafka['dec']
-                # json_format['task_Ra_deg'] = json_from_kafka['ra']
+                print(time_str)
+
+                # Parse XML
+                root = ET.fromstring(value)
+
+                # Define namespaces
+                ns = {'voe': 'http://www.ivoa.net/xml/VOEvent/v2.0'}
+
+                # Extract RA and Dec from Position2D
+                position = root.find('.//voe:Position2D/voe:Value2', ns)
+                ra = float(position.find('voe:C1', ns).text)
+                dec = float(position.find('voe:C2', ns).text)
+
+                # Extract Burst_Id
+                burst_id_param = root.find(".//voe:Group[@name='Svom_Identifiers']/voe:Param[@name='Burst_Id']", ns)
+                burst_id = burst_id_param.get('value')
+
+                json_format['task_Dec_deg'] = dec
+                json_format['task_Ra_deg'] = ra
                 json_format['target_eqp'] = config['target_eqp']
-                json_format['taskName'] = f'GRB_{time_str}_SVOM_{json_from_kafka["id"][0]}'
+                json_format['taskName'] = f'GRB_{time_str}_SVOM_{burst_id}'
 
                 send_message(config['server_address'], config['server_port'], config['topic_path'], json_format)
 
