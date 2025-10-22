@@ -91,7 +91,8 @@ time_handler = TimedRotatingFileHandler(
 )
 # 配置日志
 logging.basicConfig(
-    level=logging.WARNING,
+    # level=logging.WARNING,
+    level=logging.DEBUG,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[time_handler]
 )
@@ -115,6 +116,7 @@ json_status_format = load_msg_status_format()
 consumer.subscribe([
                     # 'gcn.circulars',
                     'gcn.heartbeat',
+                    'gcn.notices.svom.voevent.eclairs',
                     # 'gcn.notices.icecube.lvk_nu_track_search',
                     # 'igwn.gwalert',
                     # 'gcn.notices.swift.bat.guano',
@@ -157,7 +159,7 @@ while True:
                     print(f"Error-: {traceback.format_exc()}")
                     logging.exception("Error processing message")
                     print(f"Error: {e}")
-                logging.debug(json_format_test)
+                # logging.debug(json_format_test)
 
             if heart_beat_count % 43200 == 0:
                 print('\r 12 H pass')
@@ -184,7 +186,37 @@ while True:
                 json_format['task_Dec_deg'] = json_from_kafka['dec']
                 json_format['task_Ra_deg'] = json_from_kafka['ra']
                 json_format['target_eqp'] = config['target_eqp']
-                json_format['taskName'] = f'GRB_{time_str}_{json_from_kafka["id"][0]}'
+                json_format['taskName'] = f'GRB_{time_str}_EP_{json_from_kafka["id"][0]}'
+
+                send_message(config['server_address'], config['server_port'], config['topic_path'], json_format)
+
+            except Exception as e:
+                print(f"Error-: {traceback.format_exc()}")
+                logging.exception("Error processing message")
+                print(f"Error: {e}")
+            logging.warning(value)
+            logging.warning(json_format)
+
+            print(f'-------------')
+            reset_msg_format(json_format)
+        if message.topic() == 'gcn.notices.svom.voevent.eclairs':
+            print(f'topic={message.topic()}, offset={message.offset()}')
+            # Print the topic and message ID
+            value = message.value()
+            print(f'\r-------------')
+            print(value)
+
+            try:
+                current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+                milliseconds = datetime.now().microsecond // 1000  # 取毫秒部分
+                time_str = f"{current_time}-{milliseconds:03d}"
+
+                print(time_str)  # 输出示例：2024-05-20_15-30-45-123
+                # json_from_kafka = json.loads(value)
+                # json_format['task_Dec_deg'] = json_from_kafka['dec']
+                # json_format['task_Ra_deg'] = json_from_kafka['ra']
+                json_format['target_eqp'] = config['target_eqp']
+                json_format['taskName'] = f'GRB_{time_str}_SVOM_{json_from_kafka["id"][0]}'
 
                 send_message(config['server_address'], config['server_port'], config['topic_path'], json_format)
 
