@@ -201,9 +201,15 @@ while True:
             print(f'-------------')
             reset_msg_format(json_format)
         if message.topic() == 'gcn.notices.svom.voevent.eclairs':
+        # if message.topic() == 'gcn.heartbeat':
+        #     if heart_beat_count % 10 != 0:
+        #         continue
+
             print(f'topic={message.topic()}, offset={message.offset()}')
             # Print the topic and message ID
             value = message.value()
+            # read from eclairs-wakeup.xml
+            # value = open('eclairs-wakeup.xml', 'r').read()
             print(f'\r-------------')
             print(value)
 
@@ -221,13 +227,35 @@ while True:
                 ns = {'voe': 'http://www.ivoa.net/xml/VOEvent/v2.0'}
 
                 # Extract RA and Dec from Position2D
-                position = root.find('.//voe:Position2D/voe:Value2', ns)
-                ra = float(position.find('voe:C1', ns).text)
-                dec = float(position.find('voe:C2', ns).text)
+                # Position2D and its children are not in namespace
+                position = root.find('.//Position2D')
+                if position is None:
+                    raise ValueError("Position2D not found in XML")
 
-                # Extract Burst_Id
-                burst_id_param = root.find(".//voe:Group[@name='Svom_Identifiers']/voe:Param[@name='Burst_Id']", ns)
-                burst_id = burst_id_param.get('value')
+                value2 = position.find('Value2')
+                if value2 is None:
+                    raise ValueError("Value2 not found in Position2D")
+
+                c1_elem = value2.find('C1')
+                c2_elem = value2.find('C2')
+                if c1_elem is None or c2_elem is None:
+                    raise ValueError("C1 or C2 not found in Value2")
+
+                ra = float(c1_elem.text)
+                dec = float(c2_elem.text)
+
+                # Extract Burst_Id - use iter to find elements
+                burst_id = None
+                for group in root.iter():
+                    if 'Group' in group.tag and group.get('name') == 'Svom_Identifiers':
+                        for param in group.iter():
+                            if 'Param' in param.tag and param.get('name') == 'Burst_Id':
+                                burst_id = param.get('value')
+                                break
+                        break
+
+                if burst_id is None:
+                    raise ValueError("Burst_Id not found in XML")
 
                 json_format['task_Dec_deg'] = dec
                 json_format['task_Ra_deg'] = ra
