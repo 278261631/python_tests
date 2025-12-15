@@ -4,6 +4,8 @@ import queue
 import logging
 import sys
 import json
+import threading
+
 # paho-mqtt 1.6.1
 import paho.mqtt.client as mqtt
 
@@ -14,6 +16,10 @@ config_path = os.path.join(os.path.dirname(__file__), 'config.json')
 with open(config_path, 'r', encoding='utf-8') as f:
     config = json.load(f)
 mqtt_config = config['mqtt']
+
+# Heartbeat config
+HEARTBEAT_INTERVAL = mqtt_config.get('heartbeat_interval', 60)  # default 60 seconds
+last_activity_time = time.time()
 
 
 # 配置logger
@@ -42,6 +48,8 @@ logger.addHandler(hdl_file)
 
 # The callback for when a PUBLISH message is received from the server.
 def on_message(client, userdata, msg):
+    global last_activity_time
+    last_activity_time = time.time()
     logger.info('{} - {} - {}: {}'.format(msg.topic, msg.qos, msg.retain, str(msg.payload.decode("utf-8"))))
     try:
         value=eval(str(msg.payload.decode("utf-8")))
@@ -58,6 +66,8 @@ def on_message(client, userdata, msg):
             f.write(str(msg.payload.decode("utf-8")))
 
 def on_connect(client, userdata, flags, rescode):
+    global last_activity_time
+    last_activity_time = time.time()
     if rescode==0:
         client.connected_flag=True #set flag
         logger.info("connected OK Returned code={}".format(rescode))
@@ -76,6 +86,18 @@ def on_disconnect(client, userdata, rescode):
 
 def on_subscribe(client, userdata, mid, granted_qos):
     print("subscribing qos = ", granted_qos)
+
+
+# Heartbeat thread function
+def heartbeat_check():
+    global last_activity_time
+    while True:
+        time.sleep(HEARTBEAT_INTERVAL)
+        elapsed = time.time() - last_activity_time
+        if client.connected_flag:
+            logger.info("Heartbeat: connection alive, last activity {:.1f}s ago".format(elapsed))
+        else:
+            logger.warning("Heartbeat: connection lost, attempting reconnect...")
 
 
 host = mqtt_config['host']
@@ -98,8 +120,11 @@ client.on_subscribe = on_subscribe
 client.username_pw_set(username=username, password=password)
 client.connect(host=host, port=port)
 
-
-
 client.subscribe(topics)
+
+# Start heartbeat thread
+heartbeat_thread = threading.Thread(target=heartbeat_check, daemon=True)
+heartbeat_thread.start()
+logger.info("Heartbeat thread started, interval: {}s".format(HEARTBEAT_INTERVAL))
 
 client.loop_forever()
