@@ -4,7 +4,7 @@ import queue
 import logging
 import sys
 import json
-
+# paho-mqtt 1.6.1
 import paho.mqtt.client as mqtt
 
 fol='./'
