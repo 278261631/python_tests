@@ -22,6 +22,7 @@ kafka_config = config['kafka']
 
 # Heartbeat config
 HEARTBEAT_INTERVAL = mqtt_config.get('heartbeat_interval', 5)  # default 60 seconds
+KEEPALIVE = mqtt_config.get('keepalive', 15)  # MQTT keepalive interval
 start_time = time.time()
 heart_beat_count = 0
 
@@ -135,30 +136,25 @@ def on_message(client, userdata, msg):
             f.write(str(msg.payload.decode("utf-8")) + "\n")
 
 def on_connect(client, userdata, flags, rescode):
-    if rescode==0:
-        client.connected_flag=True #set flag
+    if rescode == 0:
         logger.info("connected OK Returned code={}".format(rescode))
     else:
         logger.warning("Bad connection Returned code={}".format(rescode))
 
 def on_disconnect(client, userdata, rescode):
-    logging.info("disconnecting reason  "  +str(rescode))
-    client.connected_flag=False
-    client.disconnect_flag=True
-    print("网络有波动，10秒后重启警报程序...")
-    python =sys.executable
-    time.sleep(10)
-    os.execl(python,python,*sys.argv)
+    logger.info("disconnecting reason: " + str(rescode))
+    if rescode != 0:
+        logger.warning("Unexpected disconnection, will auto reconnect...")
 
 
 def on_subscribe(client, userdata, mid, granted_qos):
     print("subscribing qos = ", granted_qos)
 
 
-# Heartbeat thread function
+# Heartbeat thread function - monitor connection status
 def heartbeat_check():
     global heart_beat_count
-    from datetime import timedelta, datetime
+    from datetime import timedelta
     while True:
         time.sleep(HEARTBEAT_INTERVAL)
         heart_beat_count += 1
@@ -166,12 +162,18 @@ def heartbeat_check():
         formatted_time = str(timedelta(seconds=elapsed_time)).split(".")[0]
         current_time = time.strftime("%Y-%m-%d %H:%M:%S")
 
+        # Check connection status
+        status = "OK" if client.is_connected() else "DISCONNECTED"
+
         # Print heartbeat status on same line
-        print(f'\rHeartbeat {heart_beat_count}    {formatted_time}    {current_time}', end='', flush=True)
+        print(f'\rHeartbeat {heart_beat_count}  {status}  {formatted_time}  {current_time}', end='', flush=True)
 
         # Log every 10 heartbeats
         if heart_beat_count % 10 == 0:
-            logger.info(f"Heartbeat {heart_beat_count}, running {formatted_time}")
+            if client.is_connected():
+                logger.info(f"Heartbeat {heart_beat_count}, status: {status}, running {formatted_time}")
+            else:
+                logger.warning(f"Heartbeat {heart_beat_count}, status: {status}, running {formatted_time}")
 
         # Log every 12 hours (43200 seconds / HEARTBEAT_INTERVAL)
         twelve_hour_count = 43200 // HEARTBEAT_INTERVAL
@@ -188,8 +190,6 @@ topics = [(t['name'], t['qos']) for t in mqtt_config['topics']]
 username = mqtt_config['username']
 password = mqtt_config['password']
 
-mqtt.Client.connected_flag = False
-
 # 连接
 client = mqtt.Client(client_id="HMT_ep", transport='tcp')
 client.on_connect = on_connect
@@ -197,14 +197,17 @@ client.on_disconnect = on_disconnect
 client.on_message = on_message
 client.on_subscribe = on_subscribe
 
+# Enable auto reconnect
+client.reconnect_delay_set(min_delay=1, max_delay=120)
+
 client.username_pw_set(username=username, password=password)
-client.connect(host=host, port=port)
+client.connect(host=host, port=port, keepalive=KEEPALIVE)
 
 client.subscribe(topics)
 
 # Start heartbeat thread
 heartbeat_thread = threading.Thread(target=heartbeat_check, daemon=True)
 heartbeat_thread.start()
-logger.info("Heartbeat thread started, interval: {}s".format(HEARTBEAT_INTERVAL))
+logger.info("Heartbeat thread started, interval: {}s, keepalive: {}s".format(HEARTBEAT_INTERVAL, KEEPALIVE))
 
 client.loop_forever()
