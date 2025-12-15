@@ -18,8 +18,9 @@ with open(config_path, 'r', encoding='utf-8') as f:
 mqtt_config = config['mqtt']
 
 # Heartbeat config
-HEARTBEAT_INTERVAL = mqtt_config.get('heartbeat_interval', 60)  # default 60 seconds
-last_activity_time = time.time()
+HEARTBEAT_INTERVAL = mqtt_config.get('heartbeat_interval', 5)  # default 60 seconds
+start_time = time.time()
+heart_beat_count = 0
 
 
 # 配置logger
@@ -48,8 +49,6 @@ logger.addHandler(hdl_file)
 
 # The callback for when a PUBLISH message is received from the server.
 def on_message(client, userdata, msg):
-    global last_activity_time
-    last_activity_time = time.time()
     logger.info('{} - {} - {}: {}'.format(msg.topic, msg.qos, msg.retain, str(msg.payload.decode("utf-8"))))
     try:
         value=eval(str(msg.payload.decode("utf-8")))
@@ -66,8 +65,6 @@ def on_message(client, userdata, msg):
             f.write(str(msg.payload.decode("utf-8")))
 
 def on_connect(client, userdata, flags, rescode):
-    global last_activity_time
-    last_activity_time = time.time()
     if rescode==0:
         client.connected_flag=True #set flag
         logger.info("connected OK Returned code={}".format(rescode))
@@ -90,14 +87,27 @@ def on_subscribe(client, userdata, mid, granted_qos):
 
 # Heartbeat thread function
 def heartbeat_check():
-    global last_activity_time
+    global heart_beat_count
+    from datetime import timedelta, datetime
     while True:
         time.sleep(HEARTBEAT_INTERVAL)
-        elapsed = time.time() - last_activity_time
-        if client.connected_flag:
-            logger.info("Heartbeat: connection alive, last activity {:.1f}s ago".format(elapsed))
-        else:
-            logger.warning("Heartbeat: connection lost, attempting reconnect...")
+        heart_beat_count += 1
+        elapsed_time = time.time() - start_time
+        formatted_time = str(timedelta(seconds=elapsed_time)).split(".")[0]
+        current_time = time.strftime("%Y-%m-%d %H:%M:%S")
+
+        # Print heartbeat status on same line
+        print(f'\rHeartbeat {heart_beat_count}    {formatted_time}    {current_time}', end='', flush=True)
+
+        # Log every 10 heartbeats
+        if heart_beat_count % 10 == 0:
+            logger.info(f"Heartbeat {heart_beat_count}, running {formatted_time}")
+
+        # Log every 12 hours (43200 seconds / HEARTBEAT_INTERVAL)
+        twelve_hour_count = 43200 // HEARTBEAT_INTERVAL
+        if heart_beat_count % twelve_hour_count == 0:
+            print('\r 12 H pass')
+            logger.warning('12 H pass')
 
 
 host = mqtt_config['host']
@@ -111,7 +121,7 @@ password = mqtt_config['password']
 mqtt.Client.connected_flag = False
 
 # 连接
-client = mqtt.Client(client_id="HMT", transport='tcp')
+client = mqtt.Client(client_id="HMT_ep", transport='tcp')
 client.on_connect = on_connect
 client.on_disconnect = on_disconnect
 client.on_message = on_message
