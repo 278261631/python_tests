@@ -2,6 +2,7 @@ import os
 import time
 import queue
 import logging
+from logging.handlers import TimedRotatingFileHandler
 import sys
 import json
 import threading
@@ -13,6 +14,11 @@ import paho.mqtt.client as mqtt
 import stomp
 
 fol='./'
+
+# Create log folder
+log_folder = os.path.join(os.path.dirname(__file__), 'log')
+if not os.path.exists(log_folder):
+    os.makedirs(log_folder)
 
 # Load config from config.json
 config_path = os.path.join(os.path.dirname(__file__), 'config.json')
@@ -83,10 +89,16 @@ fmt_stream.converter = time.gmtime
 hdl_stream.setFormatter(fmt=fmt_stream)
 logger.addHandler(hdl_stream)
 
-hdl_file = logging.FileHandler(
-    filename=os.path.join(fol, "{}.log".format(os.path.splitext(PROG_NAME)[0])),
-    mode="a+",
-    encoding="utf-8")
+# File handler with daily rotation
+log_file_path = os.path.join(log_folder, os.path.splitext(PROG_NAME)[0])
+hdl_file = TimedRotatingFileHandler(
+    filename=log_file_path + ".log",
+    when='midnight',
+    interval=1,
+    backupCount=0,
+    encoding="utf-8"
+)
+hdl_file.suffix = "%Y-%m-%d.log"
 hdl_file.setLevel(logging.DEBUG)
 hdl_file.setFormatter(fmt_stream)
 logger.addHandler(hdl_file)
