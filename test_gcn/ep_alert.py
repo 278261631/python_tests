@@ -7,6 +7,7 @@ import json
 import threading
 
 # paho-mqtt 1.6.1
+# paho-mqtt 2.1.0
 import paho.mqtt.client as mqtt
 # pip install stomp.py
 import stomp
