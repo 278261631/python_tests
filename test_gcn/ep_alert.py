@@ -70,7 +70,7 @@ def send_message(server_address, server_port, topic, stomp_message):
         conn.disconnect()
         logger.info(f"Message sent to {topic}")
     except Exception as e:
-        logger.error(f"Failed to send message: {e}")
+        logger.exception(f"Failed to send STOMP message to {server_address}:{server_port} {topic}: {type(e).__name__}: {e}")
 
 
 # 配置logger
@@ -110,24 +110,36 @@ reset_msg_format(json_format)
 # The callback for when a PUBLISH message is received from the server.
 def on_message(client, userdata, msg):
     from datetime import datetime
-    payload_str = msg.payload.decode("utf-8")
-    logger.info('{} - {} - {}: {}'.format(msg.topic, msg.qos, msg.retain, payload_str))
+    payload_str = msg.payload.decode("utf-8", errors="replace")
+    recv_info = f"topic={msg.topic}, qos={msg.qos}, retain={msg.retain}"
+    logger.info(f"{recv_info}: {payload_str}")
     try:
         try:
             value = json.loads(payload_str)
-            # logger.debug("Parsed with json.loads")
-        except json.JSONDecodeError:
+            parsed_with = "json"
+        except json.JSONDecodeError as je:
+            logger.warning(f"JSON decode failed: {je}; falling back to ast.literal_eval. {recv_info}")
             import ast
             value = ast.literal_eval(payload_str)
-            # logger.debug("Parsed with ast.literal_eval")
+            parsed_with = "ast"
+        except Exception as pe:
+            # 非JSON解析异常，记录并重抛到外层
+            logger.warning(f"Primary parse failed: {type(pe).__name__}: {pe}. {recv_info}")
+            raise
+
+        # 关键字段解析
         name = value['object']
         hr = float(value['hr'])
         rate = float(value['netRate'])
+        # logger.debug(f"Parsed with {parsed_with}: object={name}, hr={hr}, netRate={rate}")
 
-        # Save to log file
+        # Save to log file when meets condition
         if (hr > 0.04) & (rate < 2.01):
-            with open(f"{fol}/EP_WXT{name}.log", "a+") as f:
-                f.write(payload_str + "\n")
+            try:
+                with open(f"{fol}/EP_WXT{name}.log", "a+", encoding="utf-8") as f:
+                    f.write(payload_str + "\n")
+            except Exception as wf:
+                logger.error(f"Failed to write EP_WXT log: {type(wf).__name__}: {wf}. {recv_info}")
 
         # Forward message via STOMP
         current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -151,9 +163,13 @@ def on_message(client, userdata, msg):
         reset_msg_format(json_format)
 
     except Exception as e:
-        logger.error(f"Error processing message: {type(e).__name__}: {e}, payload={payload_str}")
-        with open(f"{fol}/EP_bd.log", "a+") as f:
-            f.write(payload_str + "\n")
+        # 记录完整堆栈与关键信息，确保异常不丢失
+        logger.exception(f"Error processing message ({recv_info}): {type(e).__name__}: {e}")
+        try:
+            with open(f"{fol}/EP_bd.log", "a+", encoding="utf-8") as f:
+                f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} | {recv_info} | {type(e).__name__}: {e} | {payload_str}\n")
+        except Exception as wf:
+            logger.error(f"Failed to write bad payload to EP_bd.log: {type(wf).__name__}: {wf}")
 
 def on_connect(client, userdata, flags, rescode):
     if rescode == 0:
@@ -176,8 +192,8 @@ def on_subscribe(client, userdata, mid, granted_qos):
         # 128 indicates subscription failure in MQTT v3.1.1
         if any(q == 128 for q in granted_qos):
             logger.error(f"subscription failed for mid={mid}, granted_qos={granted_qos}")
-    except Exception:
-        pass
+    except Exception as e:
+        logger.exception(f"on_subscribe callback error: {type(e).__name__}: {e}, mid={mid}, granted_qos={granted_qos}")
 
 
 # Heartbeat thread function - monitor connection status
