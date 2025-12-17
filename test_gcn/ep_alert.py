@@ -256,7 +256,7 @@ username = mqtt_config['username']
 password = mqtt_config['password']
 
 # 连接
-client = mqtt.Client(client_id="HMT_ep_debug2", transport='tcp')
+client = mqtt.Client(client_id="HMT_ep", transport='tcp')
 client.on_connect = on_connect
 client.on_disconnect = on_disconnect
 client.on_message = on_message
