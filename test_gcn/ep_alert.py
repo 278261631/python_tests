@@ -29,7 +29,7 @@ kafka_config = config['kafka']
 
 # Heartbeat config
 HEARTBEAT_INTERVAL = mqtt_config.get('heartbeat_interval', 5)  # default 60 seconds
-KEEPALIVE = mqtt_config.get('keepalive', 15)  # MQTT keepalive interval
+KEEPALIVE = mqtt_config.get('keepalive', 60)  # MQTT keepalive interval
 start_time = time.time()
 heart_beat_count = 0
 
@@ -110,9 +110,16 @@ reset_msg_format(json_format)
 # The callback for when a PUBLISH message is received from the server.
 def on_message(client, userdata, msg):
     from datetime import datetime
-    logger.info('{} - {} - {}: {}'.format(msg.topic, msg.qos, msg.retain, str(msg.payload.decode("utf-8"))))
+    payload_str = msg.payload.decode("utf-8")
+    logger.info('{} - {} - {}: {}'.format(msg.topic, msg.qos, msg.retain, payload_str))
     try:
-        value = json.loads(str(msg.payload.decode("utf-8")))
+        try:
+            value = json.loads(payload_str)
+            # logger.debug("Parsed with json.loads")
+        except json.JSONDecodeError:
+            import ast
+            value = ast.literal_eval(payload_str)
+            # logger.debug("Parsed with ast.literal_eval")
         name = value['object']
         hr = float(value['hr'])
         rate = float(value['netRate'])
@@ -120,7 +127,7 @@ def on_message(client, userdata, msg):
         # Save to log file
         if (hr > 0.04) & (rate < 2.01):
             with open(f"{fol}/EP_WXT{name}.log", "a+") as f:
-                f.write(str(msg.payload.decode("utf-8")) + "\n")
+                f.write(payload_str + "\n")
 
         # Forward message via STOMP
         current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -144,13 +151,16 @@ def on_message(client, userdata, msg):
         reset_msg_format(json_format)
 
     except Exception as e:
-        logger.error(f"Error processing message: {e}")
+        logger.error(f"Error processing message: {type(e).__name__}: {e}, payload={payload_str}")
         with open(f"{fol}/EP_bd.log", "a+") as f:
-            f.write(str(msg.payload.decode("utf-8")) + "\n")
+            f.write(payload_str + "\n")
 
 def on_connect(client, userdata, flags, rescode):
     if rescode == 0:
         logger.info("connected OK Returned code={}".format(rescode))
+        # 连接成功后立即订阅，保证重连后也会自动订阅
+        client.subscribe(topics)
+        logger.info(f"✓ subscribing topics = {topics}")
     else:
         logger.warning("Bad connection Returned code={}".format(rescode))
 
@@ -161,7 +171,13 @@ def on_disconnect(client, userdata, rescode):
 
 
 def on_subscribe(client, userdata, mid, granted_qos):
-    print("subscribing qos = ", granted_qos)
+    logger.info(f"subscribed mid={mid}, qos={granted_qos}")
+    try:
+        # 128 indicates subscription failure in MQTT v3.1.1
+        if any(q == 128 for q in granted_qos):
+            logger.error(f"subscription failed for mid={mid}, granted_qos={granted_qos}")
+    except Exception:
+        pass
 
 
 # Heartbeat thread function - monitor connection status
@@ -224,7 +240,7 @@ username = mqtt_config['username']
 password = mqtt_config['password']
 
 # 连接
-client = mqtt.Client(client_id="HMT_ep", transport='tcp')
+client = mqtt.Client(client_id="HMT_ep_debug2", transport='tcp')
 client.on_connect = on_connect
 client.on_disconnect = on_disconnect
 client.on_message = on_message
@@ -236,7 +252,7 @@ client.reconnect_delay_set(min_delay=1, max_delay=120)
 client.username_pw_set(username=username, password=password)
 client.connect(host=host, port=port, keepalive=KEEPALIVE)
 
-client.subscribe(topics)
+# subscribe will be performed in on_connect() after connection is established
 
 # Start heartbeat thread
 heartbeat_thread = threading.Thread(target=heartbeat_check, daemon=True)
