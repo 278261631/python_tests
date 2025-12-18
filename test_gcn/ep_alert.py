@@ -151,15 +151,19 @@ def on_message(client, userdata, msg):
         json_format['target_eqp'] = kafka_config['target_eqp']
         json_format['taskName'] = f'GRB_{time_str}_WXT_{name}'
 
-        send_message(
-            kafka_config['server_address'],
-            kafka_config['server_port'],
-            kafka_config['topic_path'],
-            json_format
-        )
+        if (hr > 0.04) & (rate < 2.01):
+            send_message(
+                kafka_config['server_address'],
+                kafka_config['server_port'],
+                kafka_config['topic_path'],
+                json_format
+            )
+            logger.warning(f"Forwarded EP message: {json_format['taskName']}")
+        else:
+            logger.warning(f"skip EP message: {json_format['taskName']}")
 
-        logger.warning(f"Forwarded EP message: {json_format['taskName']}")
-        print(f"\nForwarded: {json_format['taskName']}")
+
+        print(f"\n trigger: {json_format['taskName']}")
         reset_msg_format(json_format)
 
     except Exception as e:
