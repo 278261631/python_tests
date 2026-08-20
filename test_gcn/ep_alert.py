@@ -13,12 +13,18 @@ import paho.mqtt.client as mqtt
 # pip install stomp.py
 import stomp
 
-fol='./'
-
 # Create log folder
 log_folder = os.path.join(os.path.dirname(__file__), 'log')
 if not os.path.exists(log_folder):
     os.makedirs(log_folder)
+
+# Create subfolders for EP logs (siblings of log folder)
+base_folder = os.path.dirname(__file__)
+ep_wxt_folder = os.path.join(base_folder, 'ep_wxt')
+ep_bd_folder = os.path.join(base_folder, 'ep_bd')
+for sub_folder in (ep_wxt_folder, ep_bd_folder):
+    if not os.path.exists(sub_folder):
+        os.makedirs(sub_folder)
 
 # Load config from config.json
 config_path = os.path.join(os.path.dirname(__file__), 'config.json')
@@ -136,7 +142,7 @@ def on_message(client, userdata, msg):
         # Save to log file when meets condition
         if (hr > 0.04) & (rate < 2.01):
             try:
-                with open(f"{fol}/EP_WXT{name}.log", "a+", encoding="utf-8") as f:
+                with open(os.path.join(ep_wxt_folder, f"EP_WXT{name}.log"), "a+", encoding="utf-8") as f:
                     f.write(payload_str + "\n")
             except Exception as wf:
                 logger.error(f"Failed to write EP_WXT log: {type(wf).__name__}: {wf}. {recv_info}")
@@ -170,7 +176,7 @@ def on_message(client, userdata, msg):
         # 记录完整堆栈与关键信息，确保异常不丢失
         logger.exception(f"Error processing message ({recv_info}): {type(e).__name__}: {e}")
         try:
-            with open(f"{fol}/EP_bd.log", "a+", encoding="utf-8") as f:
+            with open(os.path.join(ep_bd_folder, "EP_bd.log"), "a+", encoding="utf-8") as f:
                 f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} | {recv_info} | {type(e).__name__}: {e} | {payload_str}\n")
         except Exception as wf:
             logger.error(f"Failed to write bad payload to EP_bd.log: {type(wf).__name__}: {wf}")
