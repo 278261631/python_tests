@@ -226,6 +226,16 @@ while True:
                 # Define namespaces
                 ns = {'voe': 'http://www.ivoa.net/xml/VOEvent/v2.0'}
 
+                # Extract Packet_Type and keep only eclairs-wakeup (202)
+                packet_type = None
+                for elem in root.iter():
+                    if 'Param' in elem.tag and elem.get('name') == 'Packet_Type':
+                        packet_type = elem.get('value')
+                        break
+                if packet_type != '202':
+                    logging.warning(f'Skipped message, Packet_Type={packet_type}')
+                    continue
+
                 # Extract RA and Dec from Position2D
                 # Position2D and its children are not in namespace
                 position = root.find('.//Position2D')
